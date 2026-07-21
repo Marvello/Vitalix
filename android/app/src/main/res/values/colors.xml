@@ -2,4 +2,6 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="vital_teal">#0FA9A0</color>
+    <color name="pulse_green">#34D399</color>
 </resources>
