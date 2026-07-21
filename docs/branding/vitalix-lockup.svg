@@ -1,0 +1,23 @@
+<svg width="720" height="220" viewBox="0 0 720 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vitalix logo">
+  <defs>
+    <linearGradient id="vx-bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0FA9A0"/>
+      <stop offset="1" stop-color="#34D399"/>
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(20,20)">
+    <rect x="0" y="0" width="180" height="180" rx="40" fill="url(#vx-bg2)"/>
+    <g transform="scale(0.3516)">
+      <path d="M 259.496 393.765 C 221.107 334.99 134.731 313.399 134.731 236.632 C 134.731 191.052 169.521 165.863 207.91 165.863 C 231.904 165.863 249.898 182.655 259.496 197.049 C 269.093 182.655 287.088 165.863 311.081 165.863 C 349.47 165.863 384.26 191.052 384.26 236.632 C 384.26 313.399 297.885 334.99 259.496 393.765 Z" fill="#FF6B81"/>
+      <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+        <path stroke-width="16" d="M 119.74 210.013 C 109.388 213.248 109.388 224.247 109.388 238.48 C 109.388 255.302 102.919 264.359 96.449 274.711 C 102.919 285.063 109.388 294.12 109.388 310.942 C 109.388 325.175 109.388 336.174 119.74 339.409"/>
+        <path stroke-width="16" d="M 398.278 210.149 C 408.683 213.4 408.683 224.455 408.683 238.76 C 408.683 255.667 415.185 264.77 421.687 275.174 C 415.185 285.577 408.683 294.681 408.683 311.588 C 408.683 325.893 408.683 336.947 398.278 340.199"/>
+        <path stroke-width="28" d="M 168.584 275.195 L 206.584 275.195 L 218.584 303.195 L 248.584 179.195 L 278.584 371.195 L 292.584 275.195 L 328.584 275.195"/>
+      </g>
+    </g>
+  </g>
+
+  <text x="228" y="140" font-family="'Space Grotesk','Segoe UI',system-ui,sans-serif"
+        font-size="108" font-weight="700" letter-spacing="-2" fill="#0E1B2B">Vitalix</text>
+</svg>
