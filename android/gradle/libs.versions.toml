@@ -16,6 +16,7 @@ securityCrypto = "1.1.0-alpha06"
 workManager = "2.9.1"
 coroutines = "1.8.1"
 kotlinReflect = "2.3.20"
+json = "20240303"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -35,6 +36,7 @@ work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version = "1.9.24" }
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
+json = { group = "org.json", name = "json", version.ref = "json" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
