@@ -178,8 +178,6 @@ class HealthConnectManager(
             if (hasFloors) activity["floorsClimbed"] = floors
             if (hasElevation) activity["elevationGained"] = elevationMeters
             if (hasWheelchair) activity["wheelchairPushes"] = wheelchairPushes
-            if (powers.isNotEmpty()) activity["power"] = Aggregation.minMaxAvg(powers)
-            if (speeds.isNotEmpty()) activity["speed"] = Aggregation.minMaxAvg(speeds)
             vo2.value?.let { activity["vo2Max"] = it }
 
             val body = linkedMapOf<String, Any?>()
@@ -195,8 +193,12 @@ class HealthConnectManager(
             if (spo2.isNotEmpty()) vitals["spo2"] = Aggregation.minMaxAvg(spo2)
             if (glucose.isNotEmpty()) vitals["bloodGlucose"] = Aggregation.minMaxAvg(glucose)
             if (respRate.isNotEmpty()) vitals["respiratoryRate"] = Aggregation.minMaxAvg(respRate)
-            if (bpSystolic.isNotEmpty()) vitals["bpSystolic"] = Aggregation.minMaxAvg(bpSystolic)
-            if (bpDiastolic.isNotEmpty()) vitals["bpDiastolic"] = Aggregation.minMaxAvg(bpDiastolic)
+            if (bpSystolic.isNotEmpty() || bpDiastolic.isNotEmpty()) {
+                val bp = linkedMapOf<String, Any?>()
+                if (bpSystolic.isNotEmpty()) bp["systolic"] = Aggregation.minMaxAvg(bpSystolic)
+                if (bpDiastolic.isNotEmpty()) bp["diastolic"] = Aggregation.minMaxAvg(bpDiastolic)
+                vitals["bloodPressure"] = bp
+            }
             restingHeartRate.value?.let { vitals["restingHeartRate"] = it }
             bodyTemperature.value?.let { vitals["bodyTemperature"] = it }
 

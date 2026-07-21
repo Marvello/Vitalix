@@ -35,4 +35,28 @@ class ServerForwarderTest {
         assertTrue(d0.has("activity"))
         assertFalse(d0.has("body"))   // empty section omitted, not null
     }
+
+    @Test fun nestsBloodPressureUnderVitals() {
+        val day = DailyHealthData(
+            date = "2026-07-20",
+            vitalsData = mapOf(
+                "bloodPressure" to linkedMapOf(
+                    "systolic" to MinMaxAvg(110.0, 130.0, 118.0),
+                    "diastolic" to MinMaxAvg(70.0, 82.0, 76.0)
+                )
+            )
+        )
+        val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))
+        val bp = json.getJSONArray("days").getJSONObject(0).getJSONObject("vitals").getJSONObject("bloodPressure")
+        assertEquals(118, bp.getJSONObject("systolic").getInt("avg"))
+        assertEquals(76, bp.getJSONObject("diastolic").getInt("avg"))
+    }
+
+    @Test fun activitySectionNeverContainsPowerOrSpeed() {
+        val day = DailyHealthData(date = "2026-07-20", activityData = mapOf("steps" to 10))
+        val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))
+        val activity = json.getJSONArray("days").getJSONObject(0).getJSONObject("activity")
+        assertFalse(activity.has("power"))
+        assertFalse(activity.has("speed"))
+    }
 }

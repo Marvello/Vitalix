@@ -23,15 +23,22 @@ object ServerForwarder {
         .build()
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
+    private fun toJsonValue(v: Any?): Any? = when (v) {
+        is MinMaxAvg -> JSONObject().apply {
+            v.min?.let { put("min", it) }; v.max?.let { put("max", it) }; v.avg?.let { put("avg", it) }
+        }
+        is Map<*, *> -> {
+            val o = JSONObject()
+            for ((k, sub) in v) { val jv = toJsonValue(sub); if (k is String && jv != null) o.put(k, jv) }
+            if (o.length() == 0) null else o
+        }
+        else -> v
+    }
+
     private fun section(map: Map<String, Any?>): JSONObject? {
         if (map.isEmpty()) return null
         val o = JSONObject()
-        for ((k, v) in map) if (v != null) when (v) {
-            is MinMaxAvg -> o.put(k, JSONObject().apply {
-                v.min?.let { put("min", it) }; v.max?.let { put("max", it) }; v.avg?.let { put("avg", it) }
-            })
-            else -> o.put(k, v)
-        }
+        for ((k, v) in map) if (v != null) { val jv = toJsonValue(v); if (jv != null) o.put(k, jv) }
         return if (o.length() == 0) null else o
     }
 
