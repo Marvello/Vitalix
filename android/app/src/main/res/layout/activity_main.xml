@@ -92,7 +92,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategoryActivity"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -192,7 +192,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategoryBodyMeasurements"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -256,7 +256,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategoryVitals"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -338,7 +338,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategorySleep"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -378,7 +378,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategoryCycleTracking"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
@@ -436,7 +436,7 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <CheckBox
+                <TextView
                     android:id="@+id/checkCategoryNutrition"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
