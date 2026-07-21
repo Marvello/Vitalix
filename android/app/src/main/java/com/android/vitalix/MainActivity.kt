@@ -114,8 +114,11 @@ class MainActivity : AppCompatActivity() {
 
         switchAutoSync.setOnCheckedChangeListener { _, enabled ->
             settings.autoSyncEnabled = enabled
-            // TODO(Task 7): ExportWorker.schedule/cancel — schedule/cancel the periodic
-            // sync worker here once ExportWorker exists.
+            if (enabled) {
+                ExportWorker.schedule(this, settings.syncIntervalHours)
+            } else {
+                ExportWorker.cancel(this)
+            }
         }
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
