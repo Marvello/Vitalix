@@ -1,0 +1,27 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: vitalix
+      POSTGRES_PASSWORD: vitalix
+      POSTGRES_DB: vitalix
+    ports: ["5432:5432"]
+    volumes: ["vitalix_pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vitalix"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgres://vitalix:vitalix@db:5432/vitalix
+      AUTH_TOKEN: change-me-optional
+      PORT: 3000
+    ports: ["3000:3000"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  vitalix_pgdata:
