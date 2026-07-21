@@ -7,7 +7,8 @@ import { query, ping } from "../db.js";
 export const router = Router();
 
 router.get("/healthz", async (_req, res) => {
-  res.status((await ping()) ? 200 : 503).json({ ok: await ping() });
+  const ok = await ping();
+  res.status(ok ? 200 : 503).json({ ok });
 });
 
 router.post("/api/health", bearerAuth, async (req, res) => {
@@ -26,23 +27,33 @@ router.post("/api/health", bearerAuth, async (req, res) => {
 });
 
 router.get("/api/days", bearerAuth, async (req, res) => {
-  const to = req.query.to || new Date().toISOString().slice(0, 10);
-  const from = req.query.from || new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
-  const { rows } = await query(
-    "SELECT * FROM health_days WHERE day BETWEEN $1 AND $2 ORDER BY day DESC",
-    [from, to]
-  );
-  res.json(rows);
+  try {
+    const to = req.query.to || new Date().toISOString().slice(0, 10);
+    const from = req.query.from || new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
+    const { rows } = await query(
+      "SELECT * FROM health_days WHERE day BETWEEN $1 AND $2 ORDER BY day DESC",
+      [from, to]
+    );
+    res.json(rows);
+  } catch (err) {
+    console.error("query failed", err);
+    res.status(500).json({ error: "query failed" });
+  }
 });
 
 router.get("/api/days/:date", bearerAuth, async (req, res) => {
-  const { rows } = await query("SELECT * FROM health_days WHERE day = $1", [req.params.date]);
-  if (rows.length === 0) return res.status(404).json({ error: "not found" });
-  const day = rows[0];
-  const [aggregates, samples, exercises] = await Promise.all([
-    query("SELECT metric, min, max, avg FROM day_aggregates WHERE day_id = $1", [day.id]),
-    query("SELECT metric, start_at, end_at, value_num, value_secondary, value_text FROM samples WHERE day_id = $1 ORDER BY start_at", [day.id]),
-    query("SELECT name, start_at, duration_minutes FROM exercises WHERE day_id = $1", [day.id]),
-  ]);
-  res.json({ ...day, aggregates: aggregates.rows, samples: samples.rows, exercises: exercises.rows });
+  try {
+    const { rows } = await query("SELECT * FROM health_days WHERE day = $1", [req.params.date]);
+    if (rows.length === 0) return res.status(404).json({ error: "not found" });
+    const day = rows[0];
+    const [aggregates, samples, exercises] = await Promise.all([
+      query("SELECT metric, min, max, avg FROM day_aggregates WHERE day_id = $1", [day.id]),
+      query("SELECT metric, start_at, end_at, value_num, value_secondary, value_text FROM samples WHERE day_id = $1 ORDER BY start_at", [day.id]),
+      query("SELECT name, start_at, duration_minutes FROM exercises WHERE day_id = $1", [day.id]),
+    ]);
+    res.json({ ...day, aggregates: aggregates.rows, samples: samples.rows, exercises: exercises.rows });
+  } catch (err) {
+    console.error("query failed", err);
+    res.status(500).json({ error: "query failed" });
+  }
 });
