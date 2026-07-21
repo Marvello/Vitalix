@@ -16,8 +16,21 @@ interface RecordReader {
 }
 
 class HealthConnectRecordReader(private val client: HealthConnectClient) : RecordReader {
-    override suspend fun <T : Record> read(type: KClass<T>, start: Instant, end: Instant): List<T> =
-        client.readRecords(
-            ReadRecordsRequest(type, TimeRangeFilter.between(start, end))
-        ).records
+    override suspend fun <T : Record> read(type: KClass<T>, start: Instant, end: Instant): List<T> {
+        val all = mutableListOf<T>()
+        var pageToken: String? = null
+        do {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = type,
+                    timeRangeFilter = TimeRangeFilter.between(start, end),
+                    pageSize = 1000,
+                    pageToken = pageToken,
+                )
+            )
+            all += response.records
+            pageToken = response.pageToken
+        } while (pageToken != null)
+        return all
+    }
 }
