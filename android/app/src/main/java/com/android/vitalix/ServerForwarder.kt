@@ -3,6 +3,8 @@ package com.android.vitalix
 import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.models.HealthSample
 import com.android.vitalix.models.MinMaxAvg
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -65,14 +67,16 @@ object ServerForwarder {
         return root.toString()
     }
 
-    fun forward(url: String, token: String?, json: String): Result<Int> = try {
-        val builder = Request.Builder().url(url).post(json.toRequestBody(JSON))
-        if (!token.isNullOrBlank()) builder.header("Authorization", "Bearer $token")
-        client.newCall(builder.build()).execute().use { resp ->
-            if (resp.isSuccessful) Result.success(resp.code)
-            else Result.failure(HttpException(resp.code))
-        }
-    } catch (e: Exception) { Result.failure(e) }
+    suspend fun forward(url: String, token: String?, json: String): Result<Int> = withContext(Dispatchers.IO) {
+        try {
+            val builder = Request.Builder().url(url).post(json.toRequestBody(JSON))
+            if (!token.isNullOrBlank()) builder.header("Authorization", "Bearer $token")
+            client.newCall(builder.build()).execute().use { resp ->
+                if (resp.isSuccessful) Result.success(resp.code)
+                else Result.failure(HttpException(resp.code))
+            }
+        } catch (e: Exception) { Result.failure(e) }
+    }
 
     class HttpException(val code: Int) : Exception("HTTP $code")
 }
