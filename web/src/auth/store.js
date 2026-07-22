@@ -67,6 +67,13 @@ export async function createInvite(email, role, createdBy) {
   await query("INSERT INTO invites (token_hash, email, role, created_by, expires_at) VALUES ($1,$2,$3,$4,$5)", [hashToken(raw), email, role, createdBy, new Date(Date.now() + config.inviteTtlMs)]);
   return raw;
 }
+export async function findValidInvite(raw) {
+  const { rows } = await query(
+    "SELECT email, role FROM invites WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()",
+    [hashToken(raw)]
+  );
+  return rows[0] ?? null;
+}
 export async function consumeInvite(raw) {
   const { rows } = await query(
     "UPDATE invites SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING email, role",

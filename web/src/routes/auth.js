@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { hash, verify } from "../auth/passwords.js";
+import { hash, verify, DUMMY_HASH } from "../auth/passwords.js";
 import { signAccess } from "../auth/tokens.js";
 import * as store from "../auth/store.js";
 import { sendMail } from "../auth/mailer.js";
@@ -26,11 +26,14 @@ async function issueSession(res, user) {
 
 authRouter.post("/api/auth/signup", async (req, res) => {
   const { token, email, password } = req.body || {};
-  if (!token || !email || !password) return res.status(400).json({ error: "token, email, password required" });
-  const invite = await store.consumeInvite(token);
-  if (!invite) return res.status(400).json({ error: "invite invalid or expired" });
-  if (invite.email.toLowerCase() !== String(email).toLowerCase()) return res.status(400).json({ error: "invite email mismatch" });
+  if (typeof token !== "string" || typeof email !== "string" || typeof password !== "string" || !token || !email || !password)
+    return res.status(400).json({ error: "token, email, password required" });
+  const invite = await store.findValidInvite(token);
+  if (!invite || invite.email.toLowerCase() !== email.toLowerCase())
+    return res.status(400).json({ error: "invite invalid or expired" });
   if (await store.findUserByEmail(email)) return res.status(400).json({ error: "account already exists" });
+  const consumed = await store.consumeInvite(token); // single-use guard; null if raced
+  if (!consumed) return res.status(400).json({ error: "invite invalid or expired" });
   const user = await store.createUser(email, await hash(password), invite.role);
   const tokens = await issueSession(res, user);
   res.status(201).json({ ...tokens, user: { id: user.id, email: user.email, role: user.role } });
@@ -38,8 +41,11 @@ authRouter.post("/api/auth/signup", async (req, res) => {
 
 authRouter.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body || {};
-  const user = email ? await store.findUserByEmail(email) : null;
-  if (!user || !(await verify(password || "", user.password_hash))) {
+  const emailStr = typeof email === "string" ? email : null;
+  const passwordStr = typeof password === "string" ? password : "";
+  const user = emailStr ? await store.findUserByEmail(emailStr) : null;
+  const ok = await verify(passwordStr, user?.password_hash ?? DUMMY_HASH);
+  if (!user || !ok) {
     return res.status(401).json({ error: "invalid credentials" });
   }
   const tokens = await issueSession(res, { id: user.id, role: user.role });
@@ -75,7 +81,8 @@ authRouter.post("/api/auth/forgot", async (req, res) => {
 
 authRouter.post("/api/auth/reset", async (req, res) => {
   const { token, password } = req.body || {};
-  if (!token || !password) return res.status(400).json({ error: "token and password required" });
+  if (typeof token !== "string" || typeof password !== "string" || !token || !password)
+    return res.status(400).json({ error: "token and password required" });
   const userId = await store.consumeReset(token);
   if (!userId) return res.status(400).json({ error: "reset token invalid or expired" });
   await store.updatePassword(userId, await hash(password));
