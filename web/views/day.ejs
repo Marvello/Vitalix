@@ -1,0 +1,81 @@
+<!doctype html><html><head><title>Vitalix — <%= date %></title><style>
+body{font-family:Inter,system-ui,sans-serif;max-width:900px;margin:6vh auto;padding:0 20px;color:#0E1B2B}
+h1{color:#0FA9A0} h2{color:#0E1B2B;margin-top:32px} a{color:#0FA9A0}
+table{width:100%;border-collapse:collapse;margin-top:10px}
+th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:14px}
+th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
+.empty{color:#64748b;margin-top:24px}
+.scroll{max-height:420px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px}
+.scroll table{margin-top:0}</style></head><body>
+<p><a href="/dashboard">&larr; Back to dashboard</a></p>
+<h1>Vitalix</h1>
+<h2><%= date %></h2>
+
+<% if (!day) { %>
+  <p class="empty">No data for this day.</p>
+<% } else { %>
+
+  <h2>Summary</h2>
+  <table>
+    <tbody>
+    <% Object.keys(day).forEach(function(key) { %>
+      <% if (key !== "id" && key !== "user_id") { %>
+      <tr><th><%= key %></th><td><%= day[key] === null ? "—" : day[key] %></td></tr>
+      <% } %>
+    <% }); %>
+    </tbody>
+  </table>
+
+  <h2>Aggregates</h2>
+  <% if (aggregates.length === 0) { %>
+    <p class="empty">No aggregates.</p>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Metric</th><th>Min</th><th>Max</th><th>Avg</th></tr></thead>
+    <tbody>
+    <% aggregates.forEach(function(a) { %>
+      <tr><td><%= a.metric %></td><td><%= a.min %></td><td><%= a.max %></td><td><%= a.avg %></td></tr>
+    <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+
+  <h2>Samples (first 500)</h2>
+  <% if (samples.length === 0) { %>
+    <p class="empty">No samples.</p>
+  <% } else { %>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Metric</th><th>Start</th><th>End</th><th>Value</th><th>Value 2</th><th>Text</th></tr></thead>
+    <tbody>
+    <% samples.forEach(function(s) { %>
+      <tr>
+        <td><%= s.metric %></td>
+        <td><%= s.start_at %></td>
+        <td><%= s.end_at %></td>
+        <td><%= s.value_num === null ? "—" : s.value_num %></td>
+        <td><%= s.value_secondary === null ? "—" : s.value_secondary %></td>
+        <td><%= s.value_text === null ? "—" : s.value_text %></td>
+      </tr>
+    <% }); %>
+    </tbody>
+  </table>
+  </div>
+  <% } %>
+
+  <h2>Exercises</h2>
+  <% if (exercises.length === 0) { %>
+    <p class="empty">No exercises.</p>
+  <% } else { %>
+  <table>
+    <thead><tr><th>Name</th><th>Start</th><th>Duration (min)</th></tr></thead>
+    <tbody>
+    <% exercises.forEach(function(ex) { %>
+      <tr><td><%= ex.name %></td><td><%= ex.start_at %></td><td><%= ex.duration_minutes %></td></tr>
+    <% }); %>
+    </tbody>
+  </table>
+  <% } %>
+
+<% } %>
+</body></html>

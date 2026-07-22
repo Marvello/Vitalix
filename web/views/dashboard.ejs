@@ -1,0 +1,32 @@
+<!doctype html><html><head><title>Vitalix — Dashboard</title><style>
+body{font-family:Inter,system-ui,sans-serif;max-width:720px;margin:6vh auto;padding:0 20px;color:#0E1B2B}
+h1{color:#0FA9A0} a{color:#0FA9A0}
+table{width:100%;border-collapse:collapse;margin-top:16px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0}
+th{color:#34D399;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+.topbar{display:flex;justify-content:space-between;align-items:center}
+button{background:#0FA9A0;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
+.empty{color:#64748b;margin-top:24px}</style></head><body>
+<div class="topbar">
+  <h1>Vitalix</h1>
+  <form method="post" action="/logout"><button type="submit">Log out</button></form>
+</div>
+<h2>Welcome, <%= email %></h2>
+<% if (days.length === 0) { %>
+  <p class="empty">No health data yet.</p>
+<% } else { %>
+<table>
+  <thead><tr><th>Day</th><th>Steps</th><th>Sleep (min)</th></tr></thead>
+  <tbody>
+  <% days.forEach(function(d) { %>
+    <% var dayStr = (d.day instanceof Date) ? d.day.toISOString().slice(0,10) : d.day; %>
+    <tr>
+      <td><a href="/dashboard/<%= dayStr %>"><%= dayStr %></a></td>
+      <td><%= d.steps == null ? "—" : d.steps %></td>
+      <td><%= d.sleep_duration_minutes == null ? "—" : d.sleep_duration_minutes %></td>
+    </tr>
+  <% }); %>
+  </tbody>
+</table>
+<% } %>
+</body></html>
