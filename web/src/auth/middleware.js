@@ -11,7 +11,9 @@ export function requireAuth(req, res, next) {
   const token = extractToken(req);
   const claims = token ? verifyAccess(token) : null;
   if (!claims) {
-    if (req.accepts(["html", "json"]) === "html") return res.redirect("/login");
+    // API clients (incl. curl sending Accept: */*) get JSON 401; only browser
+    // page routes redirect to the login screen.
+    if (!req.path.startsWith("/api/") && req.accepts(["html", "json"]) === "html") return res.redirect("/login");
     return res.status(401).json({ error: "unauthorized" });
   }
   req.user = { id: Number(claims.sub), role: claims.role };
