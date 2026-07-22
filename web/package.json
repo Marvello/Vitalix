@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
@@ -11,8 +13,13 @@
     "test": "node --test"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "ejs": "^6.0.1",
     "express": "^4.19.2",
-    "pg": "^8.12.0",
-    "node-pg-migrate": "^7.6.1"
+    "jsonwebtoken": "^9.0.3",
+    "node-pg-migrate": "^7.6.1",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.12.0"
   }
 }
