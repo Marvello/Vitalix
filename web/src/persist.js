@@ -10,15 +10,15 @@ const DAY_COLUMNS = [
   "hydration_ml", "energy_kcal",
 ];
 
-async function upsertDay(client, syncId, day) {
-  const cols = ["sync_id", "day", ...DAY_COLUMNS];
-  const values = [syncId, day.day, ...DAY_COLUMNS.map((c) => day.scalars[c] ?? null)];
+async function upsertDay(client, syncId, userId, day) {
+  const cols = ["sync_id", "user_id", "day", ...DAY_COLUMNS];
+  const values = [syncId, userId, day.day, ...DAY_COLUMNS.map((c) => day.scalars[c] ?? null)];
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
   const updates = ["sync_id = EXCLUDED.sync_id", ...DAY_COLUMNS.map((c) => `${c} = EXCLUDED.${c}`)].join(", ");
   const sql = `
     INSERT INTO health_days (${cols.join(", ")})
     VALUES (${placeholders})
-    ON CONFLICT (day) DO UPDATE SET ${updates}
+    ON CONFLICT (user_id, day) DO UPDATE SET ${updates}
     RETURNING id`;
   const { rows } = await client.query(sql, values);
   return rows[0].id;
@@ -54,16 +54,16 @@ async function replaceExercises(client, dayId, exercises) {
   }
 }
 
-export function persist(mapped) {
+export function persist(userId, mapped) {
   return withTransaction(async (client) => {
     const { rows } = await client.query(
-      "INSERT INTO syncs (source, app_version, device, exported_at, range_days) VALUES ($1,$2,$3,$4,$5) RETURNING id",
-      [mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days]
+      "INSERT INTO syncs (user_id, source, app_version, device, exported_at, range_days) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
+      [userId, mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days]
     );
     const syncId = rows[0].id;
     let samples = 0, exercises = 0;
     for (const day of mapped.days) {
-      const dayId = await upsertDay(client, syncId, day);
+      const dayId = await upsertDay(client, syncId, userId, day);
       await replaceAggregates(client, dayId, day.aggregates);
       await replaceSamples(client, dayId, day.samples);
       await replaceExercises(client, dayId, day.exercises);

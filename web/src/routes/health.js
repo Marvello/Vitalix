@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { bearerAuth } from "../auth.js";
+import { requireAuth } from "../auth/middleware.js";
 import { mapPayload } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
@@ -11,14 +11,14 @@ router.get("/healthz", async (_req, res) => {
   res.status(ok ? 200 : 503).json({ ok });
 });
 
-router.post("/api/health", bearerAuth, async (req, res) => {
+router.post("/api/health", requireAuth, async (req, res) => {
   const body = req.body;
   if (!body || !Array.isArray(body.days)) {
     return res.status(400).json({ error: "body must include a days array" });
   }
   try {
     const mapped = mapPayload(body);
-    const inserted = await persist(mapped);
+    const inserted = await persist(req.user.id, mapped);
     res.status(200).json({ inserted, skipped: mapped.skipped });
   } catch (err) {
     console.error("ingest failed", err);
@@ -26,13 +26,13 @@ router.post("/api/health", bearerAuth, async (req, res) => {
   }
 });
 
-router.get("/api/days", bearerAuth, async (req, res) => {
+router.get("/api/days", requireAuth, async (req, res) => {
   try {
     const to = req.query.to || new Date().toISOString().slice(0, 10);
     const from = req.query.from || new Date(Date.now() - 6 * 864e5).toISOString().slice(0, 10);
     const { rows } = await query(
-      "SELECT * FROM health_days WHERE day BETWEEN $1 AND $2 ORDER BY day DESC",
-      [from, to]
+      "SELECT * FROM health_days WHERE user_id = $1 AND day BETWEEN $2 AND $3 ORDER BY day DESC",
+      [req.user.id, from, to]
     );
     res.json(rows);
   } catch (err) {
@@ -41,9 +41,9 @@ router.get("/api/days", bearerAuth, async (req, res) => {
   }
 });
 
-router.get("/api/days/:date", bearerAuth, async (req, res) => {
+router.get("/api/days/:date", requireAuth, async (req, res) => {
   try {
-    const { rows } = await query("SELECT * FROM health_days WHERE day = $1", [req.params.date]);
+    const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
     if (rows.length === 0) return res.status(404).json({ error: "not found" });
     const day = rows[0];
     const [aggregates, samples, exercises] = await Promise.all([
