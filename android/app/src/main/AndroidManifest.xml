@@ -63,6 +63,33 @@
                 <action android:name="androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".LoginActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".SignupActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Vitalix"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="vitalix" android:host="signup" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ForgotActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 
 </manifest>
