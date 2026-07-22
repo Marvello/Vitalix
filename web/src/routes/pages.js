@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { hash, verify } from "../auth/passwords.js";
+import { hash, verify, DUMMY_HASH } from "../auth/passwords.js";
 import { signAccess } from "../auth/tokens.js";
 import * as store from "../auth/store.js";
 import { setAuthCookies } from "./auth.js";
@@ -19,16 +19,22 @@ pagesRouter.get("/reset", (req, res) => show(res, "reset", { token: req.query.to
 pagesRouter.post("/login", async (req, res) => {
   const { email, password } = req.body;
   const user = email ? await store.findUserByEmail(email) : null;
-  if (!user || !(await verify(password || "", user.password_hash))) return show(res, "login", { error: "Invalid email or password." });
+  const ok = await verify(String(password || ""), user?.password_hash ?? DUMMY_HASH);
+  if (!user || !ok) return show(res, "login", { error: "Invalid email or password." });
   setAuthCookies(res, signAccess({ id: user.id, role: user.role }), await store.issueRefresh(user.id));
   res.redirect("/dashboard");
 });
 
 pagesRouter.post("/signup", async (req, res) => {
   const { token, email, password } = req.body;
-  const invite = token ? await store.consumeInvite(token) : null;
-  if (!invite || invite.email.toLowerCase() !== String(email || "").toLowerCase()) return show(res, "signup", { token, error: "Invite invalid, expired, or email mismatch." });
+  if (typeof token !== "string" || typeof email !== "string" || typeof password !== "string" || !token || !email || !password)
+    return show(res, "signup", { token: typeof token === "string" ? token : "", error: "All fields are required." });
+  const invite = await store.findValidInvite(token);
+  if (!invite || invite.email.toLowerCase() !== email.toLowerCase())
+    return show(res, "signup", { token, error: "Invite invalid, expired, or email mismatch." });
   if (await store.findUserByEmail(email)) return show(res, "signup", { token, error: "Account already exists." });
+  const consumed = await store.consumeInvite(token);
+  if (!consumed) return show(res, "signup", { token, error: "Invite invalid or expired." });
   const user = await store.createUser(email, await hash(password), invite.role);
   setAuthCookies(res, signAccess({ id: user.id, role: user.role }), await store.issueRefresh(user.id));
   res.redirect("/dashboard");
