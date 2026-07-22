@@ -334,8 +334,6 @@ class MainActivity : AppCompatActivity() {
             showStatus("Enter a server URL to sync")
             return
         }
-        val token = authStore.accessToken
-
         setSyncing(true)
         showStatus("Exporting…")
 
@@ -349,7 +347,7 @@ class MainActivity : AppCompatActivity() {
                         days,
                         PayloadMeta(appVersion, Build.MODEL, cfg.daysBack)
                     )
-                    ServerForwarder.forward(url, token, json)
+                    ServerForwarder.forward(this@MainActivity, url, json)
                 }
                 if (result.isSuccess) {
                     settings.lastSync = System.currentTimeMillis()
@@ -357,6 +355,13 @@ class MainActivity : AppCompatActivity() {
                     showStatus("Sent (HTTP ${result.getOrNull()})")
                 } else {
                     val err = result.exceptionOrNull()
+                    if (err is ServerForwarder.HttpException && err.code == 401) {
+                        // AuthedHttp's authenticator already tried to refresh and failed,
+                        // clearing AuthStore. Route back to login.
+                        startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                        finish()
+                        return@launch
+                    }
                     val detail = when (err) {
                         is ServerForwarder.HttpException -> "HTTP ${err.code}"
                         else -> err?.message ?: "unknown error"

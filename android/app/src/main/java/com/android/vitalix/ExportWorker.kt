@@ -2,7 +2,6 @@ package com.android.vitalix
 
 import android.content.Context
 import android.os.Build
-import com.android.vitalix.auth.AuthStore
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -32,14 +31,17 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             val days = HealthConnectManager(applicationContext).readHealthDataByDay(cfg)
             val meta = PayloadMeta(appVersion(), Build.MODEL, cfg.daysBack)
             val json = ServerForwarder.buildPayload(days, meta)
-            val token = AuthStore(applicationContext).accessToken
-            ServerForwarder.forward(url, token, json).fold(
+            ServerForwarder.forward(applicationContext, url, json).fold(
                 onSuccess = {
                     settings.lastSync = System.currentTimeMillis()
                     Result.success()
                 },
                 onFailure = { e ->
-                    if (e is ServerForwarder.HttpException && e.code in 400..499) {
+                    if (e is ServerForwarder.HttpException && e.code == 401) {
+                        // AuthedHttp's authenticator already tried to refresh and failed
+                        // (clearing AuthStore). Don't infinite-retry a dead session.
+                        Result.failure()
+                    } else if (e is ServerForwarder.HttpException && e.code in 400..499) {
                         Result.failure()
                     } else {
                         Result.retry()

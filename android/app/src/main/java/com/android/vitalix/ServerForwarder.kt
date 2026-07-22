@@ -1,26 +1,22 @@
 package com.android.vitalix
 
+import android.content.Context
+import com.android.vitalix.auth.AuthStore
+import com.android.vitalix.auth.AuthedHttp
 import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.models.HealthSample
 import com.android.vitalix.models.MinMaxAvg
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
-import java.util.concurrent.TimeUnit
 
 data class PayloadMeta(val appVersion: String, val device: String, val rangeDays: Int)
 
 object ServerForwarder {
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(30, TimeUnit.SECONDS)
-        .build()
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
     private fun toJsonValue(v: Any?): Any? = when (v) {
@@ -74,11 +70,12 @@ object ServerForwarder {
         return root.toString()
     }
 
-    suspend fun forward(url: String, token: String?, json: String): Result<Int> = withContext(Dispatchers.IO) {
+    suspend fun forward(context: Context, url: String, json: String): Result<Int> = withContext(Dispatchers.IO) {
         try {
+            val access = AuthStore(context).accessToken
             val builder = Request.Builder().url(url).post(json.toRequestBody(JSON))
-            if (!token.isNullOrBlank()) builder.header("Authorization", "Bearer $token")
-            client.newCall(builder.build()).execute().use { resp ->
+            if (!access.isNullOrBlank()) builder.header("Authorization", "Bearer $access")
+            AuthedHttp.client(context).newCall(builder.build()).execute().use { resp ->
                 if (resp.isSuccessful) Result.success(resp.code)
                 else Result.failure(HttpException(resp.code))
             }
