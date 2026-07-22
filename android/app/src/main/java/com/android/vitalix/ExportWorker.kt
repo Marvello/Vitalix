@@ -2,6 +2,7 @@ package com.android.vitalix
 
 import android.content.Context
 import android.os.Build
+import com.android.vitalix.auth.AuthStore
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -31,7 +32,8 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             val days = HealthConnectManager(applicationContext).readHealthDataByDay(cfg)
             val meta = PayloadMeta(appVersion(), Build.MODEL, cfg.daysBack)
             val json = ServerForwarder.buildPayload(days, meta)
-            ServerForwarder.forward(url, settings.authToken, json).fold(
+            val token = AuthStore(applicationContext).accessToken
+            ServerForwarder.forward(url, token, json).fold(
                 onSuccess = {
                     settings.lastSync = System.currentTimeMillis()
                     Result.success()

@@ -1,5 +1,6 @@
 package com.android.vitalix
 
+import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
@@ -9,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import com.android.vitalix.auth.AuthStore
 import com.android.vitalix.models.ExportConfig
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
@@ -29,7 +31,6 @@ class MainActivity : AppCompatActivity() {
 
     // Server
     private lateinit var editServerUrl: TextInputEditText
-    private lateinit var editAuthToken: TextInputEditText
 
     // Activity
     private lateinit var checkActiveCalories: CheckBox
@@ -81,11 +82,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editSyncInterval: TextInputEditText
 
     private lateinit var btnSyncNow: Button
+    private lateinit var btnLogout: Button
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
     private val settings by lazy { SyncSettings(this) }
     private val healthConnectManager by lazy { HealthConnectManager(this) }
+    private val authStore by lazy { AuthStore(this) }
 
     private val appVersion: String
         get() = try {
@@ -107,6 +110,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (!AuthStore(this).isLoggedIn()) {
+            startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+        }
+
         setContentView(R.layout.activity_main)
 
         bindViews()
@@ -122,6 +130,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
+        btnLogout.setOnClickListener { onLogoutClicked() }
+    }
+
+    private fun onLogoutClicked() {
+        authStore.clear()
+        startActivity(Intent(this, LoginActivity::class.java))
+        finish()
     }
 
     override fun onPause() {
@@ -131,7 +146,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun bindViews() {
         editServerUrl = findViewById(R.id.editServerUrl)
-        editAuthToken = findViewById(R.id.editAuthToken)
 
         checkActiveCalories = findViewById(R.id.checkActiveCalories)
         checkDistance = findViewById(R.id.checkDistance)
@@ -176,13 +190,13 @@ class MainActivity : AppCompatActivity() {
         editSyncInterval = findViewById(R.id.editSyncInterval)
 
         btnSyncNow = findViewById(R.id.btnSyncNow)
+        btnLogout = findViewById(R.id.btnLogout)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
     }
 
     private fun loadSettingsIntoForm() {
         editServerUrl.setText(settings.serverUrl ?: "")
-        editAuthToken.setText(settings.authToken ?: "")
 
         val cfg = settings.readConfig()
 
@@ -278,7 +292,6 @@ class MainActivity : AppCompatActivity() {
     /** Persist the whole form back into [SyncSettings]. */
     private fun persistForm() {
         settings.serverUrl = editServerUrl.text?.toString()?.trim().orEmpty()
-        settings.authToken = editAuthToken.text?.toString()?.trim().orEmpty()
         settings.writeConfig(buildConfigFromForm())
         settings.autoSyncEnabled = switchAutoSync.isChecked
         settings.syncIntervalHours =
@@ -316,7 +329,7 @@ class MainActivity : AppCompatActivity() {
             showStatus("Enter a server URL to sync")
             return
         }
-        val token = settings.authToken
+        val token = authStore.accessToken
 
         setSyncing(true)
         showStatus("Exporting…")

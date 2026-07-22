@@ -21,9 +21,6 @@ class SyncSettings(context: Context) {
     var serverUrl: String?
         get() = secure.getString("server_url", null)
         set(v) { secure.edit().putString("server_url", v).apply() }
-    var authToken: String?
-        get() = secure.getString("auth_token", null)
-        set(v) { secure.edit().putString("auth_token", v).apply() }
     var lastSync: Long
         get() = plain.getLong("last_sync", 0)
         set(v) { plain.edit().putLong("last_sync", v).apply() }
