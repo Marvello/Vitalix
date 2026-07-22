@@ -6,11 +6,12 @@ export function signAccess(user) {
   return jwt.sign({ role: user.role }, config.jwtSecret, {
     subject: String(user.id),
     expiresIn: config.accessTtl,
+    algorithm: "HS256",
   });
 }
 export function verifyAccess(token) {
   try {
-    const p = jwt.verify(token, config.jwtSecret);
+    const p = jwt.verify(token, config.jwtSecret, { algorithms: ["HS256"] });
     return { sub: p.sub, role: p.role };
   } catch {
     return null;

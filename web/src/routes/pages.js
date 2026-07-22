@@ -41,7 +41,8 @@ pagesRouter.post("/signup", async (req, res) => {
 });
 
 pagesRouter.post("/forgot", async (req, res) => {
-  const user = req.body.email ? await store.findUserByEmail(req.body.email) : null;
+  const { email } = req.body;
+  const user = typeof email === "string" && email ? await store.findUserByEmail(email) : null;
   if (user) {
     const raw = await store.createReset(user.id);
     await sendMail(user.email, "Reset your Vitalix password", `${config.appBaseUrl}/reset?token=${raw}`);
@@ -51,7 +52,9 @@ pagesRouter.post("/forgot", async (req, res) => {
 
 pagesRouter.post("/reset", async (req, res) => {
   const { token, password } = req.body;
-  const userId = token ? await store.consumeReset(token) : null;
+  if (typeof token !== "string" || typeof password !== "string" || !token || !password)
+    return show(res, "reset", { token: typeof token === "string" ? token : "", error: "A new password is required." });
+  const userId = await store.consumeReset(token);
   if (!userId) return show(res, "reset", { token: "", error: "Reset link invalid or expired." });
   await store.updatePassword(userId, await hash(password));
   await store.revokeAllRefresh(userId);
@@ -71,13 +74,18 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
 });
 
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
-  const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
-  if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });
-  const d = rows[0];
-  const [aggs, samples, ex] = await Promise.all([
-    query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
-    query("SELECT metric,start_at,end_at,value_num,value_secondary,value_text FROM samples WHERE day_id=$1 ORDER BY start_at LIMIT 500", [d.id]),
-    query("SELECT name,start_at,duration_minutes FROM exercises WHERE day_id=$1", [d.id]),
-  ]);
-  res.render("day", { day: d, aggregates: aggs.rows, samples: samples.rows, exercises: ex.rows, date: req.params.date });
+  try {
+    const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
+    if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });
+    const d = rows[0];
+    const [aggs, samples, ex] = await Promise.all([
+      query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
+      query("SELECT metric,start_at,end_at,value_num,value_secondary,value_text FROM samples WHERE day_id=$1 ORDER BY start_at LIMIT 500", [d.id]),
+      query("SELECT name,start_at,duration_minutes FROM exercises WHERE day_id=$1", [d.id]),
+    ]);
+    res.render("day", { day: d, aggregates: aggs.rows, samples: samples.rows, exercises: ex.rows, date: req.params.date });
+  } catch (err) {
+    console.error("GET /dashboard/:date failed", err);
+    res.status(500).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });
+  }
 });

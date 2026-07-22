@@ -70,7 +70,7 @@ authRouter.post("/api/auth/logout", async (req, res) => {
 
 authRouter.post("/api/auth/forgot", async (req, res) => {
   const { email } = req.body || {};
-  const user = email ? await store.findUserByEmail(email) : null;
+  const user = typeof email === "string" && email ? await store.findUserByEmail(email) : null;
   if (user) {
     const raw = await store.createReset(user.id);
     const link = `${config.appBaseUrl}/reset?token=${raw}`;
