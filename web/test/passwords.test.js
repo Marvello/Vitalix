@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hash, verify } from "../src/auth/passwords.js";
+process.env.JWT_SECRET ||= "test-secret";
+process.env.DATABASE_URL ||= "postgres://x";
+const { hash, verify } = await import("../src/auth/passwords.js");
 
 test("hash then verify", async () => {
   const h = await hash("s3cret!");
