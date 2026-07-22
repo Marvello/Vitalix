@@ -108,10 +108,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** True once the sync UI is inflated + bound. Guards lifecycle hooks (onPause) that
+     *  touch views, since the login gate can finish() this Activity before bindViews() runs. */
+    private var uiReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        if (!AuthStore(this).isLoggedIn()) {
+        if (!authStore.isLoggedIn()) {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }
 
@@ -119,6 +123,7 @@ class MainActivity : AppCompatActivity() {
 
         bindViews()
         loadSettingsIntoForm()
+        uiReady = true
 
         switchAutoSync.setOnCheckedChangeListener { _, enabled ->
             settings.autoSyncEnabled = enabled
@@ -141,7 +146,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onPause() {
         super.onPause()
-        persistForm()
+        if (uiReady) persistForm()
     }
 
     private fun bindViews() {
