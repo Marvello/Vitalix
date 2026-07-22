@@ -22,7 +22,7 @@ object AuthedHttp {
         val settings = SyncSettings(context)
         val authenticator = Authenticator { _: Route?, response: Response ->
             if (responseCount(response) >= 2) return@Authenticator null // already retried once
-            val refresh = store.refreshToken ?: return@Authenticator null
+            val refresh = store.refreshToken ?: run { store.clear(); return@Authenticator null }
             val base = settings.serverUrl ?: return@Authenticator null
             val newTokens = runBlocking { AuthClient(base).refresh(refresh) }.getOrNull()
             if (newTokens == null) {
