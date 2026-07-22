@@ -77,3 +77,7 @@ export async function consumeInvite(raw) {
 export async function revokeAllRefresh(userId) {
   await query("UPDATE refresh_tokens SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL", [userId]);
 }
+
+export async function updatePassword(userId, passwordHash) {
+  await query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, userId]);
+}
