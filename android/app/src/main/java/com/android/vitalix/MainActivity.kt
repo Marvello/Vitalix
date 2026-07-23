@@ -6,6 +6,8 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
+import android.widget.RadioButton
+import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.health.connect.client.HealthConnectClient
@@ -38,6 +40,9 @@ class MainActivity : AppCompatActivity() {
 
     // Server
     private lateinit var editServerUrl: TextInputEditText
+    private lateinit var groupEnvironment: RadioGroup
+    private lateinit var radioDevelopment: RadioButton
+    private lateinit var radioProduction: RadioButton
 
     // Activity
     private lateinit var checkActiveCalories: CheckBox
@@ -102,6 +107,10 @@ class MainActivity : AppCompatActivity() {
     /** Set while select-all propagates, so listeners don't fight each other. */
     private var syncingChecks = false
 
+    /** Which environment the URL field currently holds, so a switch saves it back
+     *  to the right one before loading the other. */
+    private var previousEnvironment = SyncSettings.Environment.DEVELOPMENT
+
     private val dayLabel = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     private val settings by lazy { SyncSettings(this) }
@@ -125,6 +134,7 @@ class MainActivity : AppCompatActivity() {
             runSync()
         } else {
             showStatus("Failed: no Health Connect data shared. Grant access in Health Connect › App permissions › Vitalix.")
+            setSyncing(false)
         }
     }
 
@@ -155,6 +165,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        groupEnvironment.setOnCheckedChangeListener { _, _ ->
+            // Save the URL under the environment it was typed for, then swap.
+            settings.setUrlFor(previousEnvironment, editServerUrl.text?.toString())
+            showEnvironment(currentEnvironment())
+        }
+
         btnSyncNow.setOnClickListener { onSyncClicked() }
         btnLogout.setOnClickListener { onLogoutClicked() }
     }
@@ -180,6 +196,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun bindViews() {
         editServerUrl = findViewById(R.id.editServerUrl)
+        groupEnvironment = findViewById(R.id.groupEnvironment)
+        radioDevelopment = findViewById(R.id.radioDevelopment)
+        radioProduction = findViewById(R.id.radioProduction)
 
         checkActiveCalories = findViewById(R.id.checkActiveCalories)
         checkDistance = findViewById(R.id.checkDistance)
@@ -345,7 +364,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSettingsIntoForm() {
-        editServerUrl.setText(settings.serverUrl ?: "")
+        showEnvironment(settings.environment)
 
         val cfg = settings.readConfig()
 
@@ -440,7 +459,7 @@ class MainActivity : AppCompatActivity() {
 
     /** Persist the whole form back into [SyncSettings]. */
     private fun persistForm() {
-        settings.serverUrl = editServerUrl.text?.toString()?.trim().orEmpty()
+        settings.setUrlFor(currentEnvironment(), editServerUrl.text?.toString())
         settings.writeConfig(buildConfigFromForm())
         settings.autoSyncEnabled = switchAutoSync.isChecked
         settings.syncIntervalHours =
@@ -455,13 +474,18 @@ class MainActivity : AppCompatActivity() {
         }
         persistForm()
 
-        // Check granted HC permissions; request the missing ones before syncing.
+        // Held for the whole click, not just the transfer: the permission check is
+        // async, so leaving the button live until then invites a double sync.
+        setSyncing(true)
+        showStatus("Checking Health Connect permissions…")
+
         lifecycleScope.launch {
             val granted = try {
                 HealthConnectClient.getOrCreate(this@MainActivity)
                     .permissionController.getGrantedPermissions()
             } catch (e: Exception) {
                 showStatus("Failed: Health Connect unavailable (${e.message})")
+                setSyncing(false)
                 return@launch
             }
             val wanted = healthConnectManager.permissions
@@ -473,11 +497,17 @@ class MainActivity : AppCompatActivity() {
             val neverAsked = wanted - granted - settings.requestedPermissions
             when {
                 held.size == wanted.size -> runSync()
-                neverAsked.isNotEmpty() -> requestHealthPermissions()
+                // The prompt is a separate activity; re-enable so the button isn't
+                // stuck disabled if the user dismisses it. The result callback
+                // re-runs the sync itself.
+                neverAsked.isNotEmpty() -> { setSyncing(false); requestHealthPermissions() }
                 held.isNotEmpty() -> runSync() // partial grant is fine; read what we can
-                else -> showStatus(
-                    "Failed: no Health Connect data shared. Grant access in Health Connect › App permissions › Vitalix."
-                )
+                else -> {
+                    showStatus(
+                        "Failed: no Health Connect data shared. Grant access in Health Connect › App permissions › Vitalix."
+                    )
+                    setSyncing(false)
+                }
             }
         }
     }
@@ -502,7 +532,8 @@ class MainActivity : AppCompatActivity() {
     private fun runSync() {
         val url = settings.serverUrl?.trim().orEmpty()
         if (url.isBlank()) {
-            showStatus("Enter a server URL to sync")
+            showStatus("Enter a ${currentEnvironment().label} server URL to sync")
+            setSyncing(false)
             return
         }
         if (switchFullHistory.isChecked) {
@@ -636,9 +667,29 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun currentEnvironment(): SyncSettings.Environment =
+        if (radioProduction.isChecked) SyncSettings.Environment.PRODUCTION
+        else SyncSettings.Environment.DEVELOPMENT
+
+    /** Select [env], load its saved URL (or default) into the field, and remember it. */
+    private fun showEnvironment(env: SyncSettings.Environment) {
+        settings.environment = env
+        previousEnvironment = env
+        when (env) {
+            SyncSettings.Environment.DEVELOPMENT -> radioDevelopment.isChecked = true
+            SyncSettings.Environment.PRODUCTION -> radioProduction.isChecked = true
+        }
+        editServerUrl.setText(settings.urlFor(env) ?: "")
+    }
+
     private fun setSyncing(syncing: Boolean) {
         btnSyncNow.isEnabled = !syncing
+        btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
+        groupEnvironment.isEnabled = !syncing
+        radioDevelopment.isEnabled = !syncing
+        radioProduction.isEnabled = !syncing
+        editServerUrl.isEnabled = !syncing
     }
 
     private companion object {

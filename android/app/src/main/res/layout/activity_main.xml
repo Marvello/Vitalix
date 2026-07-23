@@ -49,6 +49,27 @@
                     android:text="Server"
                     android:textStyle="bold" />
 
+                <RadioGroup
+                    android:id="@+id/groupEnvironment"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/radioDevelopment"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="16dp"
+                        android:text="Development" />
+
+                    <RadioButton
+                        android:id="@+id/radioProduction"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Production" />
+                </RadioGroup>
+
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

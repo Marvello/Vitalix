@@ -18,9 +18,50 @@ class SyncSettings(context: Context) {
     }
     private val plain: SharedPreferences = context.getSharedPreferences("vitalix", Context.MODE_PRIVATE)
 
+    init {
+        // Carry a URL saved before environments existed into Development.
+        val legacy = secure.getString("server_url", null)
+        if (!legacy.isNullOrBlank() && secure.getString(Environment.DEVELOPMENT.prefKey, null) == null) {
+            secure.edit()
+                .putString(Environment.DEVELOPMENT.prefKey, legacy)
+                .remove("server_url")
+                .apply()
+        }
+    }
+
+    /**
+     * Which environment [serverUrl] resolves to. Each environment keeps its own
+     * URL, so switching back and forth doesn't make you retype either one.
+     */
+    var environment: Environment
+        get() = Environment.from(plain.getString("environment", null))
+        set(v) { plain.edit().putString("environment", v.key).apply() }
+
+    /** URL of the currently selected [environment]. */
     var serverUrl: String?
-        get() = secure.getString("server_url", null)
-        set(v) { secure.edit().putString("server_url", v).apply() }
+        get() = urlFor(environment)
+        set(v) { setUrlFor(environment, v) }
+
+    fun urlFor(env: Environment): String? =
+        secure.getString(env.prefKey, null)?.takeIf { it.isNotBlank() } ?: env.defaultUrl
+
+    fun setUrlFor(env: Environment, url: String?) {
+        secure.edit().putString(env.prefKey, url?.trim().orEmpty()).apply()
+    }
+
+    enum class Environment(val key: String, val label: String, val defaultUrl: String?) {
+        DEVELOPMENT("development", "Development", "http://localhost:3000/api/health"),
+
+        // No default: the production receiver isn't stood up yet, so an empty
+        // field is the honest state rather than a URL that would silently fail.
+        PRODUCTION("production", "Production", null);
+
+        val prefKey get() = "server_url_$key"
+
+        companion object {
+            fun from(key: String?) = entries.firstOrNull { it.key == key } ?: DEVELOPMENT
+        }
+    }
     var lastSync: Long
         get() = plain.getLong("last_sync", 0)
         set(v) { plain.edit().putLong("last_sync", v).apply() }
