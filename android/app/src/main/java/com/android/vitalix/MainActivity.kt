@@ -3,6 +3,7 @@ package com.android.vitalix
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
 import android.widget.TextView
@@ -89,6 +90,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
+    // Metric selection
+    private lateinit var checkAllMetrics: CheckBox
+    private lateinit var txtSelectedTotal: TextView
+    private lateinit var categories: List<Category>
+
+    /** Set while select-all propagates, so listeners don't fight each other. */
+    private var syncingChecks = false
+
     private val settings by lazy { SyncSettings(this) }
     private val healthConnectManager by lazy { HealthConnectManager(this) }
     private val authStore by lazy { AuthStore(this) }
@@ -128,6 +137,7 @@ class MainActivity : AppCompatActivity() {
 
         bindViews()
         loadSettingsIntoForm()
+        wireSelectionUi()
         uiReady = true
 
         switchAutoSync.setOnCheckedChangeListener { _, enabled ->
@@ -211,6 +221,120 @@ class MainActivity : AppCompatActivity() {
         btnLogout = findViewById(R.id.btnLogout)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
+
+        checkAllMetrics = findViewById(R.id.checkAllMetrics)
+        txtSelectedTotal = findViewById(R.id.txtSelectedTotal)
+    }
+
+    /**
+     * One collapsible metric group: a header that expands/collapses [body], a
+     * checkbox that selects/clears every metric in it, and a "n/m" count.
+     */
+    private inner class Category(
+        headerId: Int, checkAllId: Int, countId: Int, chevronId: Int, bodyId: Int,
+        val metrics: List<CheckBox>,
+    ) {
+        private val header: View = findViewById(headerId)
+        private val body: View = findViewById(bodyId)
+        private val chevron: TextView = findViewById(chevronId)
+        private val count: TextView = findViewById(countId)
+        val checkAll: CheckBox = findViewById(checkAllId)
+
+        val selected: Int get() = metrics.count { it.isChecked }
+
+        fun wire() {
+            header.setOnClickListener { setExpanded(body.visibility != View.VISIBLE) }
+            checkAll.setOnCheckedChangeListener { _, checked ->
+                if (syncingChecks) return@setOnCheckedChangeListener
+                metrics.forEach { it.isChecked = checked }
+            }
+            metrics.forEach { box ->
+                box.setOnCheckedChangeListener { _, _ ->
+                    if (!syncingChecks) refreshSelectionUi()
+                }
+            }
+            setExpanded(false)
+        }
+
+        private fun setExpanded(expanded: Boolean) {
+            body.visibility = if (expanded) View.VISIBLE else View.GONE
+            chevron.text = if (expanded) "▴" else "▾"
+        }
+
+        fun refresh() {
+            count.text = "$selected/${metrics.size}"
+            checkAll.isChecked = selected == metrics.size
+        }
+    }
+
+    private fun buildCategories() = listOf(
+        Category(
+            R.id.headerActivity, R.id.checkCategoryActivity, R.id.countActivity,
+            R.id.chevronActivity, R.id.layoutActivitySubtypes,
+            listOf(
+                checkActiveCalories, checkDistance, checkElevationGained, checkExercise,
+                checkFloorsClimbed, checkPower, checkSpeed, checkSteps, checkTotalCalories,
+                checkVO2Max, checkWheelchairPushes,
+            )
+        ),
+        Category(
+            R.id.headerBodyMeasurements, R.id.checkCategoryBodyMeasurements,
+            R.id.countBodyMeasurements, R.id.chevronBodyMeasurements,
+            R.id.layoutBodyMeasurementsSubtypes,
+            listOf(checkBodyFat, checkBoneMass, checkHeight, checkLeanBodyMass, checkWeight)
+        ),
+        Category(
+            R.id.headerVitals, R.id.checkCategoryVitals, R.id.countVitals,
+            R.id.chevronVitals, R.id.layoutVitalsSubtypes,
+            listOf(
+                checkBloodGlucose, checkBloodPressure, checkBodyTemperature, checkHeartRate,
+                checkHeartRateVariability, checkOxygenSaturation, checkRespiratoryRate,
+                checkRestingHeartRate,
+            )
+        ),
+        Category(
+            R.id.headerSleep, R.id.checkCategorySleep, R.id.countSleep,
+            R.id.chevronSleep, R.id.layoutSleepSubtypes,
+            listOf(checkSleepSession)
+        ),
+        Category(
+            R.id.headerCycleTracking, R.id.checkCategoryCycleTracking, R.id.countCycleTracking,
+            R.id.chevronCycleTracking, R.id.layoutCycleTrackingSubtypes,
+            listOf(checkCervicalMucus, checkMenstruation, checkOvulationTest, checkSexualActivity)
+        ),
+        Category(
+            R.id.headerNutrition, R.id.checkCategoryNutrition, R.id.countNutrition,
+            R.id.chevronNutrition, R.id.layoutNutritionSubtypes,
+            listOf(checkHydration, checkNutrition)
+        ),
+    )
+
+    private fun wireSelectionUi() {
+        categories = buildCategories()
+        categories.forEach { it.wire() }
+        checkAllMetrics.setOnCheckedChangeListener { _, checked ->
+            if (syncingChecks) return@setOnCheckedChangeListener
+            syncingChecks = true
+            categories.forEach { cat -> cat.metrics.forEach { it.isChecked = checked } }
+            syncingChecks = false
+            refreshSelectionUi()
+        }
+        refreshSelectionUi()
+    }
+
+    /**
+     * Recompute every count and the two select-all boxes from the metric
+     * checkboxes, which are the single source of truth. [syncingChecks] stops
+     * the programmatic writes here from re-entering the listeners.
+     */
+    private fun refreshSelectionUi() {
+        syncingChecks = true
+        categories.forEach { it.refresh() }
+        val selected = categories.sumOf { it.selected }
+        val total = categories.sumOf { it.metrics.size }
+        txtSelectedTotal.text = "$selected of $total selected"
+        checkAllMetrics.isChecked = selected == total
+        syncingChecks = false
     }
 
     private fun loadSettingsIntoForm() {

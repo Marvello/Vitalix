@@ -65,6 +65,46 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Global select-all + total -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="8dp"
+            app:cardElevation="4dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingTop="8dp"
+                android:paddingEnd="16dp"
+                android:paddingBottom="8dp">
+
+                <CheckBox
+                    android:id="@+id/checkAllMetrics"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:contentDescription="Select every metric" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="All metrics"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/txtSelectedTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="13sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- Activity Category -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
@@ -79,16 +119,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategoryActivity"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerActivity"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Activity"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategoryActivity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Activity metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Activity"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countActivity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronActivity"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutActivitySubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -179,16 +252,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategoryBodyMeasurements"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerBodyMeasurements"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Body Measurements"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategoryBodyMeasurements"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Body Measurements metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Body Measurements"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countBodyMeasurements"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronBodyMeasurements"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutBodyMeasurementsSubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -243,16 +349,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategoryVitals"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerVitals"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Vitals"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategoryVitals"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Vitals metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Vitals"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countVitals"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronVitals"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutVitalsSubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -325,16 +464,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategorySleep"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerSleep"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Sleep"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategorySleep"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Sleep metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Sleep"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countSleep"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronSleep"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutSleepSubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -365,16 +537,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategoryCycleTracking"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerCycleTracking"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Cycle Tracking"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategoryCycleTracking"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Cycle Tracking metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Cycle Tracking"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countCycleTracking"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronCycleTracking"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutCycleTrackingSubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
@@ -423,16 +628,49 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <TextView
-                    android:id="@+id/checkCategoryNutrition"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:id="@+id/headerNutrition"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Nutrition"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
+                    android:background="?attr/selectableItemBackground"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:gravity="center_vertical"
+                    android:minHeight="48dp"
+                    android:orientation="horizontal">
+
+                    <CheckBox
+                        android:id="@+id/checkCategoryNutrition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:contentDescription="Select all Nutrition metrics" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Nutrition"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/countNutrition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginEnd="8dp"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/chevronNutrition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="\u25be"
+                        android:textSize="16sp" />
+                </LinearLayout>
 
                 <LinearLayout
                     android:id="@+id/layoutNutritionSubtypes"
+                    android:visibility="gone"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
