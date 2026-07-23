@@ -40,9 +40,21 @@ th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03
 td.num,th.num{text-align:right}
 .empty{color:var(--muted);padding:24px 0}
 .table-scroll{overflow-x:auto}
+#tooltip{
+  position:fixed;display:none;z-index:20;pointer-events:none;
+  background:var(--card);color:var(--ink);border:1px solid var(--line);
+  border-radius:8px;padding:8px 10px;font-size:12px;line-height:1.5;
+  box-shadow:0 6px 20px rgba(0,0,0,.18);
+  grid-template-columns:auto auto;column-gap:18px;
+}
+#tooltip b{grid-column:1/-1;margin-bottom:3px}
+#tooltip .k{color:var(--muted)}
+#tooltip .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
+.chart{touch-action:pan-y}
 </style>
 </head>
 <body>
+<div id="tooltip" role="status" aria-live="polite"></div>
 <div class="wrap">
 
   <div class="topbar">
@@ -183,6 +195,82 @@ function axes(f, max, labels) {
   });
 }
 
+/**
+ * Attaches a cursor-following tooltip to a chart. One invisible hit strip per
+ * date spans the full plot height, so a hover anywhere in the column reports
+ * that day — much easier to hit than the bar or line itself, especially over a
+ * year where a column is barely a pixel wide.
+ */
+function attachHover(f, count, slot, describe) {
+  const guide = el("rect", {
+    x: 0, y: f.padT, width: Math.max(slot, 1), height: f.plotH,
+    fill: AXIS, "fill-opacity": .12, visibility: "hidden", "pointer-events": "none",
+  });
+  f.svg.appendChild(guide);
+
+  for (let i = 0; i < count; i++) {
+    const html = describe(i);
+    const strip = el("rect", {
+      x: f.padL + slot * i, y: f.padT, width: slot, height: f.plotH, fill: "transparent",
+    });
+    if (html) {
+      strip.addEventListener("pointerenter", () => {
+        guide.setAttribute("x", f.padL + slot * i);
+        guide.setAttribute("visibility", "visible");
+        showTip(html);
+      });
+      strip.addEventListener("pointermove", moveTip);
+      strip.addEventListener("pointerleave", () => {
+        guide.setAttribute("visibility", "hidden");
+        hideTip();
+      });
+    }
+    f.svg.appendChild(strip);
+  }
+}
+
+const tip = document.getElementById("tooltip");
+
+function showTip(html) {
+  tip.innerHTML = html;
+  tip.style.display = "grid";
+}
+
+function moveTip(event) {
+  // Flip to the left of the cursor near the right edge so the tip stays on screen.
+  const pad = 14;
+  const width = tip.offsetWidth;
+  const x = event.clientX + pad + width > window.innerWidth
+    ? event.clientX - pad - width
+    : event.clientX + pad;
+  tip.style.left = `${Math.max(4, x)}px`;
+  tip.style.top = `${event.clientY + pad}px`;
+}
+
+function hideTip() { tip.style.display = "none"; }
+
+/** "Mon 20 Jul 2026" from a YYYY-MM-DD key, without touching the timezone. */
+function prettyDate(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-GB", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC",
+  });
+}
+
+function tipRow(label, value) {
+  return `<span class="k">${label}</span><span class="v">${value}</span>`;
+}
+
+function num(v, digits = 0) {
+  return v == null ? "—" : Number(v).toLocaleString("en-US", { maximumFractionDigits: digits });
+}
+
+function minutesText(v) {
+  if (v == null) return "—";
+  const m = Math.round(v);
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
+}
+
 function maxOf(values) {
   const nums = values.filter((v) => v != null && !Number.isNaN(v));
   return nums.length ? Math.max(...nums) : 1;
@@ -214,20 +302,24 @@ function barChart(id, points, trend) {
   points.forEach((p, i) => {
     if (p.value == null) return;
     const h = (p.value / max) * f.plotH;
-    const rect = el("rect", {
+    f.svg.appendChild(el("rect", {
       x: f.padL + slot * i + (slot - w) / 2, y: f.padT + f.plotH - h,
       width: w, height: Math.max(h, 1), fill: "#0FA9A0", rx: 2,
-    });
-    const title = el("title");
-    title.textContent = `${p.date}: ${Math.round(p.value).toLocaleString("en-US")}`;
-    rect.appendChild(title);
-    f.svg.appendChild(rect);
+    }));
   });
 
   if (trend) {
     const d = linePath(trend.map((p) => p.value), f, max, slot);
     if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#34D399", "stroke-width": 2 }));
   }
+
+  attachHover(f, points.length, slot, (i) => {
+    const p = points[i];
+    const t = trend ? trend[i] : null;
+    return `<b>${prettyDate(p.date)}</b>` +
+      tipRow("Steps", num(p.value)) +
+      (t && t.value != null ? tipRow("7-day avg", num(t.value)) : "");
+  });
 }
 
 function stackedChart(id, points, keys, colors) {
@@ -258,14 +350,16 @@ function stackedChart(id, points, keys, colors) {
         fill: part.color, rx: 1,
       }));
     });
-    if (totals[i] != null) {
-      const hit = el("rect", { x: f.padL + slot * i, y: f.padT, width: slot, height: f.plotH, fill: "transparent" });
-      const title = el("title");
-      const mins = Math.round(totals[i]);
-      title.textContent = `${p.date}: ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`;
-      hit.appendChild(title);
-      f.svg.appendChild(hit);
-    }
+  });
+
+  attachHover(f, points.length, slot, (i) => {
+    const p = points[i];
+    if (totals[i] == null) return `<b>${prettyDate(p.date)}</b>${tipRow("Sleep", "—")}`;
+    const stages = keys
+      .filter((k) => p[k] != null)
+      .map((k) => tipRow(k.charAt(0).toUpperCase() + k.slice(1), minutesText(p[k])))
+      .join("");
+    return `<b>${prettyDate(p.date)}</b>${tipRow("Total", minutesText(totals[i]))}${stages}`;
   });
 }
 
@@ -281,19 +375,23 @@ function bandChart(id, points) {
     if (p.min == null || p.max == null) return;
     const yMax = f.padT + f.plotH - (p.max / max) * f.plotH;
     const yMin = f.padT + f.plotH - (p.min / max) * f.plotH;
-    const rect = el("rect", {
+    f.svg.appendChild(el("rect", {
       x: f.padL + slot * i + slot * 0.15, y: yMax,
       width: Math.max(1, slot * 0.7), height: Math.max(yMin - yMax, 1),
       fill: "#0FA9A0", "fill-opacity": .25, rx: 2,
-    });
-    const title = el("title");
-    title.textContent = `${p.date}: ${Math.round(p.min)}–${Math.round(p.max)}` +
-      (p.avg == null ? "" : ` (avg ${Math.round(p.avg)})`);
-    rect.appendChild(title);
-    f.svg.appendChild(rect);
+    }));
   });
   const d = linePath(points.map((p) => p.avg), f, max, slot);
   if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
+
+  attachHover(f, points.length, slot, (i) => {
+    const p = points[i];
+    if (p.min == null && p.max == null && p.avg == null) {
+      return `<b>${prettyDate(p.date)}</b>${tipRow("No reading", "—")}`;
+    }
+    return `<b>${prettyDate(p.date)}</b>` +
+      tipRow("Min", num(p.min, 1)) + tipRow("Max", num(p.max, 1)) + tipRow("Avg", num(p.avg, 1));
+  });
 }
 
 function dualLineChart(id, a, b) {
@@ -307,6 +405,10 @@ function dualLineChart(id, a, b) {
   if (da) f.svg.appendChild(el("path", { d: da, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
   const db = linePath(b.map((p) => p.value), f, max, slot);
   if (db) f.svg.appendChild(el("path", { d: db, fill: "none", stroke: "#f59e0b", "stroke-width": 2 }));
+
+  attachHover(f, a.length, slot, (i) => `<b>${prettyDate(a[i].date)}</b>` +
+    tipRow("Distance", a[i].value == null ? "—" : `${num(a[i].value)} m`) +
+    tipRow("Active kcal", num(b[i] && b[i].value)));
 }
 
 function drawAll() {
