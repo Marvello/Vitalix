@@ -11,6 +11,9 @@ import android.widget.CheckBox
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
@@ -93,6 +96,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchFullHistory: SwitchMaterial
 
     private lateinit var btnSyncNow: MaterialButton
+    private lateinit var barSyncNow: View
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
@@ -150,12 +154,39 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(findViewById(R.id.toolbar))
 
         bindViews()
+        applyNavigationBarInset()
         loadSettingsIntoForm()
         wireSelectionUi()
         observeBackfill()
         uiReady = true
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
+    }
+
+    /**
+     * Keeps the docked button clear of the navigation bar. Gesture and floating
+     * navigation bars overlay the window, so a bottom-anchored view sits under
+     * them unless it pads itself by the reported inset.
+     */
+    private fun applyNavigationBarInset() {
+        val basePadding = barSyncNow.paddingBottom
+        ViewCompat.setOnApplyWindowInsetsListener(barSyncNow) { view, insets ->
+            val bottom = insets.getInsets(
+                WindowInsetsCompat.Type.navigationBars() or WindowInsetsCompat.Type.systemGestures()
+            ).bottom
+            view.updatePadding(bottom = basePadding + bottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(barSyncNow)
+
+        // Reserve exactly the docked bar's height at the end of the form, measured
+        // rather than guessed — it grows with the navigation inset above.
+        val scroll = findViewById<View>(R.id.scrollContent)
+        barSyncNow.addOnLayoutChangeListener { _, _, top, _, bottom, _, oldTop, _, oldBottom ->
+            if (bottom - top != oldBottom - oldTop) {
+                scroll.updatePadding(bottom = bottom - top)
+            }
+        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -239,6 +270,7 @@ class MainActivity : AppCompatActivity() {
         switchFullHistory = findViewById(R.id.switchFullHistory)
 
         btnSyncNow = findViewById(R.id.btnSyncNow)
+        barSyncNow = findViewById(R.id.barSyncNow)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
 

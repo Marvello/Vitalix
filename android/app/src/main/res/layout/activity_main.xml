@@ -18,6 +18,7 @@
     </com.google.android.material.appbar.AppBarLayout>
 
     <ScrollView
+        android:id="@+id/scrollContent"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
@@ -762,8 +763,7 @@
             android:layout_marginBottom="16dp"
             android:text="Last sync: Never"
             android:textAlignment="center"
-            android:textSize="12sp"
-            android:paddingBottom="72dp" />
+            android:textSize="12sp" />
 
 
 
@@ -773,6 +773,7 @@
 
     <!-- Docked action bar: stays put while the form scrolls beneath it. -->
     <LinearLayout
+        android:id="@+id/barSyncNow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
