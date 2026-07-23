@@ -4,3 +4,5 @@ node_modules/
 .gradle/
 **/build/
 .superpowers/
+.idea/
+.DS_Store
