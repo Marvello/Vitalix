@@ -19,7 +19,7 @@ import androidx.work.WorkManager
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
 import com.android.vitalix.models.ExportConfig
-import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
@@ -92,7 +92,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchSaferExport: SwitchMaterial
     private lateinit var switchFullHistory: SwitchMaterial
 
-    private lateinit var fabSync: ExtendedFloatingActionButton
+    private lateinit var btnSyncNow: MaterialButton
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         observeBackfill()
         uiReady = true
 
-        fabSync.setOnClickListener { onSyncClicked() }
+        btnSyncNow.setOnClickListener { onSyncClicked() }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
@@ -238,7 +238,7 @@ class MainActivity : AppCompatActivity() {
         switchSaferExport = findViewById(R.id.switchSaferExport)
         switchFullHistory = findViewById(R.id.switchFullHistory)
 
-        fabSync = findViewById(R.id.fabSync)
+        btnSyncNow = findViewById(R.id.btnSyncNow)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
 
@@ -635,8 +635,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setSyncing(syncing: Boolean) {
-        fabSync.isEnabled = !syncing
-        fabSync.text = if (syncing) "Syncing…" else "Sync now"
+        btnSyncNow.isEnabled = !syncing
+        btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
 
     }
