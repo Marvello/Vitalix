@@ -64,6 +64,20 @@
             </intent-filter>
         </activity>
 
+        <!-- Android 14+ (Health Connect in the platform) reaches the rationale
+             through VIEW_PERMISSION_USAGE rather than the pre-14 action above. -->
+        <activity-alias
+            android:name="ViewPermissionUsageActivity"
+            android:exported="true"
+            android:permission="android.permission.START_VIEW_PERMISSION_USAGE"
+            android:targetActivity=".MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW_PERMISSION_USAGE" />
+
+                <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
+            </intent-filter>
+        </activity-alias>
+
         <activity
             android:name=".LoginActivity"
             android:exported="false"

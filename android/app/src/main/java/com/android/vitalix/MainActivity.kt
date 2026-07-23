@@ -104,10 +104,12 @@ class MainActivity : AppCompatActivity() {
     private val requestPermissions = registerForActivityResult(
         PermissionController.createRequestPermissionResultContract()
     ) { granted ->
-        if (granted.containsAll(healthConnectManager.permissions)) {
+        // Partial grants are normal: Health Connect is per-record-type, and users
+        // rarely share every category. Sync whatever was allowed.
+        if (granted.any { it in healthConnectManager.permissions }) {
             runSync()
         } else {
-            showStatus("Failed: Health Connect permissions denied")
+            showStatus("Failed: no Health Connect data shared. Grant access in Health Connect › App permissions › Vitalix.")
         }
     }
 
@@ -331,10 +333,16 @@ class MainActivity : AppCompatActivity() {
                 showStatus("Failed: Health Connect unavailable (${e.message})")
                 return@launch
             }
-            if (granted.containsAll(healthConnectManager.permissions)) {
-                runSync()
-            } else {
-                requestPermissions.launch(healthConnectManager.permissions)
+            val held = granted.intersect(healthConnectManager.permissions)
+            when {
+                // Everything we can ask for is already granted.
+                held.size == healthConnectManager.permissions.size -> runSync()
+                // Nothing yet — first run, so show the Health Connect prompt.
+                held.isEmpty() -> requestPermissions.launch(healthConnectManager.permissions)
+                // Partially granted. Health Connect will not re-prompt for types the
+                // user already declined, so asking again would hang on a dialog that
+                // never appears. Sync what we're allowed to read.
+                else -> runSync()
             }
         }
     }
