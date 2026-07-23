@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   bandSeries, dateRange, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
+  visibleMetrics, visibleTiles,
 } from "../src/chartData.js";
 
 test("toKey accepts Dates and strings, and keeps the local calendar day", () => {
@@ -89,7 +90,8 @@ test("summaryTiles renders nulls as null, not NaN or zero", () => {
   assert.equal(byLabel["Total steps"], 1234);
   assert.equal(byLabel["Avg steps / day"], null);
   assert.equal(byLabel["Avg sleep"], null);
-  assert.equal(byLabel["Workouts"], 0);
+  // A zero total now reads as "never recorded", so the tile is dropped upstream.
+  assert.equal(byLabel["Workouts"], null);
 });
 
 test("summaryTiles converts distance to km and sleep to h/m", () => {
@@ -104,4 +106,44 @@ test("metricLabel humanises camelCase and known metrics", () => {
   assert.equal(metricLabel("spo2"), "Blood oxygen");
   assert.equal(metricLabel("totalCalories"), "Total calories");
   assert.equal(metricLabel("sleepStage"), "Sleep stage");
+});
+
+test("visibleMetrics keeps only metrics with at least one recorded day", () => {
+  const catalog = [{ column: "steps" }, { column: "weight" }, { column: "floors_climbed" }];
+  const kept = visibleMetrics(catalog, { steps: 821, weight: 35, floors_climbed: 0 });
+  assert.deepEqual(kept.map((m) => m.column), ["steps", "weight"]);
+});
+
+test("visibleMetrics tolerates a metric missing from coverage entirely", () => {
+  assert.deepEqual(visibleMetrics([{ column: "steps" }], {}), []);
+  assert.deepEqual(visibleMetrics([{ column: "steps" }], undefined), []);
+});
+
+test("visibleTiles drops tiles with no value but keeps real zeros", () => {
+  const tiles = [
+    { label: "Days", value: 3 },
+    { label: "Avg sleep", value: null },
+    { label: "Steps", value: 0 },
+  ];
+  assert.deepEqual(visibleTiles(tiles).map((t) => t.label), ["Days", "Steps"]);
+});
+
+test("summaryTiles omits a calorie variant the device never records", () => {
+  const tiles = summaryTiles({
+    days: 30, total_active_calories: 0, total_total_calories: 4200, workouts: 12,
+  });
+  const byLabel = Object.fromEntries(tiles.map((t) => [t.label, t.value]));
+  assert.equal(byLabel["Active calories"], null);
+  assert.equal(byLabel["Total calories"], 4200);
+  assert.equal(byLabel["Workouts"], 12);
+});
+
+test("summaryTiles treats a zero total as not recorded", () => {
+  const byLabel = Object.fromEntries(
+    summaryTiles({ days: 5, total_distance: 0, workouts: 0 }).map((t) => [t.label, t.value])
+  );
+  assert.equal(byLabel["Distance"], null);
+  assert.equal(byLabel["Workouts"], null);
+  // Days recorded is a count of rows, not a sum, so zero stays meaningful.
+  assert.equal(byLabel["Days recorded"], 5);
 });

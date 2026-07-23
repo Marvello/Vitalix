@@ -29,6 +29,7 @@ a{color:var(--teal)}
 .tile .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
 .tile .value{font-size:24px;font-weight:650;margin-top:6px;letter-spacing:-0.02em}
 .tile .unit{font-size:13px;color:var(--muted);font-weight:500;margin-left:3px}
+h2 .unit{color:var(--muted);font-weight:500}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
 .chart{width:100%;overflow-x:auto}
 svg{display:block;max-width:100%}
@@ -84,25 +85,30 @@ td.num,th.num{text-align:right}
     <% }); %>
   </div>
 
-  <div class="card">
-    <h2>Steps</h2>
-    <div class="chart" id="chart-steps"></div>
-    <div class="legend">
-      <span><i style="background:#0FA9A0"></i>Daily steps</span>
-      <span><i style="background:#34D399"></i>7-day average</span>
+  <% charts.series.forEach(function(sr, i) { %>
+    <div class="card">
+      <h2><%= sr.label %><% if (sr.unit) { %> <span class="unit">(<%= sr.unit %>)</span><% } %></h2>
+      <div class="chart" id="chart-series-<%= i %>"></div>
+      <div class="legend">
+        <span><i style="background:#0FA9A0"></i><%= sr.label %></span>
+        <% if (sr.trend) { %><span><i style="background:#34D399"></i>7-day average</span><% } %>
+        <span><%= sr.days %> days with data</span>
+      </div>
     </div>
-  </div>
+  <% }); %>
 
-  <div class="card">
-    <h2>Sleep</h2>
-    <div class="chart" id="chart-sleep"></div>
-    <div class="legend">
-      <span><i style="background:#1e3a8a"></i>Deep</span>
-      <span><i style="background:#3b82f6"></i>Light</span>
-      <span><i style="background:#a78bfa"></i>REM</span>
-      <span><i style="background:#cbd5e1"></i>Awake</span>
+  <% if (charts.sleep.length) { %>
+    <div class="card">
+      <h2>Sleep</h2>
+      <div class="chart" id="chart-sleep"></div>
+      <div class="legend">
+        <span><i style="background:#1e3a8a"></i>Deep</span>
+        <span><i style="background:#3b82f6"></i>Light</span>
+        <span><i style="background:#a78bfa"></i>REM</span>
+        <span><i style="background:#cbd5e1"></i>Awake</span>
+      </div>
     </div>
-  </div>
+  <% } %>
 
   <% charts.bands.forEach(function(band, i) { %>
     <div class="card">
@@ -115,14 +121,25 @@ td.num,th.num{text-align:right}
     </div>
   <% }); %>
 
-  <div class="card">
-    <h2>Distance &amp; active calories</h2>
-    <div class="chart" id="chart-distance"></div>
-    <div class="legend">
-      <span><i style="background:#0FA9A0"></i>Distance (m)</span>
-      <span><i style="background:#f59e0b"></i>Active calories</span>
+  <% if (workouts.length) { %>
+    <div class="card">
+      <h2>Workouts</h2>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Activity</th><th class="num">Sessions</th><th class="num">Total time</th></tr></thead>
+          <tbody>
+          <% workouts.forEach(function(w) { %>
+            <tr>
+              <td><%= w.name %></td>
+              <td class="num"><%= w.sessions %></td>
+              <td class="num"><%= Math.floor(w.minutes / 60) %>h <%= String(w.minutes % 60).padStart(2, "0") %>m</td>
+            </tr>
+          <% }); %>
+          </tbody>
+        </table>
+      </div>
     </div>
-  </div>
+  <% } %>
 
   <div class="card">
     <h2>Recent days</h2>
@@ -290,7 +307,7 @@ function linePath(values, f, max, slot) {
   return d || null;
 }
 
-function barChart(id, points, trend) {
+function barChart(id, points, trend, unit) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
@@ -317,7 +334,7 @@ function barChart(id, points, trend) {
     const p = points[i];
     const t = trend ? trend[i] : null;
     return `<b>${prettyDate(p.date)}</b>` +
-      tipRow("Steps", num(p.value)) +
+      tipRow(unit ? `Value (${unit})` : "Value", num(p.value)) +
       (t && t.value != null ? tipRow("7-day avg", num(t.value)) : "");
   });
 }
@@ -394,6 +411,32 @@ function bandChart(id, points) {
   });
 }
 
+function lineChart(id, points, unit, digits) {
+  const host = document.getElementById(id);
+  if (!host || !points.length) return;
+  const f = frame(host);
+  const values = points.map((p) => p.value);
+  const max = maxOf(values) * 1.1 || 1;
+  axes(f, max, points.map((p) => p.date));
+  const slot = f.plotW / points.length;
+
+  const d = linePath(values, f, max, slot);
+  if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
+  // Dots make isolated readings visible — a weight logged once a month has no
+  // neighbours to draw a line to.
+  points.forEach((p, i) => {
+    if (p.value == null) return;
+    f.svg.appendChild(el("circle", {
+      cx: f.padL + slot * i + slot / 2,
+      cy: f.padT + f.plotH - (p.value / max) * f.plotH,
+      r: Math.min(3, Math.max(1.5, slot / 3)), fill: "#0FA9A0",
+    }));
+  });
+
+  attachHover(f, points.length, slot, (i) => `<b>${prettyDate(points[i].date)}</b>` +
+    tipRow(unit ? `Value (${unit})` : "Value", num(points[i].value, digits)));
+}
+
 function dualLineChart(id, a, b) {
   const host = document.getElementById(id);
   if (!host || !a.length) return;
@@ -412,11 +455,16 @@ function dualLineChart(id, a, b) {
 }
 
 function drawAll() {
-  barChart("chart-steps", DATA.steps, DATA.stepsTrend);
+  DATA.series.forEach((sr, i) => {
+    const id = `chart-series-${i}`;
+    // Values below ~10 (body fat, VO2 max, height) need decimals to move at all.
+    const digits = maxOf(sr.points.map((p) => p.value)) < 10 ? 2 : 0;
+    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit);
+    else lineChart(id, sr.points, sr.unit, digits);
+  });
   stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
     ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
   DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points));
-  dualLineChart("chart-distance", DATA.distance, DATA.activeCalories);
 }
 
 drawAll();

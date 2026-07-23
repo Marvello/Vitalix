@@ -85,9 +85,28 @@ export function sleepStages(rows, from, to) {
   });
 }
 
+/**
+ * Picks the day metrics worth drawing: those with at least one value in the
+ * range. Rendering the full catalogue would fill the page with flat empty
+ * charts for everything a given device never records.
+ */
+export function visibleMetrics(catalog, coverage) {
+  return catalog.filter((m) => (coverage?.[m.column] ?? 0) > 0);
+}
+
+/**
+ * Summary tiles, dropping any whose value is missing. An absent metric reads
+ * better as no tile than as a tile showing "—" or a hollow 0.
+ */
+export function visibleTiles(tiles) {
+  return tiles.filter((t) => t.value !== null && t.value !== undefined);
+}
+
 /** Human-facing summary tiles. Nulls become "—" rather than 0 or NaN. */
 export function summaryTiles(summary) {
   const num = (v) => (v == null ? null : Number(v));
+  // A summed metric that totals zero across the range was never recorded.
+  const zeroToNull = (v) => (v ? v : null);
   const round = (v, d = 0) => (v == null ? null : Math.round(v * 10 ** d) / 10 ** d);
   const hours = (minutes) => {
     if (minutes == null) return null;
@@ -99,11 +118,22 @@ export function summaryTiles(summary) {
     { label: "Days recorded", value: num(summary.days) ?? 0 },
     { label: "Total steps", value: round(num(summary.total_steps)) },
     { label: "Avg steps / day", value: round(num(summary.avg_steps)) },
-    { label: "Distance", value: round(num(summary.total_distance) / 1000, 2), unit: "km" },
-    { label: "Active calories", value: round(num(summary.total_active_calories)), unit: "kcal" },
+    { label: "Distance", value: zeroToNull(round(num(summary.total_distance) / 1000, 2)), unit: "km" },
+    // Devices record one or the other; showing an empty tile for the variant
+    // this user's phone never writes is just noise.
+    {
+      label: "Active calories",
+      value: zeroToNull(round(num(summary.total_active_calories))),
+      unit: "kcal",
+    },
+    {
+      label: "Total calories",
+      value: zeroToNull(round(num(summary.total_total_calories))),
+      unit: "kcal",
+    },
     { label: "Avg sleep", value: hours(num(summary.avg_sleep_minutes)) },
     { label: "Avg resting HR", value: round(num(summary.avg_resting_hr)), unit: "bpm" },
-    { label: "Workouts", value: num(summary.workouts) ?? 0 },
+    { label: "Workouts", value: zeroToNull(num(summary.workouts)) },
   ];
 }
 

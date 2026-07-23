@@ -8,6 +8,7 @@ import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
+  visibleMetrics, visibleTiles,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
@@ -72,7 +73,10 @@ pagesRouter.post("/logout", async (req, res) => {
   res.redirect("/login");
 });
 
+
 const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
+
+const EMPTY_CHARTS = { series: [], sleep: [], bands: [] };
 
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   try {
@@ -82,23 +86,39 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const fromKey = toKey(from);
     const toKeyStr = toKey(to);
 
-    const [rows, aggs, totals, metrics, recent, user] = await Promise.all([
+    const [rows, aggs, totals, metrics, cover, workouts, recent, user] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
       stats.aggregateRows(req.user.id, fromKey, toKeyStr),
       stats.summary(req.user.id, fromKey, toKeyStr),
       stats.availableMetrics(req.user.id, fromKey, toKeyStr),
+      stats.coverage(req.user.id, fromKey, toKeyStr),
+      stats.exerciseBreakdown(req.user.id, fromKey, toKeyStr),
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
     ]);
 
-    const steps = fillDays(rows, fromKey, toKeyStr, "steps");
+    // Only chart what this user actually records — the catalogue covers every
+    // metric the app can send, which is far more than any one device writes.
+    const series = visibleMetrics(stats.DAY_METRICS, cover).map((m) => {
+      const points = fillDays(rows, fromKey, toKeyStr, m.column);
+      return {
+        key: m.column,
+        label: m.label,
+        unit: m.unit ?? null,
+        chart: m.chart,
+        days: cover[m.column],
+        points,
+        trend: m.trend ? rollingAverage(points, 7) : null,
+      };
+    });
+
     const charts = {
-      steps,
-      stepsTrend: rollingAverage(steps, 7),
-      distance: fillDays(rows, fromKey, toKeyStr, "distance"),
-      activeCalories: fillDays(rows, fromKey, toKeyStr, "active_calories"),
-      restingHr: fillDays(rows, fromKey, toKeyStr, "resting_heart_rate"),
-      sleep: sleepStages(rows, fromKey, toKeyStr),
+      series,
+      // Sleep isn't in the coverage catalogue (it's a stacked chart of its own
+      // columns), so check the rows directly.
+      sleep: rows.some((r) => r.sleep_duration_minutes != null)
+        ? sleepStages(rows, fromKey, toKeyStr)
+        : [],
       bands: stats.BAND_METRICS.filter((m) => metrics.includes(m)).map((metric) => ({
         metric,
         label: metricLabel(metric),
@@ -110,9 +130,10 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       email: user?.email,
       range: days,
       ranges: RANGES,
-      tiles: summaryTiles(totals),
+      tiles: visibleTiles(summaryTiles(totals)),
       totals,
       charts,
+      workouts,
       recent,
       toKey,
     });
@@ -120,8 +141,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     console.error("GET /dashboard failed", err);
     res.status(500).render("dashboard", {
       email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
-      charts: { steps: [], stepsTrend: [], distance: [], activeCalories: [], restingHr: [], sleep: [], bands: [] },
-      recent: [], toKey,
+      charts: EMPTY_CHARTS, workouts: [], recent: [], toKey,
     });
   }
 });

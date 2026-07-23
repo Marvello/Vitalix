@@ -4,14 +4,65 @@ import { query } from "./db.js";
 export const BAND_METRICS = ["heartRate", "spo2", "hrv", "respiratoryRate"];
 
 /**
+ * Every day-level column the dashboard knows how to draw, with how to draw it.
+ * The dashboard renders the ones that actually hold data for the range, so a
+ * user who has weight but no floors sees weight and no empty floors chart.
+ */
+export const DAY_METRICS = [
+  { column: "steps", label: "Steps", chart: "bar", trend: true },
+  { column: "distance", label: "Distance", unit: "m", chart: "line" },
+  { column: "total_calories", label: "Total calories", unit: "kcal", chart: "line" },
+  { column: "active_calories", label: "Active calories", unit: "kcal", chart: "line" },
+  { column: "floors_climbed", label: "Floors climbed", chart: "bar" },
+  { column: "elevation_gained", label: "Elevation gained", unit: "m", chart: "line" },
+  { column: "wheelchair_pushes", label: "Wheelchair pushes", chart: "bar" },
+  { column: "resting_heart_rate", label: "Resting heart rate", unit: "bpm", chart: "line" },
+  { column: "vo2_max", label: "VO2 max", unit: "mL/kg/min", chart: "line" },
+  { column: "weight", label: "Weight", unit: "kg", chart: "line" },
+  { column: "body_fat", label: "Body fat", unit: "%", chart: "line" },
+  { column: "lean_body_mass", label: "Lean body mass", unit: "kg", chart: "line" },
+  { column: "bone_mass", label: "Bone mass", unit: "kg", chart: "line" },
+  { column: "height", label: "Height", unit: "m", chart: "line" },
+  { column: "body_temperature", label: "Body temperature", unit: "\u00b0C", chart: "line" },
+  { column: "hydration_ml", label: "Hydration", unit: "mL", chart: "bar" },
+  { column: "energy_kcal", label: "Nutrition energy", unit: "kcal", chart: "bar" },
+];
+
+/** How many days in the range carry a value for each of [DAY_METRICS]. */
+export async function coverage(userId, from, to) {
+  const counts = DAY_METRICS.map((m) => `count(${m.column}) AS ${m.column}`).join(", ");
+  const { rows } = await query(
+    `SELECT ${counts} FROM health_days WHERE user_id = $1 AND day BETWEEN $2 AND $3`,
+    [userId, from, to]
+  );
+  const row = rows[0] ?? {};
+  return Object.fromEntries(DAY_METRICS.map((m) => [m.column, Number(row[m.column] ?? 0)]));
+}
+
+/** Workout sessions grouped by kind, most frequent first. */
+export async function exerciseBreakdown(userId, from, to) {
+  const { rows } = await query(
+    `SELECT e.name, count(*)::int AS sessions,
+            coalesce(sum(e.duration_minutes), 0)::int AS minutes
+       FROM exercises e
+       JOIN health_days hd ON hd.id = e.day_id
+      WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3
+      GROUP BY e.name
+      ORDER BY sessions DESC, minutes DESC`,
+    [userId, from, to]
+  );
+  return rows;
+}
+
+/**
  * Per-day rows for the charted columns, oldest first (chart order). Days with no
  * row at all are absent — {@link fillDays} decides how gaps are drawn.
  */
 export async function dailyRows(userId, from, to) {
+  const columns = DAY_METRICS.map((m) => m.column).join(", ");
   const { rows } = await query(
-    `SELECT day, steps, distance, active_calories, total_calories,
-            sleep_duration_minutes, sleep_deep, sleep_light, sleep_rem, sleep_awake,
-            resting_heart_rate, weight, hydration_ml, energy_kcal, floors_climbed
+    `SELECT day, ${columns},
+            sleep_duration_minutes, sleep_deep, sleep_light, sleep_rem, sleep_awake
        FROM health_days
       WHERE user_id = $1 AND day BETWEEN $2 AND $3
       ORDER BY day`,
@@ -41,6 +92,7 @@ export async function summary(userId, from, to) {
             avg(steps)                          AS avg_steps,
             coalesce(sum(distance), 0)          AS total_distance,
             coalesce(sum(active_calories), 0)   AS total_active_calories,
+            coalesce(sum(total_calories), 0)    AS total_total_calories,
             avg(sleep_duration_minutes)         AS avg_sleep_minutes,
             avg(resting_heart_rate)             AS avg_resting_hr,
             max(day)                            AS last_day
