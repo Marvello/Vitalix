@@ -9,10 +9,13 @@ import android.widget.CheckBox
 import android.widget.RadioButton
 import android.widget.RadioGroup
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
 import com.android.vitalix.models.ExportConfig
@@ -138,6 +141,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val requestNotifications =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
     /** True once the sync UI is inflated + bound. Guards lifecycle hooks (onPause) that
      *  touch views, since the login gate can finish() this Activity before bindViews() runs. */
     private var uiReady = false
@@ -154,6 +160,7 @@ class MainActivity : AppCompatActivity() {
         bindViews()
         loadSettingsIntoForm()
         wireSelectionUi()
+        observeBackfill()
         uiReady = true
 
         switchAutoSync.setOnCheckedChangeListener { _, enabled ->
@@ -537,7 +544,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
         if (switchFullHistory.isChecked) {
-            runFullHistorySync(url)
+            runFullHistorySync()
             return
         }
 
@@ -584,87 +591,49 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * One-time backfill of everything Health Connect still holds. Walks backwards
-     * from today in [BACKFILL_WINDOW_DAYS] slices, uploading each slice on its own
-     * so no single request has to carry years of samples, and stops once
-     * [BACKFILL_EMPTY_LIMIT] consecutive slices come back empty (or the
-     * [BACKFILL_MAX_DAYS] floor is hit). Switches itself off when it completes.
+     * Hands the one-time backfill to [BackfillWorker]. It runs as foreground work
+     * rather than in this Activity's scope so it survives the screen sleeping, the
+     * app being backgrounded, and the Activity being destroyed — a full history can
+     * take far longer than a screen timeout.
      */
-    private fun runFullHistorySync(url: String) {
+    private fun runFullHistorySync() {
+        // Android 13+ needs this for the ongoing notification the foreground
+        // worker posts. The backfill runs either way, so the result is ignored.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotifications.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         setSyncing(true)
         showStatus("Full history: starting…")
+        BackfillWorker.start(this)
+    }
 
-        lifecycleScope.launch {
-            val cfg = settings.readConfig()
-            // One read per metric per slice: the slice already bounds the window,
-            // so leave the pacing to the gap between slices below.
-            healthConnectManager.setSaferExportMode(
-                cfg.saferExportMode,
-                chunkDays = BACKFILL_WINDOW_DAYS,
-                delayMs = 0L,
-            )
-
-            var end = Instant.now()
-            val floor = end.minus(BACKFILL_MAX_DAYS, ChronoUnit.DAYS)
-            var emptyRun = 0
-            var slices = 0
-            var daysSent = 0
-
-            try {
-                while (end.isAfter(floor) && emptyRun < BACKFILL_EMPTY_LIMIT) {
-                    val start = maxOf(end.minus(BACKFILL_WINDOW_DAYS, ChronoUnit.DAYS), floor)
-                    slices++
-                    val from = dayLabel.format(Date(start.toEpochMilli()))
-                    showStatus("Full history: reading $from ($daysSent days sent)…")
-
-                    val days = withContext(Dispatchers.IO) {
-                        healthConnectManager.readHealthDataByDay(cfg, start, end)
+    /** Mirrors the backfill worker's progress into the status line and button. */
+    private fun observeBackfill() {
+        WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWorkLiveData(BackfillWorker.NAME)
+            .observe(this) { infos ->
+                val info = infos?.lastOrNull() ?: return@observe
+                when (info.state) {
+                    WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
+                        setSyncing(true)
+                        BackfillWorker.statusOf(info.progress)?.let { showStatus("Full history: $it") }
                     }
-                    if (days.isEmpty()) {
-                        emptyRun++
-                    } else {
-                        emptyRun = 0
-                        val json = ServerForwarder.buildPayload(
-                            days,
-                            PayloadMeta(appVersion, Build.MODEL, BACKFILL_WINDOW_DAYS.toInt())
+                    WorkInfo.State.SUCCEEDED -> {
+                        switchFullHistory.isChecked = false // one-time
+                        updateLastSyncLabel()
+                        BackfillWorker.statusOf(info.outputData)?.let { showStatus(it) }
+                        setSyncing(false)
+                    }
+                    WorkInfo.State.FAILED, WorkInfo.State.CANCELLED -> {
+                        // Leave the switch on: re-running resumes the backfill.
+                        showStatus(
+                            BackfillWorker.statusOf(info.outputData) ?: "Full history stopped"
                         )
-                        val result = withContext(Dispatchers.IO) {
-                            ServerForwarder.forward(this@MainActivity, url, json)
-                        }
-                        if (result.isFailure) {
-                            val err = result.exceptionOrNull()
-                            if (err is ServerForwarder.HttpException && err.code == 401) {
-                                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                                finish()
-                                return@launch
-                            }
-                            val detail = when (err) {
-                                is ServerForwarder.HttpException -> "HTTP ${err.code}"
-                                else -> err?.message ?: "unknown error"
-                            }
-                            // Keep what already landed; the switch stays on so a
-                            // retry resumes the backfill rather than losing it.
-                            showStatus("Full history stopped after $daysSent days: $detail")
-                            return@launch
-                        }
-                        daysSent += days.size
+                        setSyncing(false)
                     }
-                    end = start
-                    // Pace between slices only, so safer mode still throttles the
-                    // backfill without multiplying the wait by the metric count.
-                    if (cfg.saferExportMode) delay(BACKFILL_SLICE_PAUSE_MS)
+                    else -> setSyncing(false)
                 }
-
-                settings.lastSync = System.currentTimeMillis()
-                updateLastSyncLabel()
-                switchFullHistory.isChecked = false // one-time
-                showStatus("Full history sent ($daysSent days over $slices slices)")
-            } catch (e: Exception) {
-                showStatus("Full history failed after $daysSent days: ${e.message}")
-            } finally {
-                setSyncing(false)
             }
-        }
     }
 
     private fun currentEnvironment(): SyncSettings.Environment =
@@ -690,17 +659,6 @@ class MainActivity : AppCompatActivity() {
         radioDevelopment.isEnabled = !syncing
         radioProduction.isEnabled = !syncing
         editServerUrl.isEnabled = !syncing
-    }
-
-    private companion object {
-        /** Slice size for the full-history backfill: one upload per window. */
-        const val BACKFILL_WINDOW_DAYS = 30L
-        /** Stop after this many consecutive empty slices — HC has run dry. */
-        const val BACKFILL_EMPTY_LIMIT = 6
-        /** Hard floor, so a device with odd timestamps can't loop forever. */
-        const val BACKFILL_MAX_DAYS = 3650L
-        /** Breather between slices when safer-export mode is on. */
-        const val BACKFILL_SLICE_PAUSE_MS = 1000L
     }
 
     private fun showStatus(message: String) {

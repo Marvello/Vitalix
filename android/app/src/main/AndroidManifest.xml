@@ -39,6 +39,12 @@
 
     <uses-permission android:name="android.permission.INTERNET"/>
 
+    <!-- The full-history backfill runs as foreground work so it survives the
+         screen sleeping and the app being backgrounded. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
     <queries>
         <package android:name="com.google.android.apps.healthdata" />
     </queries>
@@ -80,6 +86,13 @@
                 <category android:name="android.intent.category.HEALTH_PERMISSIONS" />
             </intent-filter>
         </activity-alias>
+
+        <!-- WorkManager 2.9.1 declares this service without a type, which Android 14
+             rejects when a worker goes foreground. Supply the type it needs. -->
+        <service
+            android:name="androidx.work.impl.foreground.SystemForegroundService"
+            android:foregroundServiceType="dataSync"
+            tools:node="merge" />
 
         <activity
             android:name=".LoginActivity"
