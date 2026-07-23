@@ -464,16 +464,20 @@ class MainActivity : AppCompatActivity() {
                 showStatus("Failed: Health Connect unavailable (${e.message})")
                 return@launch
             }
-            val held = granted.intersect(healthConnectManager.permissions)
+            val wanted = healthConnectManager.permissions
+            val held = granted.intersect(wanted)
+            // Missing *and* never prompted for — a first run, or a permission the
+            // app started asking for after the user last granted. Health Connect
+            // won't re-prompt for one they declined, so anything already asked is
+            // treated as settled and never re-requested.
+            val neverAsked = wanted - granted - settings.requestedPermissions
             when {
-                // Everything we can ask for is already granted.
-                held.size == healthConnectManager.permissions.size -> runSync()
-                // Nothing yet — first run, so show the Health Connect prompt.
-                held.isEmpty() -> requestHealthPermissions()
-                // Partially granted. Health Connect will not re-prompt for types the
-                // user already declined, so asking again would hang on a dialog that
-                // never appears. Sync what we're allowed to read.
-                else -> runSync()
+                held.size == wanted.size -> runSync()
+                neverAsked.isNotEmpty() -> requestHealthPermissions()
+                held.isNotEmpty() -> runSync() // partial grant is fine; read what we can
+                else -> showStatus(
+                    "Failed: no Health Connect data shared. Grant access in Health Connect › App permissions › Vitalix."
+                )
             }
         }
     }
@@ -485,6 +489,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun requestHealthPermissions() {
         val all = healthConnectManager.permissions
+        settings.requestedPermissions = all
         try {
             requestPermissions.launch(all)
         } catch (_: Exception) {

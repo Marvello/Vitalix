@@ -31,6 +31,16 @@ class SyncSettings(context: Context) {
         get() = plain.getInt("sync_interval_hours", 12)
         set(v) { plain.edit().putInt("sync_interval_hours", v).apply() }
 
+    /**
+     * Health Connect permissions we have already shown a prompt for. Health
+     * Connect won't re-prompt for a declined permission, so this is what tells a
+     * *newly added* permission (never asked) apart from a declined one — without
+     * it, an app that already holds some permissions can never ask for a new one.
+     */
+    var requestedPermissions: Set<String>
+        get() = plain.getStringSet("requested_permissions", emptySet()) ?: emptySet()
+        set(v) { plain.edit().putStringSet("requested_permissions", v).apply() }
+
     fun writeConfig(cfg: ExportConfig) {
         val e = plain.edit()
         for ((k, v) in configToMap(cfg)) when (v) { is Boolean -> e.putBoolean(k, v); is Int -> e.putInt(k, v) }
