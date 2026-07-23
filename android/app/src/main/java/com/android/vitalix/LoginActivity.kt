@@ -41,11 +41,37 @@ class LoginActivity : AppCompatActivity() {
 
         btnLogin.setOnClickListener { onLoginClicked() }
         findViewById<TextView>(R.id.linkSignup).setOnClickListener {
+            persistUrl()
             startActivity(Intent(this, SignupActivity::class.java))
         }
         findViewById<TextView>(R.id.linkForgot).setOnClickListener {
+            persistUrl()
             startActivity(Intent(this, ForgotActivity::class.java))
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Reflect a URL saved elsewhere (e.g. typed here, then edited on signup).
+        val stored = settings.serverUrl
+        if (!stored.isNullOrBlank() && editServerUrl.text?.toString()?.trim().isNullOrBlank()) {
+            editServerUrl.setText(stored)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        persistUrl()
+    }
+
+    /**
+     * The signup and forgot screens have no URL field of their own — they read
+     * [SyncSettings]. Persist whatever is typed here before leaving, so those
+     * screens don't see a null URL.
+     */
+    private fun persistUrl() {
+        val url = editServerUrl.text?.toString()?.trim().orEmpty()
+        if (url.isNotBlank()) settings.serverUrl = url
     }
 
     private fun onLoginClicked() {
