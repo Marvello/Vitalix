@@ -10,11 +10,14 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.PermissionController
 import androidx.lifecycle.lifecycleScope
+import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
 import com.android.vitalix.models.ExportConfig
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -139,6 +142,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onLogoutClicked() {
+        // Revoke server-side so the refresh token can't outlive the session, but
+        // never block logout on it: the local session is cleared either way.
+        val url = settings.serverUrl
+        val refresh = authStore.refreshToken
+        if (!url.isNullOrBlank() && !refresh.isNullOrBlank()) {
+            val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+            scope.launch { runCatching { AuthClient(url).logout(refresh) } }
+        }
         authStore.clear()
         startActivity(Intent(this, LoginActivity::class.java))
         finish()

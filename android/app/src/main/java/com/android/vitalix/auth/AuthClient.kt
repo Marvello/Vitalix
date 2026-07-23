@@ -34,6 +34,8 @@ class AuthClient(private val baseUrl: String) {
         post("/api/auth/signup", JSONObject().put("token", inviteCode).put("email", email).put("password", password)).map { parseTokens(it) }
     suspend fun forgot(email: String): Result<Unit> =
         post("/api/auth/forgot", JSONObject().put("email", email)).map { }
+    suspend fun logout(refreshToken: String): Result<Unit> =
+        post("/api/auth/logout", JSONObject().put("refresh", refreshToken)).map { }
     suspend fun refresh(refreshToken: String): Result<Tokens> =
         post("/api/auth/refresh", JSONObject().put("refresh", refreshToken)).map { parseTokens(it) }
 
