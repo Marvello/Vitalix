@@ -164,11 +164,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Keeps the docked button clear of the navigation bar. Gesture and floating
-     * navigation bars overlay the window, so a bottom-anchored view sits under
-     * them unless it pads itself by the reported inset.
+     * Keeps the toolbar clear of the status bar and the docked button clear of the
+     * navigation bar. Both overlay the window rather than shrinking it, so an
+     * edge-anchored view sits underneath unless it pads itself by the inset.
      */
     private fun applyNavigationBarInset() {
+        val appBar = findViewById<View>(R.id.appBar)
+        val appBarBasePadding = appBar.paddingTop
+        ViewCompat.setOnApplyWindowInsetsListener(appBar) { view, insets ->
+            val top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.updatePadding(top = appBarBasePadding + top)
+            insets
+        }
+        ViewCompat.requestApplyInsets(appBar)
+
         val basePadding = barSyncNow.paddingBottom
         ViewCompat.setOnApplyWindowInsetsListener(barSyncNow) { view, insets ->
             val bottom = insets.getInsets(
