@@ -11,6 +11,10 @@ adminRouter.post("/api/admin/invites", requireAuth, requireAdmin, async (req, re
   if (!email) return res.status(400).json({ error: "email required" });
   const raw = await store.createInvite(email, role === "admin" ? "admin" : "user", req.user.id);
   const link = `${config.appBaseUrl}/signup?token=${raw}`;
-  await sendMail(email, "You're invited to Vitalix", `You've been invited. Complete signup: ${link}\nOr enter this code in the app: ${raw}\nExpires in 7 days.`);
+  await sendMail(
+    email,
+    "You're invited to Vitalix",
+    `Your Vitalix invite code is:\n\n    ${raw}\n\nEnter it in the app's sign-up screen, or use this link on the web: ${link}\nExpires in 7 days.`
+  );
   res.status(201).json({ ok: true });
 });

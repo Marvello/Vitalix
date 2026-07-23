@@ -1,5 +1,5 @@
 import { query, withTransaction } from "../db.js";
-import { randomToken, hashToken } from "./tokens.js";
+import { randomToken, randomInviteCode, normalizeInviteCode, hashToken } from "./tokens.js";
 import { config } from "../config.js";
 
 export async function createUser(email, passwordHash, role = "user") {
@@ -63,21 +63,21 @@ export async function consumeReset(raw) {
 }
 
 export async function createInvite(email, role, createdBy) {
-  const raw = randomToken();
-  await query("INSERT INTO invites (token_hash, email, role, created_by, expires_at) VALUES ($1,$2,$3,$4,$5)", [hashToken(raw), email, role, createdBy, new Date(Date.now() + config.inviteTtlMs)]);
+  const raw = randomInviteCode();
+  await query("INSERT INTO invites (token_hash, email, role, created_by, expires_at) VALUES ($1,$2,$3,$4,$5)", [hashToken(normalizeInviteCode(raw)), email, role, createdBy, new Date(Date.now() + config.inviteTtlMs)]);
   return raw;
 }
 export async function findValidInvite(raw) {
   const { rows } = await query(
     "SELECT email, role FROM invites WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now()",
-    [hashToken(raw)]
+    [hashToken(normalizeInviteCode(raw))]
   );
   return rows[0] ?? null;
 }
 export async function consumeInvite(raw) {
   const { rows } = await query(
     "UPDATE invites SET used_at = now() WHERE token_hash = $1 AND used_at IS NULL AND expires_at > now() RETURNING email, role",
-    [hashToken(raw)]
+    [hashToken(normalizeInviteCode(raw))]
   );
   return rows[0] ?? null;
 }
