@@ -130,6 +130,46 @@ export async function availableMetrics(userId, from, to) {
   return rows.map((r) => r.metric);
 }
 
+/**
+ * Splits heart-rate samples into those recorded during a workout and the rest,
+ * per day. "Resting" here means everything outside a logged exercise session —
+ * sleep and sitting included — which is why it is labelled non-workout rather
+ * than resting heart rate proper (that is its own recorded metric).
+ */
+export async function heartRateSplit(userId, from, to) {
+  const { rows } = await query(
+    `WITH hr AS (
+       SELECT hd.day, s.start_at, s.value_num
+         FROM samples s
+         JOIN health_days hd ON hd.id = s.day_id
+        WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3
+          AND s.metric = 'heartRate' AND s.value_num IS NOT NULL
+     ), windows AS (
+       -- Sessions are matched by timestamp, not by day, so one crossing midnight
+       -- still claims its samples on both sides.
+       SELECT e.start_at,
+              e.start_at + make_interval(mins => coalesce(e.duration_minutes, 0)) AS end_at
+         FROM exercises e
+         JOIN health_days hd ON hd.id = e.day_id
+        WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3
+     )
+     SELECT hr.day,
+            CASE WHEN EXISTS (
+              SELECT 1 FROM windows w
+               WHERE hr.start_at >= w.start_at AND hr.start_at < w.end_at
+            ) THEN 'active' ELSE 'rest' END AS scope,
+            min(hr.value_num) AS min,
+            max(hr.value_num) AS max,
+            avg(hr.value_num) AS avg,
+            count(*)::int     AS samples
+       FROM hr
+      GROUP BY 1, 2
+      ORDER BY 1`,
+    [userId, from, to]
+  );
+  return rows;
+}
+
 /** Newest-first list for the recent-days table. */
 export async function recentDays(userId, limit = 14) {
   const { rows } = await query(

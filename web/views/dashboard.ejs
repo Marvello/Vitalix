@@ -110,6 +110,18 @@ td.num,th.num{text-align:right}
     </div>
   <% } %>
 
+  <% if (charts.hrSplit.length) { %>
+    <div class="card">
+      <h2>Heart rate — workout vs rest <span class="unit">(bpm)</span></h2>
+      <div class="chart" id="chart-hr-split"></div>
+      <div class="legend">
+        <span><i style="background:rgba(245,158,11,.30)"></i>During a workout</span>
+        <span><i style="background:rgba(15,169,160,.25)"></i>Outside workouts</span>
+        <span>Bands show the day's range; lines show the average.</span>
+      </div>
+    </div>
+  <% } %>
+
   <% charts.bands.forEach(function(band, i) { %>
     <div class="card">
       <h2><%= band.label %></h2>
@@ -437,6 +449,56 @@ function lineChart(id, points, unit, digits) {
     tipRow(unit ? `Value (${unit})` : "Value", num(points[i].value, digits)));
 }
 
+/**
+ * Two min/max bands on one axis — heart rate during workouts against the rest of
+ * the day. Bands are drawn side by side rather than overlapping so a day where
+ * the two ranges overlap still reads clearly.
+ */
+function splitBandChart(id, points) {
+  const host = document.getElementById(id);
+  if (!host || !points.length) return;
+  const f = frame(host, { height: 220 });
+  const all = points.flatMap((p) => [p.active?.max, p.rest?.max]);
+  const max = maxOf(all) * 1.1 || 1;
+  axes(f, max, points.map((p) => p.date));
+
+  const slot = f.plotW / points.length;
+  const half = Math.max(1, slot * 0.38);
+  const scopes = [
+    { key: "rest", color: "#0FA9A0", opacity: .25, offset: 0.06 },
+    { key: "active", color: "#f59e0b", opacity: .30, offset: 0.52 },
+  ];
+
+  for (const scope of scopes) {
+    points.forEach((p, i) => {
+      const v = p[scope.key];
+      if (!v || v.min == null || v.max == null) return;
+      const yMax = f.padT + f.plotH - (v.max / max) * f.plotH;
+      const yMin = f.padT + f.plotH - (v.min / max) * f.plotH;
+      f.svg.appendChild(el("rect", {
+        x: f.padL + slot * i + slot * scope.offset, y: yMax,
+        width: half, height: Math.max(yMin - yMax, 1),
+        fill: scope.color, "fill-opacity": scope.opacity, rx: 2,
+      }));
+    });
+    const d = linePath(points.map((p) => p[scope.key]?.avg ?? null), f, max, slot);
+    if (d) {
+      f.svg.appendChild(el("path", {
+        d, fill: "none", stroke: scope.color, "stroke-width": 2,
+      }));
+    }
+  }
+
+  attachHover(f, points.length, slot, (i) => {
+    const p = points[i];
+    if (!p.active && !p.rest) return `<b>${prettyDate(p.date)}</b>${tipRow("No reading", "—")}`;
+    const block = (label, v) => v
+      ? tipRow(label, `${num(v.min)}–${num(v.max)}`) + tipRow(`${label} avg`, num(v.avg))
+      : tipRow(label, "—");
+    return `<b>${prettyDate(p.date)}</b>` + block("Workout", p.active) + block("Rest", p.rest);
+  });
+}
+
 function dualLineChart(id, a, b) {
   const host = document.getElementById(id);
   if (!host || !a.length) return;
@@ -464,6 +526,7 @@ function drawAll() {
   });
   stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
     ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
+  splitBandChart("chart-hr-split", DATA.hrSplit);
   DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points));
 }
 

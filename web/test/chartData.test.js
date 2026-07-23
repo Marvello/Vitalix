@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   bandSeries, dateRange, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
-  visibleMetrics, visibleTiles,
+  splitSeries, visibleMetrics, visibleTiles,
 } from "../src/chartData.js";
 
 test("toKey accepts Dates and strings, and keeps the local calendar day", () => {
@@ -146,4 +146,30 @@ test("summaryTiles treats a zero total as not recorded", () => {
   assert.equal(byLabel["Workouts"], null);
   // Days recorded is a count of rows, not a sum, so zero stays meaningful.
   assert.equal(byLabel["Days recorded"], 5);
+});
+
+test("splitSeries pairs both scopes onto one axis", () => {
+  const rows = [
+    { day: "2026-06-02", scope: "active", min: 73, max: 118, avg: 106.2, samples: 572 },
+    { day: "2026-06-02", scope: "rest", min: 48, max: 115, avg: 63.4, samples: 442 },
+    { day: "2026-06-03", scope: "rest", min: 47, max: 158, avg: 60.1, samples: 489 },
+  ];
+  const out = splitSeries(rows, "2026-06-02", "2026-06-04");
+  assert.equal(out.length, 3);
+  assert.deepEqual(out[0].active, { min: 73, max: 118, avg: 106.2, samples: 572 });
+  assert.deepEqual(out[0].rest, { min: 48, max: 115, avg: 63.4, samples: 442 });
+  // A day without a workout has no active reading — null, not a zero band.
+  assert.equal(out[1].active, null);
+  assert.equal(out[1].rest.avg, 60.1);
+  // A day with no heart rate at all is null on both sides.
+  assert.equal(out[2].active, null);
+  assert.equal(out[2].rest, null);
+});
+
+test("splitSeries coerces numeric strings from pg", () => {
+  const out = splitSeries(
+    [{ day: "2026-06-02", scope: "rest", min: "48", max: "115", avg: "63.4", samples: "442" }],
+    "2026-06-02", "2026-06-02"
+  );
+  assert.deepEqual(out[0].rest, { min: 48, max: 115, avg: 63.4, samples: 442 });
 });

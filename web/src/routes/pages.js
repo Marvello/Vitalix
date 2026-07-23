@@ -8,7 +8,7 @@ import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
-  visibleMetrics, visibleTiles,
+  splitSeries, visibleMetrics, visibleTiles,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
@@ -76,7 +76,7 @@ pagesRouter.post("/logout", async (req, res) => {
 
 const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
 
-const EMPTY_CHARTS = { series: [], sleep: [], bands: [] };
+const EMPTY_CHARTS = { series: [], sleep: [], bands: [], hrSplit: [] };
 
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   try {
@@ -86,13 +86,14 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const fromKey = toKey(from);
     const toKeyStr = toKey(to);
 
-    const [rows, aggs, totals, metrics, cover, workouts, recent, user] = await Promise.all([
+    const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
       stats.aggregateRows(req.user.id, fromKey, toKeyStr),
       stats.summary(req.user.id, fromKey, toKeyStr),
       stats.availableMetrics(req.user.id, fromKey, toKeyStr),
       stats.coverage(req.user.id, fromKey, toKeyStr),
       stats.exerciseBreakdown(req.user.id, fromKey, toKeyStr),
+      stats.heartRateSplit(req.user.id, fromKey, toKeyStr),
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
     ]);
@@ -118,6 +119,10 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       // columns), so check the rows directly.
       sleep: rows.some((r) => r.sleep_duration_minutes != null)
         ? sleepStages(rows, fromKey, toKeyStr)
+        : [],
+      // Only worth its own chart once some samples fall inside a workout.
+      hrSplit: hrRows.some((r) => r.scope === "active")
+        ? splitSeries(hrRows, fromKey, toKeyStr)
         : [],
       bands: stats.BAND_METRICS.filter((m) => metrics.includes(m)).map((metric) => ({
         metric,

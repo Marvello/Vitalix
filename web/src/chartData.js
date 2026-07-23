@@ -68,6 +68,32 @@ export function bandSeries(aggregateRows, from, to, metric) {
   });
 }
 
+/**
+ * Pairs the workout and non-workout heart-rate aggregates onto one date axis,
+ * so both can be drawn in a single chart. Either side may be missing for a day:
+ * no workout means no active reading, which is not the same as a zero.
+ */
+export function splitSeries(rows, from, to, scopes = ["active", "rest"]) {
+  const byDay = new Map();
+  for (const r of rows) {
+    const key = toKey(r.day);
+    if (!byDay.has(key)) byDay.set(key, {});
+    byDay.get(key)[r.scope] = r;
+  }
+  const num = (v) => (v == null ? null : Number(v));
+  return dateRange(from, to).map((date) => {
+    const day = byDay.get(date) ?? {};
+    const point = { date };
+    for (const scope of scopes) {
+      const r = day[scope];
+      point[scope] = r
+        ? { min: num(r.min), max: num(r.max), avg: num(r.avg), samples: num(r.samples) }
+        : null;
+    }
+    return point;
+  });
+}
+
 /** Sleep stages as stacked series; days without sleep data stay null across the board. */
 export function sleepStages(rows, from, to) {
   const byDay = new Map(rows.map((r) => [toKey(r.day), r]));
