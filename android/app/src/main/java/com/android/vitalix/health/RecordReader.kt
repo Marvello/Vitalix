@@ -31,6 +31,10 @@ class HealthConnectRecordReader(private val client: HealthConnectClient) : Recor
      * apart afterwards: a swallowed rate-limit looks exactly like "the user has
      * no data", which silently drops whole metrics from an export.
      */
+    /** Sub-windows abandoned because they hold a record the SDK cannot build. */
+    var skippedWindows = 0
+        private set
+
     override suspend fun <T : Record> read(type: KClass<T>, start: Instant, end: Instant): List<T> {
         var attempt = 0
         while (true) {
@@ -40,6 +44,13 @@ class HealthConnectRecordReader(private val client: HealthConnectClient) : Recor
                 // Per-record-type grant declined. A different failure from a
                 // throttle, and no amount of retrying will change it.
                 throw RecordReader.PermanentlyUnavailable(type.simpleName ?: "record")
+            } catch (e: IllegalArgumentException) {
+                // A stored record the SDK refuses to construct — Samsung Health
+                // writes zero-length StepsRecords, and the converter throws while
+                // building the response, taking the whole read down with it.
+                // Deterministic, so retrying is pointless: narrow the window until
+                // only the bad stretch is lost.
+                return readAround(type, start, end, e)
             } catch (e: Exception) {
                 attempt++
                 if (attempt > MAX_RETRIES) throw e
@@ -48,6 +59,28 @@ class HealthConnectRecordReader(private val client: HealthConnectClient) : Recor
                 delay(backoff)
             }
         }
+    }
+
+    /**
+     * Splits a window that contains an unreadable record and reads each half, so
+     * one corrupt row costs an hour of data instead of the whole range. Halves that
+     * are still unreadable at [MIN_WINDOW_MS] are counted in [skippedWindows] and
+     * dropped — that stretch genuinely cannot be read through this API.
+     */
+    private suspend fun <T : Record> readAround(
+        type: KClass<T>,
+        start: Instant,
+        end: Instant,
+        cause: IllegalArgumentException,
+    ): List<T> {
+        val span = end.toEpochMilli() - start.toEpochMilli()
+        if (span <= MIN_WINDOW_MS) {
+            skippedWindows++
+            Log.w(TAG, "Skipping unreadable ${type.simpleName} window $start..$end: ${cause.message}")
+            return emptyList()
+        }
+        val mid = Instant.ofEpochMilli(start.toEpochMilli() + span / 2)
+        return read(type, start, mid) + read(type, mid, end)
     }
 
     private suspend fun <T : Record> readAllPages(
@@ -76,5 +109,7 @@ class HealthConnectRecordReader(private val client: HealthConnectClient) : Recor
         const val TAG = "RecordReader"
         const val MAX_RETRIES = 4
         const val BASE_BACKOFF_MS = 1500L // 1.5s, 3s, 6s, 12s
+        /** Stop bisecting at an hour; below this the loss is already minimal. */
+        const val MIN_WINDOW_MS = 60 * 60 * 1000L
     }
 }

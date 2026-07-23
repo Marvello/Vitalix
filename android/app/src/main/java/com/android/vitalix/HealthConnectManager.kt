@@ -71,6 +71,13 @@ class HealthConnectManager(
     var lastFailedMetrics: Set<String> = emptySet()
         private set
 
+    /**
+     * Short stretches dropped because Health Connect holds a record the SDK can't
+     * construct. Not a failure — the rest of the window still came through.
+     */
+    var lastSkippedWindows: Int = 0
+        private set
+
     private var saferExportMode: Boolean = false
     private var chunkDays: Long = CHUNK_DAYS
     private var saferDelayMs: Long = SAFER_DELAY_MS
@@ -571,6 +578,7 @@ class HealthConnectManager(
         }
 
         lastFailedMetrics = failed
+        lastSkippedWindows = (reader as? HealthConnectRecordReader)?.skippedWindows ?: 0
         return builders.values.sortedBy { it.date }.map { it.build() }
     }
 
