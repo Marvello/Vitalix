@@ -116,6 +116,11 @@
         </activity>
 
         <activity
+            android:name=".SettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix" />
+
+        <activity
             android:name=".SyncLogActivity"
             android:exported="false"
             android:theme="@style/Theme.Vitalix" />

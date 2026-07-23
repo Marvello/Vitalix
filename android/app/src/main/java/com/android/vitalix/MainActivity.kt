@@ -40,8 +40,6 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     // Server
-    private lateinit var txtServerUrl: TextView
-    private lateinit var btnChangeServerUrl: Button
 
     // Activity
     private lateinit var checkActiveCalories: CheckBox
@@ -90,12 +88,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editDaysBack: TextInputEditText
     private lateinit var switchSaferExport: SwitchMaterial
     private lateinit var switchFullHistory: SwitchMaterial
-    private lateinit var switchAutoSync: SwitchMaterial
-    private lateinit var editSyncInterval: TextInputEditText
 
     private lateinit var btnSyncNow: Button
     private lateinit var btnLogout: Button
     private lateinit var btnSyncLog: Button
+    private lateinit var btnSettings: Button
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
@@ -157,22 +154,10 @@ class MainActivity : AppCompatActivity() {
         observeBackfill()
         uiReady = true
 
-        switchAutoSync.setOnCheckedChangeListener { _, enabled ->
-            settings.autoSyncEnabled = enabled
-            if (enabled) {
-                ExportWorker.schedule(this, settings.syncIntervalHours)
-            } else {
-                ExportWorker.cancel(this)
-            }
-        }
-
-        btnChangeServerUrl.setOnClickListener {
-            ServerUrlDialog.show(this, settings) { showServerUrl() }
-        }
-
         btnSyncNow.setOnClickListener { onSyncClicked() }
         btnLogout.setOnClickListener { onLogoutClicked() }
         btnSyncLog.setOnClickListener { startActivity(Intent(this, SyncLogActivity::class.java)) }
+        btnSettings.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
     }
 
     private fun onLogoutClicked() {
@@ -195,8 +180,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindViews() {
-        txtServerUrl = findViewById(R.id.txtServerUrl)
-        btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)
 
         checkActiveCalories = findViewById(R.id.checkActiveCalories)
         checkDistance = findViewById(R.id.checkDistance)
@@ -238,12 +221,11 @@ class MainActivity : AppCompatActivity() {
         editDaysBack = findViewById(R.id.editDaysBack)
         switchSaferExport = findViewById(R.id.switchSaferExport)
         switchFullHistory = findViewById(R.id.switchFullHistory)
-        switchAutoSync = findViewById(R.id.switchAutoSync)
-        editSyncInterval = findViewById(R.id.editSyncInterval)
 
         btnSyncNow = findViewById(R.id.btnSyncNow)
         btnLogout = findViewById(R.id.btnLogout)
         btnSyncLog = findViewById(R.id.btnSyncLog)
+        btnSettings = findViewById(R.id.btnSettings)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
 
@@ -363,7 +345,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSettingsIntoForm() {
-        showServerUrl()
 
         val cfg = settings.readConfig()
 
@@ -406,8 +387,6 @@ class MainActivity : AppCompatActivity() {
 
         editDaysBack.setText(cfg.daysBack.toString())
         switchSaferExport.isChecked = cfg.saferExportMode
-        switchAutoSync.isChecked = settings.autoSyncEnabled
-        editSyncInterval.setText(settings.syncIntervalHours.toString())
 
         updateLastSyncLabel()
     }
@@ -453,15 +432,12 @@ class MainActivity : AppCompatActivity() {
 
         daysBack = editDaysBack.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 7,
         saferExportMode = switchSaferExport.isChecked,
-        autoSync = switchAutoSync.isChecked
+        autoSync = settings.autoSyncEnabled
     )
 
     /** Persist the whole form back into [SyncSettings]. */
     private fun persistForm() {
         settings.writeConfig(buildConfigFromForm())
-        settings.autoSyncEnabled = switchAutoSync.isChecked
-        settings.syncIntervalHours =
-            editSyncInterval.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 12
     }
 
     private fun onSyncClicked() {
@@ -645,20 +621,11 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun showServerUrl() {
-        val url = settings.serverUrl
-        txtServerUrl.text = when {
-            url.isNullOrBlank() -> "Not set — tap Change"
-            settings.serverUrlIsOverridden -> "$url (custom)"
-            else -> url
-        }
-    }
-
     private fun setSyncing(syncing: Boolean) {
         btnSyncNow.isEnabled = !syncing
         btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
-        btnChangeServerUrl.isEnabled = !syncing
+
     }
 
     private fun showStatus(message: String) {

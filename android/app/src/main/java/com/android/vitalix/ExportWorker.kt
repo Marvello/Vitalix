@@ -82,7 +82,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
     }
 
     companion object {
-        private const val NAME = "vitalix_auto_export"
+        const val NAME = "vitalix_auto_export"
 
         fun schedule(context: Context, hours: Int) {
             val req = PeriodicWorkRequestBuilder<ExportWorker>(hours.toLong(), TimeUnit.HOURS)
