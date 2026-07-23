@@ -65,8 +65,25 @@ class HealthConnectManager(
 ) {
     private val zone: ZoneId = ZoneId.systemDefault()
     private var saferExportMode: Boolean = false
+    private var chunkDays: Long = CHUNK_DAYS
+    private var saferDelayMs: Long = SAFER_DELAY_MS
 
-    fun setSaferExportMode(enabled: Boolean) { saferExportMode = enabled }
+    /**
+     * Safer mode splits each read into [chunkDays] windows and pauses [delayMs]
+     * between them to stay under Health Connect's rate limits. The backfill
+     * overrides both: it already reads one bounded slice at a time, so re-chunking
+     * inside the slice would multiply the pauses by the metric count and turn a
+     * few seconds of work into minutes.
+     */
+    fun setSaferExportMode(
+        enabled: Boolean,
+        chunkDays: Long = CHUNK_DAYS,
+        delayMs: Long = SAFER_DELAY_MS,
+    ) {
+        saferExportMode = enabled
+        this.chunkDays = chunkDays
+        saferDelayMs = delayMs
+    }
 
     val permissions: Set<String> = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
@@ -267,7 +284,7 @@ class HealthConnectManager(
             try {
                 for ((s, e) in windows(start, end)) {
                     handle(reader.read(type, s, e))
-                    if (saferExportMode) delay(SAFER_DELAY_MS)
+                    if (saferExportMode) delay(saferDelayMs)
                 }
             } catch (ex: Exception) {
                 Log.e(TAG, "Read failed for ${type.simpleName}: ${ex.message}", ex)
@@ -551,7 +568,7 @@ class HealthConnectManager(
         val out = mutableListOf<Pair<Instant, Instant>>()
         var cursor = start
         while (cursor.isBefore(end)) {
-            val next = minOf(cursor.plus(CHUNK_DAYS, ChronoUnit.DAYS), end)
+            val next = minOf(cursor.plus(chunkDays, ChronoUnit.DAYS), end)
             out += cursor to next
             cursor = next
         }

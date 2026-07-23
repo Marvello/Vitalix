@@ -19,6 +19,7 @@ import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
@@ -100,6 +101,8 @@ class MainActivity : AppCompatActivity() {
 
     /** Set while select-all propagates, so listeners don't fight each other. */
     private var syncingChecks = false
+
+    private val dayLabel = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     private val settings by lazy { SyncSettings(this) }
     private val healthConnectManager by lazy { HealthConnectManager(this) }
@@ -557,7 +560,13 @@ class MainActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             val cfg = settings.readConfig()
-            healthConnectManager.setSaferExportMode(cfg.saferExportMode)
+            // One read per metric per slice: the slice already bounds the window,
+            // so leave the pacing to the gap between slices below.
+            healthConnectManager.setSaferExportMode(
+                cfg.saferExportMode,
+                chunkDays = BACKFILL_WINDOW_DAYS,
+                delayMs = 0L,
+            )
 
             var end = Instant.now()
             val floor = end.minus(BACKFILL_MAX_DAYS, ChronoUnit.DAYS)
@@ -569,7 +578,8 @@ class MainActivity : AppCompatActivity() {
                 while (end.isAfter(floor) && emptyRun < BACKFILL_EMPTY_LIMIT) {
                     val start = maxOf(end.minus(BACKFILL_WINDOW_DAYS, ChronoUnit.DAYS), floor)
                     slices++
-                    showStatus("Full history: slice $slices ($daysSent days sent)…")
+                    val from = dayLabel.format(Date(start.toEpochMilli()))
+                    showStatus("Full history: reading $from ($daysSent days sent)…")
 
                     val days = withContext(Dispatchers.IO) {
                         healthConnectManager.readHealthDataByDay(cfg, start, end)
@@ -604,6 +614,9 @@ class MainActivity : AppCompatActivity() {
                         daysSent += days.size
                     }
                     end = start
+                    // Pace between slices only, so safer mode still throttles the
+                    // backfill without multiplying the wait by the metric count.
+                    if (cfg.saferExportMode) delay(BACKFILL_SLICE_PAUSE_MS)
                 }
 
                 settings.lastSync = System.currentTimeMillis()
@@ -630,6 +643,8 @@ class MainActivity : AppCompatActivity() {
         const val BACKFILL_EMPTY_LIMIT = 6
         /** Hard floor, so a device with odd timestamps can't loop forever. */
         const val BACKFILL_MAX_DAYS = 3650L
+        /** Breather between slices when safer-export mode is on. */
+        const val BACKFILL_SLICE_PAUSE_MS = 1000L
     }
 
     private fun showStatus(message: String) {
