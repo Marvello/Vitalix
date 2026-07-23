@@ -3,6 +3,8 @@ package com.android.vitalix
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
@@ -17,6 +19,7 @@ import androidx.work.WorkManager
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
 import com.android.vitalix.models.ExportConfig
+import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.CoroutineScope
@@ -89,10 +92,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var switchSaferExport: SwitchMaterial
     private lateinit var switchFullHistory: SwitchMaterial
 
-    private lateinit var btnSyncNow: Button
-    private lateinit var btnLogout: Button
-    private lateinit var btnSyncLog: Button
-    private lateinit var btnSettings: Button
+    private lateinit var fabSync: ExtendedFloatingActionButton
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
@@ -147,6 +147,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setContentView(R.layout.activity_main)
+        setSupportActionBar(findViewById(R.id.toolbar))
 
         bindViews()
         loadSettingsIntoForm()
@@ -154,10 +155,25 @@ class MainActivity : AppCompatActivity() {
         observeBackfill()
         uiReady = true
 
-        btnSyncNow.setOnClickListener { onSyncClicked() }
-        btnLogout.setOnClickListener { onLogoutClicked() }
-        btnSyncLog.setOnClickListener { startActivity(Intent(this, SyncLogActivity::class.java)) }
-        btnSettings.setOnClickListener { startActivity(Intent(this, SettingsActivity::class.java)) }
+        fabSync.setOnClickListener { onSyncClicked() }
+    }
+
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        R.id.menu_settings -> {
+            startActivity(Intent(this, SettingsActivity::class.java)); true
+        }
+        R.id.menu_sync_log -> {
+            startActivity(Intent(this, SyncLogActivity::class.java)); true
+        }
+        R.id.menu_logout -> {
+            onLogoutClicked(); true
+        }
+        else -> super.onOptionsItemSelected(item)
     }
 
     private fun onLogoutClicked() {
@@ -222,10 +238,7 @@ class MainActivity : AppCompatActivity() {
         switchSaferExport = findViewById(R.id.switchSaferExport)
         switchFullHistory = findViewById(R.id.switchFullHistory)
 
-        btnSyncNow = findViewById(R.id.btnSyncNow)
-        btnLogout = findViewById(R.id.btnLogout)
-        btnSyncLog = findViewById(R.id.btnSyncLog)
-        btnSettings = findViewById(R.id.btnSettings)
+        fabSync = findViewById(R.id.fabSync)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
 
@@ -622,8 +635,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setSyncing(syncing: Boolean) {
-        btnSyncNow.isEnabled = !syncing
-        btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
+        fabSync.isEnabled = !syncing
+        fabSync.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
 
     }
