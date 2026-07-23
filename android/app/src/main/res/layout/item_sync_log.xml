@@ -48,6 +48,19 @@
             android:layout_marginTop="2dp"
             android:textSize="13sp" />
 
+        <Button
+            android:id="@+id/btnCancelRun"
+            style="?attr/materialButtonOutlinedStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:minHeight="0dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:text="Stop"
+            android:textSize="12sp"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/txtMessage"
             android:layout_width="match_parent"

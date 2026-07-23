@@ -7,6 +7,7 @@ import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.work.WorkManager
@@ -56,12 +57,12 @@ class SyncLogActivity : AppCompatActivity() {
             }
             runOnUiThread {
                 log.reconcile(active)
-                render()
+                render(active)
             }
         }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun render() {
+    private fun render(backfillActive: Boolean = false) {
         val entries = log.entries()
         empty.visibility = if (entries.isEmpty()) View.VISIBLE else View.GONE
         list.removeAllViews()
@@ -75,6 +76,14 @@ class SyncLogActivity : AppCompatActivity() {
             }
             row.findViewById<TextView>(R.id.txtWhen).text = whenText(e)
             row.findViewById<TextView>(R.id.txtPeriod).text = periodText(e)
+            // Only a full-history run is stoppable: it's the one that runs in
+            // WorkManager. A manual sync lives and dies with its screen.
+            val stoppable = backfillActive &&
+                e.kind == SyncLog.Kind.FULL && e.status == SyncLog.Status.RUNNING
+            row.findViewById<Button>(R.id.btnCancelRun).apply {
+                visibility = if (stoppable) View.VISIBLE else View.GONE
+                setOnClickListener { confirmStop(e.id) }
+            }
             row.findViewById<TextView>(R.id.txtMessage).apply {
                 if (e.message.isNullOrBlank()) {
                     visibility = View.GONE
@@ -85,6 +94,24 @@ class SyncLogActivity : AppCompatActivity() {
             }
             list.addView(row)
         }
+    }
+
+    /**
+     * Stopping discards nothing already sent — the server keeps every slice that
+     * landed — but the next run restarts from today rather than resuming, so it
+     * is worth a confirmation.
+     */
+    private fun confirmStop(id: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Stop full history sync?")
+            .setMessage("Days already sent stay on the server. Starting again begins from today.")
+            .setPositiveButton("Stop") { _, _ ->
+                BackfillWorker.cancel(this)
+                log.finish(id, SyncLog.Status.FAILED, message = "Stopped")
+                reconcileThenRender()
+            }
+            .setNegativeButton("Keep running", null)
+            .show()
     }
 
     private fun whenText(e: SyncLog.Entry): String {
@@ -98,6 +125,8 @@ class SyncLogActivity : AppCompatActivity() {
     private fun periodText(e: SyncLog.Entry): String {
         val range = when {
             e.from != null && e.to != null && e.from == e.to -> e.from
+            // A run that failed on its first slice can end up with from after to.
+            e.from != null && e.to != null && e.from > e.to -> e.to
             e.from != null && e.to != null -> "${e.from} → ${e.to}"
             // A backfill in flight knows where it ends before where it starts.
             e.to != null -> "up to ${e.to}"

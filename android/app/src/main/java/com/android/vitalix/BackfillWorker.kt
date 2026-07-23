@@ -69,8 +69,7 @@ class BackfillWorker(
         try {
             while (end.isAfter(floor) && emptyRun < EMPTY_LIMIT) {
                 if (isStopped) {
-                    log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
-                        message = "Cancelled", from = SyncLog.dateOf(end))
+                    log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = "Cancelled")
                     return Result.failure(message("Cancelled after $daysSent days"))
                 }
 
@@ -84,16 +83,27 @@ class BackfillWorker(
                 // as "no data" — which would ship a slice with whole metrics missing.
                 // Re-read the slice after a pause before accepting it.
                 var retries = 0
-                while (manager.lastFailedMetrics.isNotEmpty() && retries < SLICE_RETRIES) {
+                while (manager.lastFailedMetrics.isNotEmpty() && retries < SLICE_RETRIES && !isStopped) {
                     retries++
                     report("Retrying ${manager.lastFailedMetrics.joinToString(", ")}", daysSent)
-                    delay(RETRY_PAUSE_MS * retries)
+                    // Sleep in short steps: a stop request during a long throttle
+                    // wait should take effect now, not minutes from now.
+                    val waitMs = RETRY_PAUSE_MS * retries
+                    var waited = 0L
+                    while (waited < waitMs && !isStopped) {
+                        delay(CANCEL_POLL_MS)
+                        waited += CANCEL_POLL_MS
+                    }
+                    if (isStopped) break
                     days = manager.readHealthDataByDay(cfg, start, end)
+                }
+                if (isStopped) {
+                    log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = "Stopped")
+                    return Result.failure(message("Stopped after $daysSent days"))
                 }
                 if (manager.lastFailedMetrics.isNotEmpty()) {
                     log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
-                        message = "Health Connect refused " + manager.lastFailedMetrics.joinToString(", "),
-                        from = SyncLog.dateOf(end))
+                        message = "Health Connect refused " + manager.lastFailedMetrics.joinToString(", "))
                     return Result.failure(message(
                         "Stopped after $daysSent days: Health Connect kept refusing " +
                             manager.lastFailedMetrics.joinToString(", ") + ". Try again shortly."
@@ -118,18 +128,16 @@ class BackfillWorker(
                         }
                         // Everything already sent stays on the server; re-running
                         // resumes rather than restarting.
-                        log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
-                            message = detail, from = SyncLog.dateOf(end))
+                        log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = detail)
                         return Result.failure(message("Stopped after $daysSent days: $detail"))
                     }
                     daysSent += days.size
                 }
                 end = start
-                if (cfg.saferExportMode) delay(SLICE_PAUSE_MS)
+                if (cfg.saferExportMode && !isStopped) delay(SLICE_PAUSE_MS)
             }
 
             settings.lastSync = System.currentTimeMillis()
-            // `end` has walked back to the oldest slice boundary reached.
             log.finish(runId, SyncLog.Status.SENT, days = daysSent, from = SyncLog.dateOf(end))
             return Result.success(
                 workDataOf(KEY_MESSAGE to "Full history sent ($daysSent days over $slices slices)",
@@ -192,9 +200,11 @@ class BackfillWorker(
         /** Breather between slices when safer-export mode is on. */
         private const val SLICE_PAUSE_MS = 1000L
         /** Re-reads of a slice that came back with unread metrics. */
-        private const val SLICE_RETRIES = 3
+        private const val SLICE_RETRIES = 4
         /** Base pause before a slice re-read; grows with each attempt. */
-        private const val RETRY_PAUSE_MS = 4000L
+        private const val RETRY_PAUSE_MS = 15000L
+        /** How often a long wait checks whether the run has been stopped. */
+        private const val CANCEL_POLL_MS = 500L
 
         fun start(context: Context) {
             WorkManager.getInstance(context).enqueueUniqueWork(
