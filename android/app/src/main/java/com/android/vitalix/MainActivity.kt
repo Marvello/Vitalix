@@ -552,7 +552,13 @@ class MainActivity : AppCompatActivity() {
                 if (result.isSuccess) {
                     settings.lastSync = System.currentTimeMillis()
                     updateLastSyncLabel()
-                    showStatus("Sent (HTTP ${result.getOrNull()})")
+                    // Surface partial reads: a throttled metric is absent from the
+                    // payload and would otherwise look like a clean sync.
+                    val missed = healthConnectManager.lastFailedMetrics
+                    showStatus(
+                        if (missed.isEmpty()) "Sent (HTTP ${result.getOrNull()})"
+                        else "Sent, but ${missed.joinToString(", ")} could not be read — sync again shortly"
+                    )
                 } else {
                     val err = result.exceptionOrNull()
                     if (err is ServerForwarder.HttpException && err.code == 401) {

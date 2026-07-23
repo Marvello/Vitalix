@@ -64,6 +64,13 @@ class HealthConnectManager(
         HealthConnectRecordReader(HealthConnectClient.getOrCreate(context))
 ) {
     private val zone: ZoneId = ZoneId.systemDefault()
+    /**
+     * Metrics whose read failed during the most recent [readHealthDataByDay].
+     * Empty means every enabled metric was read (or was legitimately declined).
+     */
+    var lastFailedMetrics: Set<String> = emptySet()
+        private set
+
     private var saferExportMode: Boolean = false
     private var chunkDays: Long = CHUNK_DAYS
     private var saferDelayMs: Long = SAFER_DELAY_MS
@@ -269,12 +276,16 @@ class HealthConnectManager(
         end: Instant,
     ): List<DailyHealthData> {
 
+        val failed = linkedSetOf<String>()
         val builders = HashMap<LocalDate, DayBuilder>()
         fun builder(d: LocalDate) = builders.getOrPut(d) { DayBuilder(d) }
         fun day(t: Instant) = Aggregation.bucketByDay(t, zone)
 
         // Read a record type across the window (chunked in safer-export mode) and
-        // process each list. Any failure for one metric is logged and skipped.
+        // process each list. A metric that can't be read is recorded in
+        // [lastFailedMetrics] rather than silently dropped: an empty read and a
+        // throttled read look identical downstream, and treating a throttle as
+        // "no data" quietly loses whole metrics from the export.
         suspend fun <T : Record> perMetric(
             enabled: Boolean,
             type: KClass<T>,
@@ -286,8 +297,12 @@ class HealthConnectManager(
                     handle(reader.read(type, s, e))
                     if (saferExportMode) delay(saferDelayMs)
                 }
+            } catch (ex: RecordReader.PermanentlyUnavailable) {
+                // User declined this record type. Expected, not a failure.
+                Log.i(TAG, "Skipping ${type.simpleName}: ${ex.message}")
             } catch (ex: Exception) {
                 Log.e(TAG, "Read failed for ${type.simpleName}: ${ex.message}", ex)
+                failed += type.simpleName ?: "record"
             }
         }
 
@@ -555,6 +570,7 @@ class HealthConnectManager(
             }
         }
 
+        lastFailedMetrics = failed
         return builders.values.sortedBy { it.date }.map { it.build() }
     }
 

@@ -71,7 +71,23 @@ class BackfillWorker(
                 slices++
                 report("Reading ${dayLabel.format(Date(start.toEpochMilli()))}", daysSent)
 
-                val days = manager.readHealthDataByDay(cfg, start, end)
+                var days = manager.readHealthDataByDay(cfg, start, end)
+                // Health Connect throttles reads, and a throttled metric comes back
+                // as "no data" — which would ship a slice with whole metrics missing.
+                // Re-read the slice after a pause before accepting it.
+                var retries = 0
+                while (manager.lastFailedMetrics.isNotEmpty() && retries < SLICE_RETRIES) {
+                    retries++
+                    report("Retrying ${manager.lastFailedMetrics.joinToString(", ")}", daysSent)
+                    delay(RETRY_PAUSE_MS * retries)
+                    days = manager.readHealthDataByDay(cfg, start, end)
+                }
+                if (manager.lastFailedMetrics.isNotEmpty()) {
+                    return Result.failure(message(
+                        "Stopped after $daysSent days: Health Connect kept refusing " +
+                            manager.lastFailedMetrics.joinToString(", ") + ". Try again shortly."
+                    ))
+                }
                 if (days.isEmpty()) {
                     emptyRun++
                 } else {
@@ -159,6 +175,10 @@ class BackfillWorker(
         private const val MAX_DAYS = 3650L
         /** Breather between slices when safer-export mode is on. */
         private const val SLICE_PAUSE_MS = 1000L
+        /** Re-reads of a slice that came back with unread metrics. */
+        private const val SLICE_RETRIES = 3
+        /** Base pause before a slice re-read; grows with each attempt. */
+        private const val RETRY_PAUSE_MS = 4000L
 
         fun start(context: Context) {
             WorkManager.getInstance(context).enqueueUniqueWork(
