@@ -6,8 +6,6 @@ import android.os.Bundle
 import android.view.View
 import android.widget.Button
 import android.widget.CheckBox
-import android.widget.RadioButton
-import android.widget.RadioGroup
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -42,10 +40,8 @@ import java.util.Locale
 class MainActivity : AppCompatActivity() {
 
     // Server
-    private lateinit var editServerUrl: TextInputEditText
-    private lateinit var groupEnvironment: RadioGroup
-    private lateinit var radioDevelopment: RadioButton
-    private lateinit var radioProduction: RadioButton
+    private lateinit var txtServerUrl: TextView
+    private lateinit var btnChangeServerUrl: Button
 
     // Activity
     private lateinit var checkActiveCalories: CheckBox
@@ -110,10 +106,6 @@ class MainActivity : AppCompatActivity() {
     /** Set while select-all propagates, so listeners don't fight each other. */
     private var syncingChecks = false
 
-    /** Which environment the URL field currently holds, so a switch saves it back
-     *  to the right one before loading the other. */
-    private var previousEnvironment = SyncSettings.Environment.DEVELOPMENT
-
     private val dayLabel = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     private val settings by lazy { SyncSettings(this) }
@@ -172,10 +164,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        groupEnvironment.setOnCheckedChangeListener { _, _ ->
-            // Save the URL under the environment it was typed for, then swap.
-            settings.setUrlFor(previousEnvironment, editServerUrl.text?.toString())
-            showEnvironment(currentEnvironment())
+        btnChangeServerUrl.setOnClickListener {
+            ServerUrlDialog.show(this, settings) { showServerUrl() }
         }
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
@@ -202,10 +192,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindViews() {
-        editServerUrl = findViewById(R.id.editServerUrl)
-        groupEnvironment = findViewById(R.id.groupEnvironment)
-        radioDevelopment = findViewById(R.id.radioDevelopment)
-        radioProduction = findViewById(R.id.radioProduction)
+        txtServerUrl = findViewById(R.id.txtServerUrl)
+        btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)
 
         checkActiveCalories = findViewById(R.id.checkActiveCalories)
         checkDistance = findViewById(R.id.checkDistance)
@@ -371,7 +359,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadSettingsIntoForm() {
-        showEnvironment(settings.environment)
+        showServerUrl()
 
         val cfg = settings.readConfig()
 
@@ -466,7 +454,6 @@ class MainActivity : AppCompatActivity() {
 
     /** Persist the whole form back into [SyncSettings]. */
     private fun persistForm() {
-        settings.setUrlFor(currentEnvironment(), editServerUrl.text?.toString())
         settings.writeConfig(buildConfigFromForm())
         settings.autoSyncEnabled = switchAutoSync.isChecked
         settings.syncIntervalHours =
@@ -474,9 +461,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSyncClicked() {
-        val url = editServerUrl.text?.toString()?.trim().orEmpty()
-        if (url.isBlank()) {
-            showStatus("Enter a server URL to sync")
+        if (settings.serverUrl.isNullOrBlank()) {
+            showStatus("No server URL set — tap Change")
             return
         }
         persistForm()
@@ -539,7 +525,7 @@ class MainActivity : AppCompatActivity() {
     private fun runSync() {
         val url = settings.serverUrl?.trim().orEmpty()
         if (url.isBlank()) {
-            showStatus("Enter a ${currentEnvironment().label} server URL to sync")
+            showStatus("No server URL set — tap Change")
             setSyncing(false)
             return
         }
@@ -636,29 +622,20 @@ class MainActivity : AppCompatActivity() {
             }
     }
 
-    private fun currentEnvironment(): SyncSettings.Environment =
-        if (radioProduction.isChecked) SyncSettings.Environment.PRODUCTION
-        else SyncSettings.Environment.DEVELOPMENT
-
-    /** Select [env], load its saved URL (or default) into the field, and remember it. */
-    private fun showEnvironment(env: SyncSettings.Environment) {
-        settings.environment = env
-        previousEnvironment = env
-        when (env) {
-            SyncSettings.Environment.DEVELOPMENT -> radioDevelopment.isChecked = true
-            SyncSettings.Environment.PRODUCTION -> radioProduction.isChecked = true
+    private fun showServerUrl() {
+        val url = settings.serverUrl
+        txtServerUrl.text = when {
+            url.isNullOrBlank() -> "Not set — tap Change"
+            settings.serverUrlIsOverridden -> "$url (custom)"
+            else -> url
         }
-        editServerUrl.setText(settings.urlFor(env) ?: "")
     }
 
     private fun setSyncing(syncing: Boolean) {
         btnSyncNow.isEnabled = !syncing
         btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
-        groupEnvironment.isEnabled = !syncing
-        radioDevelopment.isEnabled = !syncing
-        radioProduction.isEnabled = !syncing
-        editServerUrl.isEnabled = !syncing
+        btnChangeServerUrl.isEnabled = !syncing
     }
 
     private fun showStatus(message: String) {

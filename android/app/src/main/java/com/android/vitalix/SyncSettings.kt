@@ -19,49 +19,36 @@ class SyncSettings(context: Context) {
     private val plain: SharedPreferences = context.getSharedPreferences("vitalix", Context.MODE_PRIVATE)
 
     init {
-        // Carry a URL saved before environments existed into Development.
-        val legacy = secure.getString("server_url", null)
-        if (!legacy.isNullOrBlank() && secure.getString(Environment.DEVELOPMENT.prefKey, null) == null) {
-            secure.edit()
-                .putString(Environment.DEVELOPMENT.prefKey, legacy)
-                .remove("server_url")
-                .apply()
+        // Fold URLs saved by the short-lived per-environment build back into one.
+        val legacyEnv = secure.getString("server_url_development", null)
+            ?: secure.getString("server_url_production", null)
+        if (!legacyEnv.isNullOrBlank() && secure.getString(KEY_SERVER_URL, null) == null) {
+            secure.edit().putString(KEY_SERVER_URL, legacyEnv).apply()
+        }
+        if (legacyEnv != null) {
+            secure.edit().remove("server_url_development").remove("server_url_production").apply()
         }
     }
 
     /**
-     * Which environment [serverUrl] resolves to. Each environment keeps its own
-     * URL, so switching back and forth doesn't make you retype either one.
+     * Receiver URL. Which server a build points at is a build-time decision
+     * ([BuildConfig.DEFAULT_SERVER_URL]); this only holds a user override, so
+     * clearing it falls back to the built-in default rather than to nothing.
      */
-    var environment: Environment
-        get() = Environment.from(plain.getString("environment", null))
-        set(v) { plain.edit().putString("environment", v.key).apply() }
-
-    /** URL of the currently selected [environment]. */
     var serverUrl: String?
-        get() = urlFor(environment)
-        set(v) { setUrlFor(environment, v) }
+        get() = secure.getString(KEY_SERVER_URL, null)?.takeIf { it.isNotBlank() } ?: defaultServerUrl
+        set(v) { secure.edit().putString(KEY_SERVER_URL, v?.trim().orEmpty()).apply() }
 
-    fun urlFor(env: Environment): String? =
-        secure.getString(env.prefKey, null)?.takeIf { it.isNotBlank() } ?: env.defaultUrl
+    /** The URL this build ships with, or null if it was built without one. */
+    val defaultServerUrl: String? = BuildConfig.DEFAULT_SERVER_URL.takeIf { it.isNotBlank() }
 
-    fun setUrlFor(env: Environment, url: String?) {
-        secure.edit().putString(env.prefKey, url?.trim().orEmpty()).apply()
-    }
+    /** True when [serverUrl] is a user override rather than the build default. */
+    val serverUrlIsOverridden: Boolean
+        get() = !secure.getString(KEY_SERVER_URL, null).isNullOrBlank() &&
+            secure.getString(KEY_SERVER_URL, null) != defaultServerUrl
 
-    enum class Environment(val key: String, val label: String, val defaultUrl: String?) {
-        DEVELOPMENT("development", "Development", "http://localhost:3000/api/health"),
+    fun resetServerUrl() { secure.edit().remove(KEY_SERVER_URL).apply() }
 
-        // No default: the production receiver isn't stood up yet, so an empty
-        // field is the honest state rather than a URL that would silently fail.
-        PRODUCTION("production", "Production", null);
-
-        val prefKey get() = "server_url_$key"
-
-        companion object {
-            fun from(key: String?) = entries.firstOrNull { it.key == key } ?: DEVELOPMENT
-        }
-    }
     var lastSync: Long
         get() = plain.getLong("last_sync", 0)
         set(v) { plain.edit().putLong("last_sync", v).apply() }
@@ -100,6 +87,8 @@ class SyncSettings(context: Context) {
     }
 
     companion object {
+        private const val KEY_SERVER_URL = "server_url"
+
         fun configToMap(cfg: ExportConfig): Map<String, Any> {
             val m = HashMap<String, Any>()
             for (p in ExportConfig::class.memberProperties) when (val v = p.get(cfg)) {

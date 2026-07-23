@@ -49,39 +49,28 @@
                     android:text="Server"
                     android:textStyle="bold" />
 
-                <RadioGroup
-                    android:id="@+id/groupEnvironment"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="4dp"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
 
-                    <RadioButton
-                        android:id="@+id/radioDevelopment"
+                    <TextView
+                        android:id="@+id/txtServerUrl"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:ellipsize="middle"
+                        android:singleLine="true"
+                        android:textSize="14sp" />
+
+                    <Button
+                        android:id="@+id/btnChangeServerUrl"
+                        style="?attr/borderlessButtonStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="16dp"
-                        android:text="Development" />
-
-                    <RadioButton
-                        android:id="@+id/radioProduction"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Production" />
-                </RadioGroup>
-
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
-                    android:hint="Server URL">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/editServerUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="textUri" />
-                </com.google.android.material.textfield.TextInputLayout>
+                        android:text="Change" />
+                </LinearLayout>
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

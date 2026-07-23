@@ -18,7 +18,8 @@ import kotlinx.coroutines.launch
  */
 class LoginActivity : AppCompatActivity() {
 
-    private lateinit var editServerUrl: TextInputEditText
+    private lateinit var txtServerUrl: TextView
+    private lateinit var btnChangeServerUrl: Button
     private lateinit var editEmail: TextInputEditText
     private lateinit var editPassword: TextInputEditText
     private lateinit var btnLogin: Button
@@ -31,56 +32,39 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
-        editServerUrl = findViewById(R.id.editServerUrl)
+        txtServerUrl = findViewById(R.id.txtServerUrl)
+        btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)
         editEmail = findViewById(R.id.editEmail)
         editPassword = findViewById(R.id.editPassword)
         btnLogin = findViewById(R.id.btnLogin)
         txtStatus = findViewById(R.id.txtStatus)
 
-        editServerUrl.setText(settings.serverUrl ?: "")
+        showServerUrl()
+        btnChangeServerUrl.setOnClickListener {
+            ServerUrlDialog.show(this, settings) { showServerUrl() }
+        }
 
         btnLogin.setOnClickListener { onLoginClicked() }
         findViewById<TextView>(R.id.linkSignup).setOnClickListener {
-            persistUrl()
             startActivity(Intent(this, SignupActivity::class.java))
         }
         findViewById<TextView>(R.id.linkForgot).setOnClickListener {
-            persistUrl()
             startActivity(Intent(this, ForgotActivity::class.java))
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        // Reflect a URL saved elsewhere (e.g. typed here, then edited on signup).
-        val stored = settings.serverUrl
-        if (!stored.isNullOrBlank() && editServerUrl.text?.toString()?.trim().isNullOrBlank()) {
-            editServerUrl.setText(stored)
-        }
-    }
-
-    override fun onPause() {
-        super.onPause()
-        persistUrl()
-    }
-
-    /**
-     * The signup and forgot screens have no URL field of their own — they read
-     * [SyncSettings]. Persist whatever is typed here before leaving, so those
-     * screens don't see a null URL.
-     */
-    private fun persistUrl() {
-        val url = editServerUrl.text?.toString()?.trim().orEmpty()
-        if (url.isNotBlank()) settings.serverUrl = url
+    private fun showServerUrl() {
+        val url = settings.serverUrl
+        txtServerUrl.text = if (url.isNullOrBlank()) "Server not set" else "Server: $url"
     }
 
     private fun onLoginClicked() {
-        val url = editServerUrl.text?.toString()?.trim().orEmpty()
+        val url = settings.serverUrl?.trim().orEmpty()
         val email = editEmail.text?.toString()?.trim().orEmpty()
         val password = editPassword.text?.toString().orEmpty()
 
         if (url.isBlank()) {
-            showStatus("Enter a server URL first")
+            showStatus("No server URL set — tap Change")
             return
         }
         if (email.isBlank() || password.isBlank()) {
@@ -88,7 +72,6 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        settings.serverUrl = url
         setBusy(true)
         showStatus("")
 
