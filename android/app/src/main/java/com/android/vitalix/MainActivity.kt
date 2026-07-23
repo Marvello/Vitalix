@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var btnSyncNow: Button
     private lateinit var btnLogout: Button
+    private lateinit var btnSyncLog: Button
     private lateinit var txtStatus: TextView
     private lateinit var txtLastSync: TextView
 
@@ -109,6 +110,7 @@ class MainActivity : AppCompatActivity() {
     private val dayLabel = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
 
     private val settings by lazy { SyncSettings(this) }
+    private val syncLog by lazy { SyncLog(this) }
     private val healthConnectManager by lazy { HealthConnectManager(this) }
     private val authStore by lazy { AuthStore(this) }
 
@@ -170,6 +172,7 @@ class MainActivity : AppCompatActivity() {
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
         btnLogout.setOnClickListener { onLogoutClicked() }
+        btnSyncLog.setOnClickListener { startActivity(Intent(this, SyncLogActivity::class.java)) }
     }
 
     private fun onLogoutClicked() {
@@ -240,6 +243,7 @@ class MainActivity : AppCompatActivity() {
 
         btnSyncNow = findViewById(R.id.btnSyncNow)
         btnLogout = findViewById(R.id.btnLogout)
+        btnSyncLog = findViewById(R.id.btnSyncLog)
         txtStatus = findViewById(R.id.txtStatus)
         txtLastSync = findViewById(R.id.txtLastSync)
 
@@ -538,11 +542,15 @@ class MainActivity : AppCompatActivity() {
         showStatus("Exporting…")
 
         lifecycleScope.launch {
+            val cfg = settings.readConfig()
+            val (from, to) = SyncLog.trailingWindow(cfg.daysBack)
+            val runId = syncLog.start(SyncLog.Kind.MANUAL, from, to)
             try {
-                val cfg = settings.readConfig()
                 healthConnectManager.setSaferExportMode(cfg.saferExportMode)
+                var daysSent = 0
                 val result = withContext(Dispatchers.IO) {
                     val days = healthConnectManager.readHealthDataByDay(cfg)
+                    daysSent = days.size
                     val json = ServerForwarder.buildPayload(
                         days,
                         PayloadMeta(appVersion, Build.MODEL, cfg.daysBack)
@@ -555,6 +563,12 @@ class MainActivity : AppCompatActivity() {
                     // Surface partial reads: a throttled metric is absent from the
                     // payload and would otherwise look like a clean sync.
                     val missed = healthConnectManager.lastFailedMetrics
+                    syncLog.finish(
+                        runId,
+                        if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,
+                        days = daysSent,
+                        message = if (missed.isEmpty()) null else "Could not read ${missed.joinToString(", ")}",
+                    )
                     showStatus(
                         if (missed.isEmpty()) "Sent (HTTP ${result.getOrNull()})"
                         else "Sent, but ${missed.joinToString(", ")} could not be read — sync again shortly"
@@ -564,6 +578,7 @@ class MainActivity : AppCompatActivity() {
                     if (err is ServerForwarder.HttpException && err.code == 401) {
                         // AuthedHttp's authenticator already tried to refresh and failed,
                         // clearing AuthStore. Route back to login.
+                        syncLog.finish(runId, SyncLog.Status.FAILED, message = "Session expired")
                         startActivity(Intent(this@MainActivity, LoginActivity::class.java))
                         finish()
                         return@launch
@@ -572,9 +587,11 @@ class MainActivity : AppCompatActivity() {
                         is ServerForwarder.HttpException -> "HTTP ${err.code}"
                         else -> err?.message ?: "unknown error"
                     }
+                    syncLog.finish(runId, SyncLog.Status.FAILED, message = detail)
                     showStatus("Failed: $detail")
                 }
             } catch (e: Exception) {
+                syncLog.finish(runId, SyncLog.Status.FAILED, message = e.message)
                 showStatus("Failed: ${e.message}")
             } finally {
                 setSyncing(false)

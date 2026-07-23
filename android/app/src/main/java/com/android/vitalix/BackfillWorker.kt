@@ -48,6 +48,9 @@ class BackfillWorker(
 
         setForeground(foregroundInfo("Starting…"))
 
+        val log = SyncLog(ctx)
+        val runId = log.start(SyncLog.Kind.FULL, null, SyncLog.dateOf(Instant.now()))
+
         val cfg = settings.readConfig()
         val manager = HealthConnectManager(ctx)
         // One read per metric per slice: the slice already bounds the window, so
@@ -65,7 +68,11 @@ class BackfillWorker(
 
         try {
             while (end.isAfter(floor) && emptyRun < EMPTY_LIMIT) {
-                if (isStopped) return Result.failure(message("Cancelled after $daysSent days"))
+                if (isStopped) {
+                    log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
+                        message = "Cancelled", from = SyncLog.dateOf(end))
+                    return Result.failure(message("Cancelled after $daysSent days"))
+                }
 
                 val start = maxOf(end.minus(WINDOW_DAYS, ChronoUnit.DAYS), floor)
                 slices++
@@ -83,6 +90,9 @@ class BackfillWorker(
                     days = manager.readHealthDataByDay(cfg, start, end)
                 }
                 if (manager.lastFailedMetrics.isNotEmpty()) {
+                    log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
+                        message = "Health Connect refused " + manager.lastFailedMetrics.joinToString(", "),
+                        from = SyncLog.dateOf(end))
                     return Result.failure(message(
                         "Stopped after $daysSent days: Health Connect kept refusing " +
                             manager.lastFailedMetrics.joinToString(", ") + ". Try again shortly."
@@ -107,6 +117,8 @@ class BackfillWorker(
                         }
                         // Everything already sent stays on the server; re-running
                         // resumes rather than restarting.
+                        log.finish(runId, SyncLog.Status.FAILED, days = daysSent,
+                            message = detail, from = SyncLog.dateOf(end))
                         return Result.failure(message("Stopped after $daysSent days: $detail"))
                     }
                     daysSent += days.size
@@ -116,11 +128,14 @@ class BackfillWorker(
             }
 
             settings.lastSync = System.currentTimeMillis()
+            // `end` has walked back to the oldest slice boundary reached.
+            log.finish(runId, SyncLog.Status.SENT, days = daysSent, from = SyncLog.dateOf(end))
             return Result.success(
                 workDataOf(KEY_MESSAGE to "Full history sent ($daysSent days over $slices slices)",
                     KEY_DAYS to daysSent)
             )
         } catch (e: Exception) {
+            log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = e.message)
             return Result.failure(message("Failed after $daysSent days: ${e.message}"))
         }
     }

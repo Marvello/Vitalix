@@ -26,17 +26,31 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val url = settings.serverUrl
         if (url.isNullOrBlank()) return Result.failure()
 
+
+        val cfg = settings.readConfig().copy(daysBack = daysSinceLastSync(settings))
+        val log = SyncLog(applicationContext)
+        val (from, to) = SyncLog.trailingWindow(cfg.daysBack)
+        val runId = log.start(SyncLog.Kind.AUTO, from, to)
+
         return try {
-            val cfg = settings.readConfig().copy(daysBack = daysSinceLastSync(settings))
-            val days = HealthConnectManager(applicationContext).readHealthDataByDay(cfg)
+            val manager = HealthConnectManager(applicationContext)
+            val days = manager.readHealthDataByDay(cfg)
             val meta = PayloadMeta(appVersion(), Build.MODEL, cfg.daysBack)
             val json = ServerForwarder.buildPayload(days, meta)
             ServerForwarder.forward(applicationContext, url, json).fold(
                 onSuccess = {
                     settings.lastSync = System.currentTimeMillis()
+                    val missed = manager.lastFailedMetrics
+                    log.finish(
+                        runId,
+                        if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,
+                        days = days.size,
+                        message = if (missed.isEmpty()) null else "Could not read ${missed.joinToString(", ")}",
+                    )
                     Result.success()
                 },
                 onFailure = { e ->
+                    log.finish(runId, SyncLog.Status.FAILED, message = e.message)
                     if (e is ServerForwarder.HttpException && e.code == 401) {
                         // AuthedHttp's authenticator already tried to refresh and failed
                         // (clearing AuthStore). Don't infinite-retry a dead session.
@@ -49,6 +63,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 }
             )
         } catch (e: Exception) {
+            log.finish(runId, SyncLog.Status.FAILED, message = e.message)
             Result.retry()
         }
     }
