@@ -8,6 +8,8 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.work.WorkManager
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,7 +38,27 @@ class SyncLogActivity : AppCompatActivity() {
     // Re-read on resume so a sync started from the previous screen shows up.
     override fun onResume() {
         super.onResume()
-        render()
+        reconcileThenRender()
+    }
+
+    /**
+     * Ask WorkManager whether a backfill is genuinely still in flight before the
+     * log writes off anything left on "Running".
+     */
+    private fun reconcileThenRender() {
+        val future = WorkManager.getInstance(this)
+            .getWorkInfosForUniqueWork(BackfillWorker.NAME)
+        future.addListener({
+            val active = try {
+                future.get().any { !it.state.isFinished }
+            } catch (_: Exception) {
+                false
+            }
+            runOnUiThread {
+                log.reconcile(active)
+                render()
+            }
+        }, ContextCompat.getMainExecutor(this))
     }
 
     private fun render() {
@@ -77,10 +99,14 @@ class SyncLogActivity : AppCompatActivity() {
         val range = when {
             e.from != null && e.to != null && e.from == e.to -> e.from
             e.from != null && e.to != null -> "${e.from} → ${e.to}"
+            // A backfill in flight knows where it ends before where it starts.
+            e.to != null -> "up to ${e.to}"
+            e.from != null -> "from ${e.from}"
             else -> "—"
         }
         // Days sent is only meaningful once a run has finished.
-        val days = if (e.status == SyncLog.Status.RUNNING) "" else " · ${e.days} days"
+        // A running backfill reports days as it goes; other runs only at the end.
+        val days = if (e.status == SyncLog.Status.RUNNING && e.days == 0) "" else " · ${e.days} days"
         return "Period: $range$days"
     }
 

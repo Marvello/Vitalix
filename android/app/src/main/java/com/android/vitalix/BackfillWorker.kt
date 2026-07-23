@@ -77,6 +77,7 @@ class BackfillWorker(
                 val start = maxOf(end.minus(WINDOW_DAYS, ChronoUnit.DAYS), floor)
                 slices++
                 report("Reading ${dayLabel.format(Date(start.toEpochMilli()))}", daysSent)
+                log.progress(runId, SyncLog.dateOf(start), daysSent)
 
                 var days = manager.readHealthDataByDay(cfg, start, end)
                 // Health Connect throttles reads, and a throttled metric comes back

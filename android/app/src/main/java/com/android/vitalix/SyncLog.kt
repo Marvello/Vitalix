@@ -47,11 +47,11 @@ class SyncLog(context: Context) {
     )
 
     /** Records the start of a run and returns its id, for [finish] to update. */
-    fun start(kind: Kind, from: String?, to: String?): String {
+    fun start(kind: Kind, from: String?, to: String?): String = synchronized(LOCK) {
         val id = "${System.currentTimeMillis()}-${(0..9999).random()}"
         val entry = Entry(id, kind, System.currentTimeMillis(), null, Status.RUNNING, from, to, 0, null)
         write(listOf(entry) + entries())
-        return id
+        return@synchronized id
     }
 
     /** Closes out a run. Unknown ids are ignored, so a stale id can't throw. */
@@ -62,7 +62,7 @@ class SyncLog(context: Context) {
         message: String? = null,
         from: String? = null,
         to: String? = null,
-    ) {
+    ) = synchronized(LOCK) {
         write(entries().map { e ->
             if (e.id != id) e
             else e.copy(
@@ -73,6 +73,48 @@ class SyncLog(context: Context) {
                 from = from ?: e.from,
                 to = to ?: e.to,
             )
+        })
+    }
+
+    /**
+     * Updates a run in flight. The backfill walks backwards, so its earliest date
+     * and day count only become known as it goes — without this the log would show
+     * an empty period for the whole run.
+     */
+    fun progress(id: String, from: String?, days: Int) = synchronized(LOCK) {
+        write(entries().map { e ->
+            if (e.id != id) e else e.copy(from = from ?: e.from, days = days)
+        })
+    }
+
+    /**
+     * Closes out runs that can no longer be in flight. A killed process — app
+     * reinstalled, worker stopped, phone rebooted — leaves an entry stuck on
+     * "Running" forever, because nothing survives to call [finish].
+     *
+     * @param backfillActive whether WorkManager still has a backfill in flight;
+     *   only the caller can know that, and a live run must not be closed.
+     */
+    fun reconcile(backfillActive: Boolean) = synchronized(LOCK) {
+        val now = System.currentTimeMillis()
+        val all = entries()
+        // The backfill is unique work, so at most one run can be live — and it is
+        // the newest. Any older entry still marked Running was killed, whether or
+        // not a backfill is going now.
+        val liveFullId = if (!backfillActive) null
+        else all.firstOrNull { it.kind == Kind.FULL && it.status == Status.RUNNING }?.id
+
+        write(all.map { e ->
+            if (e.status != Status.RUNNING) return@map e
+            val stillRunning = when (e.kind) {
+                Kind.FULL -> e.id == liveFullId
+                // A foreground sync dies with its Activity, so anything this old
+                // is not coming back.
+                else -> now - e.startedAt < STALE_AFTER_MS
+            }
+            if (stillRunning) e
+            else e.copy(finishedAt = e.finishedAt ?: now, status = Status.FAILED,
+                message = e.message ?: "Interrupted")
         })
     }
 
@@ -99,7 +141,7 @@ class SyncLog(context: Context) {
         }
     }
 
-    fun clear() { prefs.edit().remove(KEY).apply() }
+    fun clear() = synchronized(LOCK) { prefs.edit().remove(KEY).apply() }
 
     private fun write(entries: List<Entry>) {
         val arr = JSONArray()
@@ -120,8 +162,17 @@ class SyncLog(context: Context) {
     }
 
     companion object {
+        /**
+         * Serialises the read-modify-write cycle. The backfill worker and the log
+         * screen update the same prefs from different threads, and interleaved
+         * snapshots silently drop entries.
+         */
+        private val LOCK = Any()
+
         private const val KEY = "entries"
         private const val MAX_ENTRIES = 200
+        /** A foreground run still "Running" after this long was killed, not slow. */
+        private const val STALE_AFTER_MS = 30 * 60 * 1000L
 
         /** ISO date for an instant, in the device's zone — matches how days are bucketed. */
         fun dateOf(instant: Instant): String =
