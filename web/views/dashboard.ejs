@@ -1,32 +1,329 @@
-<!doctype html><html><head><title>Vitalix — Dashboard</title><style>
-body{font-family:Inter,system-ui,sans-serif;max-width:720px;margin:6vh auto;padding:0 20px;color:#0E1B2B}
-h1{color:#0FA9A0} a{color:#0FA9A0}
-table{width:100%;border-collapse:collapse;margin-top:16px}
-th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e2e8f0}
-th{color:#34D399;font-size:13px;text-transform:uppercase;letter-spacing:.03em}
-.topbar{display:flex;justify-content:space-between;align-items:center}
-button{background:#0FA9A0;color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
-.empty{color:#64748b;margin-top:24px}</style></head><body>
-<div class="topbar">
-  <h1>Vitalix</h1>
-  <form method="post" action="/logout"><button type="submit">Log out</button></form>
-</div>
-<h2>Welcome, <%= email %></h2>
-<% if (days.length === 0) { %>
-  <p class="empty">No health data yet.</p>
-<% } else { %>
-<table>
-  <thead><tr><th>Day</th><th>Steps</th><th>Sleep (min)</th></tr></thead>
-  <tbody>
-  <% days.forEach(function(d) { %>
-    <% var dayStr = (d.day instanceof Date) ? d.day.toISOString().slice(0,10) : d.day; %>
-    <tr>
-      <td><a href="/dashboard/<%= dayStr %>"><%= dayStr %></a></td>
-      <td><%= d.steps == null ? "—" : d.steps %></td>
-      <td><%= d.sleep_duration_minutes == null ? "—" : d.sleep_duration_minutes %></td>
-    </tr>
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vitalix — Dashboard</title>
+<style>
+:root{
+  --teal:#0FA9A0; --green:#34D399; --ink:#0E1B2B; --muted:#64748b;
+  --line:#e2e8f0; --card:#ffffff; --bg:#f8fafc;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --ink:#e2e8f0; --muted:#94a3b8; --line:#1e293b; --card:#0f172a; --bg:#020617; }
+}
+*{box-sizing:border-box}
+body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
+.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
+.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+h1{color:var(--teal);margin:0;font-size:26px;letter-spacing:-0.02em}
+h2{font-size:15px;margin:0 0 12px;font-weight:600}
+.sub{color:var(--muted);font-size:14px;margin:4px 0 0}
+button{background:var(--teal);color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
+a{color:var(--teal)}
+.ranges{display:flex;gap:6px;margin:20px 0 16px;flex-wrap:wrap}
+.ranges a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:13px;color:var(--muted);background:var(--card)}
+.ranges a.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.tile .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+.tile .value{font-size:24px;font-weight:650;margin-top:6px;letter-spacing:-0.02em}
+.tile .unit{font-size:13px;color:var(--muted);font-weight:500;margin-left:3px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
+.chart{width:100%;overflow-x:auto}
+svg{display:block;max-width:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+table{width:100%;border-collapse:collapse;margin-top:4px;font-size:14px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
+td.num,th.num{text-align:right}
+.empty{color:var(--muted);padding:24px 0}
+.table-scroll{overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="topbar">
+    <div>
+      <h1>Vitalix</h1>
+      <p class="sub"><%= email || "Signed in" %></p>
+    </div>
+    <form method="post" action="/logout"><button type="submit">Log out</button></form>
+  </div>
+
+  <nav class="ranges">
+    <% Object.entries(ranges).forEach(function([value, label]) { %>
+      <a class="<%= String(range) === String(value) ? 'on' : '' %>" href="/dashboard?range=<%= value %>"><%= label %></a>
+    <% }); %>
+  </nav>
+
+  <% if (!totals || !totals.days) { %>
+    <p class="empty">No health data in this range yet. Run a sync from the app.</p>
+  <% } else { %>
+
+  <div class="tiles">
+    <% tiles.forEach(function(t) { %>
+      <div class="tile">
+        <div class="label"><%= t.label %></div>
+        <div class="value"><% if (t.value === null || t.value === undefined) { %>—<% } else { %><%= typeof t.value === "number" ? t.value.toLocaleString("en-US") : t.value %><% if (t.unit) { %><span class="unit"><%= t.unit %></span><% } } %></div>
+      </div>
+    <% }); %>
+  </div>
+
+  <div class="card">
+    <h2>Steps</h2>
+    <div class="chart" id="chart-steps"></div>
+    <div class="legend">
+      <span><i style="background:#0FA9A0"></i>Daily steps</span>
+      <span><i style="background:#34D399"></i>7-day average</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Sleep</h2>
+    <div class="chart" id="chart-sleep"></div>
+    <div class="legend">
+      <span><i style="background:#1e3a8a"></i>Deep</span>
+      <span><i style="background:#3b82f6"></i>Light</span>
+      <span><i style="background:#a78bfa"></i>REM</span>
+      <span><i style="background:#cbd5e1"></i>Awake</span>
+    </div>
+  </div>
+
+  <% charts.bands.forEach(function(band, i) { %>
+    <div class="card">
+      <h2><%= band.label %></h2>
+      <div class="chart" id="chart-band-<%= i %>"></div>
+      <div class="legend">
+        <span><i style="background:rgba(15,169,160,.25)"></i>Daily range</span>
+        <span><i style="background:#0FA9A0"></i>Average</span>
+      </div>
+    </div>
   <% }); %>
-  </tbody>
-</table>
-<% } %>
-</body></html>
+
+  <div class="card">
+    <h2>Distance &amp; active calories</h2>
+    <div class="chart" id="chart-distance"></div>
+    <div class="legend">
+      <span><i style="background:#0FA9A0"></i>Distance (m)</span>
+      <span><i style="background:#f59e0b"></i>Active calories</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Recent days</h2>
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>Day</th><th class="num">Steps</th><th class="num">Distance (m)</th>
+          <th class="num">Active kcal</th><th class="num">Sleep</th><th class="num">Resting HR</th>
+        </tr></thead>
+        <tbody>
+        <% recent.forEach(function(d) { var k = toKey(d.day); %>
+          <tr>
+            <td><a href="/dashboard/<%= k %>"><%= k %></a></td>
+            <td class="num"><%= d.steps == null ? "—" : Number(d.steps).toLocaleString("en-US") %></td>
+            <td class="num"><%= d.distance == null ? "—" : Math.round(d.distance).toLocaleString("en-US") %></td>
+            <td class="num"><%= d.active_calories == null ? "—" : Math.round(d.active_calories) %></td>
+            <td class="num"><%= d.sleep_duration_minutes == null ? "—" : Math.floor(d.sleep_duration_minutes / 60) + "h " + String(Math.round(d.sleep_duration_minutes % 60)).padStart(2, "0") + "m" %></td>
+            <td class="num"><%= d.resting_heart_rate == null ? "—" : Math.round(d.resting_heart_rate) %></td>
+          </tr>
+        <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <% } %>
+</div>
+
+<script>
+const DATA = <%- JSON.stringify(charts) %>;
+
+// Minimal SVG charting, hand-rolled rather than pulled from a CDN so the
+// dashboard stays self-contained and works offline.
+const NS = "http://www.w3.org/2000/svg";
+const AXIS = getComputedStyle(document.body).getPropertyValue("--muted").trim() || "#64748b";
+
+function el(name, attrs = {}) {
+  const node = document.createElementNS(NS, name);
+  for (const [k, v] of Object.entries(attrs)) node.setAttribute(k, v);
+  return node;
+}
+
+function frame(host, { height = 200, padL = 44, padR = 8, padT = 10, padB = 24 } = {}) {
+  const width = Math.max(host.clientWidth || 640, 320);
+  const svg = el("svg", { width, height, viewBox: `0 0 ${width} ${height}` });
+  host.replaceChildren(svg);
+  return { svg, width, height, padL, padR, padT, padB,
+    plotW: width - padL - padR, plotH: height - padT - padB };
+}
+
+function axes(f, max, labels) {
+  const ticks = 3;
+  for (let i = 0; i <= ticks; i++) {
+    const value = (max / ticks) * i;
+    const y = f.padT + f.plotH - (f.plotH * i) / ticks;
+    f.svg.appendChild(el("line", {
+      x1: f.padL, x2: f.width - f.padR, y1: y, y2: y, stroke: AXIS, "stroke-opacity": .18,
+    }));
+    const t = el("text", { x: f.padL - 6, y: y + 4, "text-anchor": "end", "font-size": 10, fill: AXIS });
+    t.textContent = value >= 1000 ? Math.round(value / 1000) + "k" : Math.round(value);
+    f.svg.appendChild(t);
+  }
+  // First, middle and last date only — a dense axis is unreadable over a year.
+  [0, Math.floor(labels.length / 2), labels.length - 1].forEach((i) => {
+    if (i < 0 || i >= labels.length) return;
+    const x = f.padL + (f.plotW * (i + 0.5)) / labels.length;
+    const t = el("text", { x, y: f.height - 6, "text-anchor": "middle", "font-size": 10, fill: AXIS });
+    t.textContent = labels[i].slice(5);
+    f.svg.appendChild(t);
+  });
+}
+
+function maxOf(values) {
+  const nums = values.filter((v) => v != null && !Number.isNaN(v));
+  return nums.length ? Math.max(...nums) : 1;
+}
+
+/** Path across a series, broken at nulls so gaps aren't drawn as straight lines. */
+function linePath(values, f, max, slot) {
+  let d = "";
+  let pen = false;
+  values.forEach((v, i) => {
+    if (v == null) { pen = false; return; }
+    const x = f.padL + slot * i + slot / 2;
+    const y = f.padT + f.plotH - (v / max) * f.plotH;
+    d += `${pen ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`;
+    pen = true;
+  });
+  return d || null;
+}
+
+function barChart(id, points, trend) {
+  const host = document.getElementById(id);
+  if (!host || !points.length) return;
+  const f = frame(host);
+  const max = maxOf(points.map((p) => p.value)) * 1.1 || 1;
+  axes(f, max, points.map((p) => p.date));
+
+  const slot = f.plotW / points.length;
+  const w = Math.max(1, slot * 0.7);
+  points.forEach((p, i) => {
+    if (p.value == null) return;
+    const h = (p.value / max) * f.plotH;
+    const rect = el("rect", {
+      x: f.padL + slot * i + (slot - w) / 2, y: f.padT + f.plotH - h,
+      width: w, height: Math.max(h, 1), fill: "#0FA9A0", rx: 2,
+    });
+    const title = el("title");
+    title.textContent = `${p.date}: ${Math.round(p.value).toLocaleString("en-US")}`;
+    rect.appendChild(title);
+    f.svg.appendChild(rect);
+  });
+
+  if (trend) {
+    const d = linePath(trend.map((p) => p.value), f, max, slot);
+    if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#34D399", "stroke-width": 2 }));
+  }
+}
+
+function stackedChart(id, points, keys, colors) {
+  const host = document.getElementById(id);
+  if (!host || !points.length) return;
+  const f = frame(host);
+  const totals = points.map((p) => {
+    const parts = keys.map((k) => p[k]).filter((v) => v != null);
+    return parts.length ? parts.reduce((a, b) => a + b, 0) : p.total;
+  });
+  const max = maxOf(totals) * 1.1 || 1;
+  axes(f, max, points.map((p) => p.date));
+
+  const slot = f.plotW / points.length;
+  const w = Math.max(1, slot * 0.7);
+  points.forEach((p, i) => {
+    // Stage breakdown is optional; fall back to one bar of total sleep.
+    const stack = keys.some((k) => p[k] != null)
+      ? keys.map((k, ki) => ({ value: p[k] || 0, color: colors[ki] }))
+      : (p.total == null ? [] : [{ value: p.total, color: "#3b82f6" }]);
+    let y = f.padT + f.plotH;
+    stack.forEach((part) => {
+      if (!part.value) return;
+      const h = (part.value / max) * f.plotH;
+      y -= h;
+      f.svg.appendChild(el("rect", {
+        x: f.padL + slot * i + (slot - w) / 2, y, width: w, height: Math.max(h, 1),
+        fill: part.color, rx: 1,
+      }));
+    });
+    if (totals[i] != null) {
+      const hit = el("rect", { x: f.padL + slot * i, y: f.padT, width: slot, height: f.plotH, fill: "transparent" });
+      const title = el("title");
+      const mins = Math.round(totals[i]);
+      title.textContent = `${p.date}: ${Math.floor(mins / 60)}h ${String(mins % 60).padStart(2, "0")}m`;
+      hit.appendChild(title);
+      f.svg.appendChild(hit);
+    }
+  });
+}
+
+function bandChart(id, points) {
+  const host = document.getElementById(id);
+  if (!host || !points.length) return;
+  const f = frame(host);
+  const max = maxOf(points.map((p) => p.max)) * 1.1 || 1;
+  axes(f, max, points.map((p) => p.date));
+
+  const slot = f.plotW / points.length;
+  points.forEach((p, i) => {
+    if (p.min == null || p.max == null) return;
+    const yMax = f.padT + f.plotH - (p.max / max) * f.plotH;
+    const yMin = f.padT + f.plotH - (p.min / max) * f.plotH;
+    const rect = el("rect", {
+      x: f.padL + slot * i + slot * 0.15, y: yMax,
+      width: Math.max(1, slot * 0.7), height: Math.max(yMin - yMax, 1),
+      fill: "#0FA9A0", "fill-opacity": .25, rx: 2,
+    });
+    const title = el("title");
+    title.textContent = `${p.date}: ${Math.round(p.min)}–${Math.round(p.max)}` +
+      (p.avg == null ? "" : ` (avg ${Math.round(p.avg)})`);
+    rect.appendChild(title);
+    f.svg.appendChild(rect);
+  });
+  const d = linePath(points.map((p) => p.avg), f, max, slot);
+  if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
+}
+
+function dualLineChart(id, a, b) {
+  const host = document.getElementById(id);
+  if (!host || !a.length) return;
+  const f = frame(host);
+  const max = Math.max(maxOf(a.map((p) => p.value)), maxOf(b.map((p) => p.value))) * 1.1 || 1;
+  axes(f, max, a.map((p) => p.date));
+  const slot = f.plotW / a.length;
+  const da = linePath(a.map((p) => p.value), f, max, slot);
+  if (da) f.svg.appendChild(el("path", { d: da, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
+  const db = linePath(b.map((p) => p.value), f, max, slot);
+  if (db) f.svg.appendChild(el("path", { d: db, fill: "none", stroke: "#f59e0b", "stroke-width": 2 }));
+}
+
+function drawAll() {
+  barChart("chart-steps", DATA.steps, DATA.stepsTrend);
+  stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
+    ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
+  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points));
+  dualLineChart("chart-distance", DATA.distance, DATA.activeCalories);
+}
+
+drawAll();
+// Charts size themselves from their container, so a resize needs a redraw.
+let resizeTimer;
+addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(drawAll, 150);
+});
+</script>
+</body>
+</html>

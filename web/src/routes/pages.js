@@ -5,6 +5,10 @@ import * as store from "../auth/store.js";
 import { setAuthCookies } from "./auth.js";
 import { requireAuth } from "../auth/middleware.js";
 import { query } from "../db.js";
+import * as stats from "../stats.js";
+import {
+  bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
+} from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
 
@@ -68,9 +72,58 @@ pagesRouter.post("/logout", async (req, res) => {
   res.redirect("/login");
 });
 
+const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
+
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
-  const { rows } = await query("SELECT day, steps, sleep_duration_minutes FROM health_days WHERE user_id = $1 ORDER BY day DESC LIMIT 30", [req.user.id]);
-  res.render("dashboard", { days: rows, email: (await store.findUserById(req.user.id))?.email });
+  try {
+    const days = RANGES[req.query.range] ? Number(req.query.range) : 30;
+    const to = new Date();
+    const from = new Date(to.getTime() - (days - 1) * 864e5);
+    const fromKey = toKey(from);
+    const toKeyStr = toKey(to);
+
+    const [rows, aggs, totals, metrics, recent, user] = await Promise.all([
+      stats.dailyRows(req.user.id, fromKey, toKeyStr),
+      stats.aggregateRows(req.user.id, fromKey, toKeyStr),
+      stats.summary(req.user.id, fromKey, toKeyStr),
+      stats.availableMetrics(req.user.id, fromKey, toKeyStr),
+      stats.recentDays(req.user.id, 14),
+      store.findUserById(req.user.id),
+    ]);
+
+    const steps = fillDays(rows, fromKey, toKeyStr, "steps");
+    const charts = {
+      steps,
+      stepsTrend: rollingAverage(steps, 7),
+      distance: fillDays(rows, fromKey, toKeyStr, "distance"),
+      activeCalories: fillDays(rows, fromKey, toKeyStr, "active_calories"),
+      restingHr: fillDays(rows, fromKey, toKeyStr, "resting_heart_rate"),
+      sleep: sleepStages(rows, fromKey, toKeyStr),
+      bands: stats.BAND_METRICS.filter((m) => metrics.includes(m)).map((metric) => ({
+        metric,
+        label: metricLabel(metric),
+        points: bandSeries(aggs, fromKey, toKeyStr, metric),
+      })),
+    };
+
+    res.render("dashboard", {
+      email: user?.email,
+      range: days,
+      ranges: RANGES,
+      tiles: summaryTiles(totals),
+      totals,
+      charts,
+      recent,
+      toKey,
+    });
+  } catch (err) {
+    console.error("GET /dashboard failed", err);
+    res.status(500).render("dashboard", {
+      email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
+      charts: { steps: [], stepsTrend: [], distance: [], activeCalories: [], restingHr: [], sleep: [], bands: [] },
+      recent: [], toKey,
+    });
+  }
 });
 
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {

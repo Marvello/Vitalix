@@ -17,6 +17,8 @@ import androidx.work.workDataOf
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
@@ -52,7 +54,10 @@ class BackfillWorker(
         // pacing belongs between slices, not inside them.
         manager.setSaferExportMode(cfg.saferExportMode, chunkDays = WINDOW_DAYS, delayMs = 0L)
 
-        var end = Instant.now()
+        // Slice boundaries sit on local midnight so a day is never split across two
+        // slices: a half-day read reports partial totals for that date.
+        val zone = ZoneId.systemDefault()
+        var end = LocalDate.now(zone).plusDays(1).atStartOfDay(zone).toInstant()
         val floor = end.minus(MAX_DAYS, ChronoUnit.DAYS)
         var emptyRun = 0
         var slices = 0

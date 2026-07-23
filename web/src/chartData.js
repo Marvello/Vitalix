@@ -1,0 +1,124 @@
+/**
+ * Pure shaping of database rows into the series the dashboard draws. Kept free
+ * of SQL and DOM so the awkward parts — date gaps, null vs zero, rolling
+ * averages — are unit-testable without a database or a browser.
+ */
+
+/** `Date` or string to YYYY-MM-DD, the key format used throughout the charts. */
+export function toKey(day) {
+  if (day instanceof Date) {
+    // Local parts, not toISOString(): a UTC shift can move a day across midnight.
+    const m = String(day.getMonth() + 1).padStart(2, "0");
+    const d = String(day.getDate()).padStart(2, "0");
+    return `${day.getFullYear()}-${m}-${d}`;
+  }
+  return String(day).slice(0, 10);
+}
+
+/** Every date from `from` to `to` inclusive, so gaps are visible rather than skipped. */
+export function dateRange(from, to) {
+  const out = [];
+  const cursor = new Date(`${toKey(from)}T00:00:00Z`);
+  const end = new Date(`${toKey(to)}T00:00:00Z`);
+  while (cursor <= end) {
+    out.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return out;
+}
+
+/**
+ * Aligns rows onto a continuous date axis. A missing day is null, not 0 — the
+ * difference between "didn't wear the watch" and "took no steps" matters.
+ */
+export function fillDays(rows, from, to, column) {
+  const byDay = new Map(rows.map((r) => [toKey(r.day), r]));
+  return dateRange(from, to).map((date) => {
+    const row = byDay.get(date);
+    const value = row ? row[column] : null;
+    return { date, value: value == null ? null : Number(value) };
+  });
+}
+
+/** Trailing mean over `window` points, ignoring nulls; null until any data exists. */
+export function rollingAverage(points, window = 7) {
+  return points.map((p, i) => {
+    const slice = points.slice(Math.max(0, i - window + 1), i + 1)
+      .map((s) => s.value)
+      .filter((v) => v != null);
+    if (slice.length === 0) return { date: p.date, value: null };
+    const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+    return { date: p.date, value: Math.round(mean * 100) / 100 };
+  });
+}
+
+/** Min/max/avg per day for one band metric, aligned to the date axis. */
+export function bandSeries(aggregateRows, from, to, metric) {
+  const byDay = new Map(
+    aggregateRows.filter((r) => r.metric === metric).map((r) => [toKey(r.day), r])
+  );
+  return dateRange(from, to).map((date) => {
+    const r = byDay.get(date);
+    return {
+      date,
+      min: r?.min == null ? null : Number(r.min),
+      max: r?.max == null ? null : Number(r.max),
+      avg: r?.avg == null ? null : Number(r.avg),
+    };
+  });
+}
+
+/** Sleep stages as stacked series; days without sleep data stay null across the board. */
+export function sleepStages(rows, from, to) {
+  const byDay = new Map(rows.map((r) => [toKey(r.day), r]));
+  return dateRange(from, to).map((date) => {
+    const r = byDay.get(date);
+    const num = (v) => (v == null ? null : Number(v));
+    return {
+      date,
+      deep: num(r?.sleep_deep),
+      light: num(r?.sleep_light),
+      rem: num(r?.sleep_rem),
+      awake: num(r?.sleep_awake),
+      total: num(r?.sleep_duration_minutes),
+    };
+  });
+}
+
+/** Human-facing summary tiles. Nulls become "—" rather than 0 or NaN. */
+export function summaryTiles(summary) {
+  const num = (v) => (v == null ? null : Number(v));
+  const round = (v, d = 0) => (v == null ? null : Math.round(v * 10 ** d) / 10 ** d);
+  const hours = (minutes) => {
+    if (minutes == null) return null;
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `${h}h ${String(m).padStart(2, "0")}m`;
+  };
+  return [
+    { label: "Days recorded", value: num(summary.days) ?? 0 },
+    { label: "Total steps", value: round(num(summary.total_steps)) },
+    { label: "Avg steps / day", value: round(num(summary.avg_steps)) },
+    { label: "Distance", value: round(num(summary.total_distance) / 1000, 2), unit: "km" },
+    { label: "Active calories", value: round(num(summary.total_active_calories)), unit: "kcal" },
+    { label: "Avg sleep", value: hours(num(summary.avg_sleep_minutes)) },
+    { label: "Avg resting HR", value: round(num(summary.avg_resting_hr)), unit: "bpm" },
+    { label: "Workouts", value: num(summary.workouts) ?? 0 },
+  ];
+}
+
+/** Nicely formatted metric names for chart titles. */
+export function metricLabel(metric) {
+  const known = {
+    heartRate: "Heart rate",
+    spo2: "Blood oxygen",
+    hrv: "Heart rate variability",
+    respiratoryRate: "Respiratory rate",
+    bloodGlucose: "Blood glucose",
+    bodyTemperature: "Body temperature",
+  };
+  if (known[metric]) return known[metric];
+  // camelCase to sentence case: "totalCalories" -> "Total calories".
+  const spaced = metric.replace(/([A-Z])/g, (c) => " " + c.toLowerCase()).trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}

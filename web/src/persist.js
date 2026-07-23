@@ -14,7 +14,13 @@ async function upsertDay(client, syncId, userId, day) {
   const cols = ["sync_id", "user_id", "day", ...DAY_COLUMNS];
   const values = [syncId, userId, day.day, ...DAY_COLUMNS.map((c) => day.scalars[c] ?? null)];
   const placeholders = cols.map((_, i) => `$${i + 1}`).join(", ");
-  const updates = ["sync_id = EXCLUDED.sync_id", ...DAY_COLUMNS.map((c) => `${c} = EXCLUDED.${c}`)].join(", ");
+  // Merge rather than replace: a sync that covers only part of a day (the app's
+  // backfill slices overlap at their boundaries) would otherwise blank columns it
+  // simply didn't see. COALESCE keeps the previously stored value in that case.
+  const updates = [
+    "sync_id = EXCLUDED.sync_id",
+    ...DAY_COLUMNS.map((c) => `${c} = COALESCE(EXCLUDED.${c}, health_days.${c})`),
+  ].join(", ");
   const sql = `
     INSERT INTO health_days (${cols.join(", ")})
     VALUES (${placeholders})
