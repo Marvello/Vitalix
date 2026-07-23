@@ -100,6 +100,10 @@ class HealthConnectManager(
         HealthPermission.getReadPermission(CervicalMucusRecord::class),
         HealthPermission.getReadPermission(OvulationTestRecord::class),
         HealthPermission.getReadPermission(SexualActivityRecord::class),
+        // Without this, Health Connect truncates every read to the last 30 days,
+        // which would make the full-history backfill return almost nothing.
+        // Spelled out because connect-client 1.1.0-alpha07 has no constant for it.
+        PERMISSION_READ_HEALTH_DATA_HISTORY,
     )
 
     /** Tracks the most-recent value seen in a day (for "latest wins" scalars). */
@@ -234,7 +238,19 @@ class HealthConnectManager(
 
     suspend fun readHealthDataByDay(cfg: ExportConfig): List<DailyHealthData> {
         val end = Instant.now()
-        val start = end.minus(cfg.daysBack.toLong(), ChronoUnit.DAYS)
+        return readHealthDataByDay(cfg, end.minus(cfg.daysBack.toLong(), ChronoUnit.DAYS), end)
+    }
+
+    /**
+     * Reads an explicit window instead of the trailing [ExportConfig.daysBack].
+     * Used by the full-history backfill, which walks backwards a slice at a time
+     * so no single payload has to hold years of samples.
+     */
+    suspend fun readHealthDataByDay(
+        cfg: ExportConfig,
+        start: Instant,
+        end: Instant,
+    ): List<DailyHealthData> {
 
         val builders = HashMap<LocalDate, DayBuilder>()
         fun builder(d: LocalDate) = builders.getOrPut(d) { DayBuilder(d) }
@@ -544,6 +560,9 @@ class HealthConnectManager(
     }
 
     companion object {
+        const val PERMISSION_READ_HEALTH_DATA_HISTORY =
+            "android.permission.health.READ_HEALTH_DATA_HISTORY"
+
         private const val TAG = "HealthConnectManager"
         private const val SAFER_DELAY_MS = 2000L
         private const val CHUNK_DAYS = 7L

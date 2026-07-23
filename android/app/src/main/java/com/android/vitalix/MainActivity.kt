@@ -22,6 +22,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.temporal.ChronoUnit
 import java.util.Date
 import java.util.Locale
 
@@ -82,6 +84,7 @@ class MainActivity : AppCompatActivity() {
     // Options
     private lateinit var editDaysBack: TextInputEditText
     private lateinit var switchSaferExport: SwitchMaterial
+    private lateinit var switchFullHistory: SwitchMaterial
     private lateinit var switchAutoSync: SwitchMaterial
     private lateinit var editSyncInterval: TextInputEditText
 
@@ -214,6 +217,7 @@ class MainActivity : AppCompatActivity() {
 
         editDaysBack = findViewById(R.id.editDaysBack)
         switchSaferExport = findViewById(R.id.switchSaferExport)
+        switchFullHistory = findViewById(R.id.switchFullHistory)
         switchAutoSync = findViewById(R.id.switchAutoSync)
         editSyncInterval = findViewById(R.id.editSyncInterval)
 
@@ -462,12 +466,28 @@ class MainActivity : AppCompatActivity() {
                 // Everything we can ask for is already granted.
                 held.size == healthConnectManager.permissions.size -> runSync()
                 // Nothing yet — first run, so show the Health Connect prompt.
-                held.isEmpty() -> requestPermissions.launch(healthConnectManager.permissions)
+                held.isEmpty() -> requestHealthPermissions()
                 // Partially granted. Health Connect will not re-prompt for types the
                 // user already declined, so asking again would hang on a dialog that
                 // never appears. Sync what we're allowed to read.
                 else -> runSync()
             }
+        }
+    }
+
+    /**
+     * READ_HEALTH_DATA_HISTORY only exists on newer Health Connect versions; asking
+     * an older one for it rejects the whole request. Fall back to the rest so the
+     * user still gets a prompt, just capped at Health Connect's 30-day window.
+     */
+    private fun requestHealthPermissions() {
+        val all = healthConnectManager.permissions
+        try {
+            requestPermissions.launch(all)
+        } catch (_: Exception) {
+            requestPermissions.launch(
+                all - HealthConnectManager.PERMISSION_READ_HEALTH_DATA_HISTORY
+            )
         }
     }
 
@@ -477,6 +497,11 @@ class MainActivity : AppCompatActivity() {
             showStatus("Enter a server URL to sync")
             return
         }
+        if (switchFullHistory.isChecked) {
+            runFullHistorySync(url)
+            return
+        }
+
         setSyncing(true)
         showStatus("Exporting…")
 
@@ -519,8 +544,92 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * One-time backfill of everything Health Connect still holds. Walks backwards
+     * from today in [BACKFILL_WINDOW_DAYS] slices, uploading each slice on its own
+     * so no single request has to carry years of samples, and stops once
+     * [BACKFILL_EMPTY_LIMIT] consecutive slices come back empty (or the
+     * [BACKFILL_MAX_DAYS] floor is hit). Switches itself off when it completes.
+     */
+    private fun runFullHistorySync(url: String) {
+        setSyncing(true)
+        showStatus("Full history: starting…")
+
+        lifecycleScope.launch {
+            val cfg = settings.readConfig()
+            healthConnectManager.setSaferExportMode(cfg.saferExportMode)
+
+            var end = Instant.now()
+            val floor = end.minus(BACKFILL_MAX_DAYS, ChronoUnit.DAYS)
+            var emptyRun = 0
+            var slices = 0
+            var daysSent = 0
+
+            try {
+                while (end.isAfter(floor) && emptyRun < BACKFILL_EMPTY_LIMIT) {
+                    val start = maxOf(end.minus(BACKFILL_WINDOW_DAYS, ChronoUnit.DAYS), floor)
+                    slices++
+                    showStatus("Full history: slice $slices ($daysSent days sent)…")
+
+                    val days = withContext(Dispatchers.IO) {
+                        healthConnectManager.readHealthDataByDay(cfg, start, end)
+                    }
+                    if (days.isEmpty()) {
+                        emptyRun++
+                    } else {
+                        emptyRun = 0
+                        val json = ServerForwarder.buildPayload(
+                            days,
+                            PayloadMeta(appVersion, Build.MODEL, BACKFILL_WINDOW_DAYS.toInt())
+                        )
+                        val result = withContext(Dispatchers.IO) {
+                            ServerForwarder.forward(this@MainActivity, url, json)
+                        }
+                        if (result.isFailure) {
+                            val err = result.exceptionOrNull()
+                            if (err is ServerForwarder.HttpException && err.code == 401) {
+                                startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                                finish()
+                                return@launch
+                            }
+                            val detail = when (err) {
+                                is ServerForwarder.HttpException -> "HTTP ${err.code}"
+                                else -> err?.message ?: "unknown error"
+                            }
+                            // Keep what already landed; the switch stays on so a
+                            // retry resumes the backfill rather than losing it.
+                            showStatus("Full history stopped after $daysSent days: $detail")
+                            return@launch
+                        }
+                        daysSent += days.size
+                    }
+                    end = start
+                }
+
+                settings.lastSync = System.currentTimeMillis()
+                updateLastSyncLabel()
+                switchFullHistory.isChecked = false // one-time
+                showStatus("Full history sent ($daysSent days over $slices slices)")
+            } catch (e: Exception) {
+                showStatus("Full history failed after $daysSent days: ${e.message}")
+            } finally {
+                setSyncing(false)
+            }
+        }
+    }
+
     private fun setSyncing(syncing: Boolean) {
         btnSyncNow.isEnabled = !syncing
+        editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
+    }
+
+    private companion object {
+        /** Slice size for the full-history backfill: one upload per window. */
+        const val BACKFILL_WINDOW_DAYS = 30L
+        /** Stop after this many consecutive empty slices — HC has run dry. */
+        const val BACKFILL_EMPTY_LIMIT = 6
+        /** Hard floor, so a device with odd timestamps can't loop forever. */
+        const val BACKFILL_MAX_DAYS = 3650L
     }
 
     private fun showStatus(message: String) {

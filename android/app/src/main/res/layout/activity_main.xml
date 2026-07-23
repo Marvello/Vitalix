@@ -728,6 +728,20 @@
                 </com.google.android.material.textfield.TextInputLayout>
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
+                    android:id="@+id/switchFullHistory"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Full history (one-time backfill)" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Ignores the day range and walks back until Health Connect runs out of data, uploading a slice at a time. Turns itself off once it finishes."
+                    android:textSize="12sp" />
+
+                <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSaferExport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
