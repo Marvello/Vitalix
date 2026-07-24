@@ -24,6 +24,11 @@ a{color:var(--teal)}
 .ranges{display:flex;gap:6px;margin:20px 0 16px;flex-wrap:wrap}
 .ranges a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:13px;color:var(--muted);background:var(--card)}
 .ranges a.on{background:var(--teal);border-color:var(--teal);color:#fff}
+.sources{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.sources-label{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid rgba(100,116,139,.35);font-size:13px;color:var(--muted);text-decoration:none}
+.chip.on{color:var(--ink);border-color:var(--teal);background:rgba(15,169,160,.08)}
+.chip i{width:10px;height:10px;border-radius:3px;display:inline-block}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
 .tile .label{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
@@ -66,11 +71,27 @@ td.num,th.num{text-align:right}
     <form method="post" action="/logout"><button type="submit">Log out</button></form>
   </div>
 
+  <% var sourcesQ = selectedSources && selectedSources.length ? "&sources=" + encodeURIComponent(selectedSources.join(",")) : ""; %>
   <nav class="ranges">
     <% Object.entries(ranges).forEach(function([value, label]) { %>
-      <a class="<%= String(range) === String(value) ? 'on' : '' %>" href="/dashboard?range=<%= value %>"><%= label %></a>
+      <a class="<%= String(range) === String(value) ? 'on' : '' %>" href="/dashboard?range=<%= value %><%= sourcesQ %>"><%= label %></a>
     <% }); %>
   </nav>
+
+  <% if (availableSources && availableSources.length) { %>
+  <nav class="sources">
+    <span class="sources-label">Sources</span>
+    <% availableSources.forEach(function(s) {
+         var on = selectedSources.indexOf(s) !== -1;
+         var next = on ? selectedSources.filter(function(x){ return x !== s; }) : selectedSources.concat([s]);
+         var q = next.length ? "&sources=" + encodeURIComponent(next.join(",")) : "";
+    %>
+      <a class="chip <%= on ? 'on' : '' %>" href="/dashboard?range=<%= range %><%= q %>">
+        <i style="background:<%= sourceColors[s] %>"></i><%= s %>
+      </a>
+    <% }); %>
+  </nav>
+  <% } %>
 
   <% if (!totals || !totals.days) { %>
     <p class="empty">No health data in this range yet. Run a sync from the app.</p>
@@ -92,6 +113,9 @@ td.num,th.num{text-align:right}
       <div class="legend">
         <span><i style="background:#0FA9A0"></i><%= sr.label %></span>
         <% if (sr.trend) { %><span><i style="background:#34D399"></i>7-day average</span><% } %>
+        <% (sr.sources || []).forEach(function(s) { %>
+          <span><i style="background:<%= s.color %>"></i><%= s.source %></span>
+        <% }); %>
         <span><%= sr.days %> days with data</span>
       </div>
     </div>
@@ -319,11 +343,29 @@ function linePath(values, f, max, slot) {
   return d || null;
 }
 
-function barChart(id, points, trend, unit) {
+// Per-source overlay: a thin dashed line per selected source, sharing the
+// chart's axis. Drawn on top of the combined series for bar/line/band charts.
+function drawSourceLines(f, sources, max, slot) {
+  for (const s of (sources || [])) {
+    const d = linePath(s.points.map((p) => p.value), f, max, slot);
+    if (d) f.svg.appendChild(el("path", {
+      d, fill: "none", stroke: s.color, "stroke-width": 1.5, "stroke-dasharray": "4 2",
+    }));
+  }
+}
+
+// Highest value across the combined series and every source overlay, so the
+// axis fits the tallest line whichever series it belongs to.
+function overlayMax(values, sources) {
+  const extra = (sources || []).flatMap((s) => s.points.map((p) => p.value));
+  return maxOf(values.concat(extra)) * 1.1 || 1;
+}
+
+function barChart(id, points, trend, unit, sources) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
-  const max = maxOf(points.map((p) => p.value)) * 1.1 || 1;
+  const max = overlayMax(points.map((p) => p.value), sources);
   axes(f, max, points.map((p) => p.date));
 
   const slot = f.plotW / points.length;
@@ -349,6 +391,8 @@ function barChart(id, points, trend, unit) {
       tipRow(unit ? `Value (${unit})` : "Value", num(p.value)) +
       (t && t.value != null ? tipRow("7-day avg", num(t.value)) : "");
   });
+
+  drawSourceLines(f, sources, max, slot);
 }
 
 function stackedChart(id, points, keys, colors) {
@@ -392,11 +436,11 @@ function stackedChart(id, points, keys, colors) {
   });
 }
 
-function bandChart(id, points) {
+function bandChart(id, points, sources) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
-  const max = maxOf(points.map((p) => p.max)) * 1.1 || 1;
+  const max = overlayMax(points.map((p) => p.max), sources);
   axes(f, max, points.map((p) => p.date));
 
   const slot = f.plotW / points.length;
@@ -421,19 +465,22 @@ function bandChart(id, points) {
     return `<b>${prettyDate(p.date)}</b>` +
       tipRow("Min", num(p.min, 1)) + tipRow("Max", num(p.max, 1)) + tipRow("Avg", num(p.avg, 1));
   });
+
+  drawSourceLines(f, sources, max, slot);
 }
 
-function lineChart(id, points, unit, digits) {
+function lineChart(id, points, unit, digits, sources) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
   const values = points.map((p) => p.value);
-  const max = maxOf(values) * 1.1 || 1;
+  const max = overlayMax(values, sources);
   axes(f, max, points.map((p) => p.date));
   const slot = f.plotW / points.length;
 
   const d = linePath(values, f, max, slot);
   if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
+  drawSourceLines(f, sources, max, slot);
   // Dots make isolated readings visible — a weight logged once a month has no
   // neighbours to draw a line to.
   points.forEach((p, i) => {
@@ -521,13 +568,13 @@ function drawAll() {
     const id = `chart-series-${i}`;
     // Values below ~10 (body fat, VO2 max, height) need decimals to move at all.
     const digits = maxOf(sr.points.map((p) => p.value)) < 10 ? 2 : 0;
-    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit);
-    else lineChart(id, sr.points, sr.unit, digits);
+    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit, sr.sources);
+    else lineChart(id, sr.points, sr.unit, digits, sr.sources);
   });
   stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
     ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
   splitBandChart("chart-hr-split", DATA.hrSplit);
-  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points));
+  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points, band.sources));
 }
 
 drawAll();
