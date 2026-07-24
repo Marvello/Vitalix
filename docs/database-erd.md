@@ -22,6 +22,7 @@ erDiagram
     users ||--o{ syncs : "owns"
     users ||--o{ health_days : "owns"
     users ||--o{ records : "owns"
+    users ||--o{ day_source_metrics : "owns"
 
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
@@ -140,6 +141,19 @@ erDiagram
         text source
         timestamptz received_at
     }
+
+    day_source_metrics {
+        bigserial id PK
+        bigint user_id FK "CASCADE"
+        date day "UK(user_id, day, metric, source)"
+        text metric
+        text source
+        double value_num
+        double min
+        double max
+        double avg
+        integer count
+    }
 ```
 
 ## Table reference
@@ -195,6 +209,16 @@ unique `(user_id, hc_id, start_at)` (`records_identity`) so overlapping backfill
 windows and re-syncs upsert rather than duplicate. `type` distinguishes record
 kinds; indexed on `(user_id, type, start_at)`. Not linked to `health_days` —
 owned directly by `user`.
+
+### `day_source_metrics`
+**Per-source daily rollup** — one representative value per
+`(user_id, day, metric, source)` (unique `day_source_metrics_identity`).
+Populated at ingest from the mapped samples (`rollupSourceMetrics` in
+`records.js`) and backfilled from `records`. `metric` uses the `records.type`
+camelCase vocabulary. Powers the dashboard's source filter and per-source
+overlay lines; `value_num` is the per-source daily value (sum / last / avg per
+the metric's aggregation rule), with `min`/`max`/`avg` set for distribution
+metrics. Indexed on `(user_id, metric, day)`.
 
 ## Notes
 
