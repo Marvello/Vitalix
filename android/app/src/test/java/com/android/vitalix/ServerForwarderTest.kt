@@ -71,4 +71,32 @@ class ServerForwarderTest {
         assertEquals("hr-uid-1", d0.getJSONArray("samples").getJSONObject(0).getString("hcId"))
         assertEquals("ex-uid-1", d0.getJSONArray("exercises").getJSONObject(0).getString("hcId"))
     }
+
+    @Test fun serializesMetaObjectOnSampleWhenPresent() {
+        val day = DailyHealthData(
+            date = "2026-07-20",
+            samples = listOf(HealthSample("bloodPressure", "2026-07-20T10:04:12Z",
+                value = 120.0, value2 = 80.0, source = "com.x", hcId = "bp-1",
+                meta = mapOf("bodyPosition" to "standing", "measurementLocation" to "left_wrist")))
+        )
+        val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))
+        val sample = json.getJSONArray("days").getJSONObject(0).getJSONArray("samples").getJSONObject(0)
+        val meta = sample.getJSONObject("meta")
+        assertEquals("standing", meta.getString("bodyPosition"))
+        assertEquals("left_wrist", meta.getString("measurementLocation"))
+    }
+
+    @Test fun omitsMetaKeyWhenNullOrEmpty() {
+        val day = DailyHealthData(
+            date = "2026-07-20",
+            samples = listOf(
+                HealthSample("heartRate", "2026-07-20T10:04:12Z", value = 68.0),                 // null meta
+                HealthSample("heartRate", "2026-07-20T10:05:12Z", value = 70.0, meta = emptyMap()) // empty meta
+            )
+        )
+        val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))
+        val samples = json.getJSONArray("days").getJSONObject(0).getJSONArray("samples")
+        assertFalse(samples.getJSONObject(0).has("meta"))
+        assertFalse(samples.getJSONObject(1).has("meta"))
+    }
 }
