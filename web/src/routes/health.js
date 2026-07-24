@@ -3,6 +3,7 @@ import { requireAuth } from "../auth/middleware.js";
 import { mapPayload } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
+import { buildRecordsQuery, shapeBucketRow, BUCKETS } from "../records.js";
 
 export const router = Router();
 
@@ -55,5 +56,23 @@ router.get("/api/days/:date", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("query failed", err);
     res.status(500).json({ error: "query failed" });
+  }
+});
+
+router.get("/api/records", requireAuth, async (req, res) => {
+  const bucket = req.query.bucket || "day";
+  if (!BUCKETS.has(bucket)) return res.status(400).json({ error: `bucket must be one of ${[...BUCKETS].join(", ")}` });
+  const to = req.query.to || new Date().toISOString();
+  const from = req.query.from || new Date(Date.now() - 6 * 864e5).toISOString();
+  const types = typeof req.query.types === "string" && req.query.types.length
+    ? req.query.types.split(",") : null;
+  try {
+    const q = buildRecordsQuery({ userId: req.user.id, from, to, types, bucket });
+    const { rows } = await query(q.text, q.values);
+    res.json(bucket === "raw" ? { bucket, rows, truncated: rows.length === 5000 }
+                              : { bucket, rows: rows.map(shapeBucketRow) });
+  } catch (err) {
+    console.error("records query failed", err);
+    res.status(500).json({ error: "records query failed" });
   }
 });
