@@ -3,7 +3,7 @@ import { requireAuth } from "../auth/middleware.js";
 import { mapPayload } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
-import { buildRecordsQuery, shapeBucketRow, BUCKETS } from "../records.js";
+import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../records.js";
 
 export const router = Router();
 
@@ -69,7 +69,7 @@ router.get("/api/records", requireAuth, async (req, res) => {
   try {
     const q = buildRecordsQuery({ userId: req.user.id, from, to, types, bucket });
     const { rows } = await query(q.text, q.values);
-    res.json(bucket === "raw" ? { bucket, rows, truncated: rows.length === 5000 }
+    res.json(bucket === "raw" ? { bucket, rows, truncated: rows.length === RAW_LIMIT }
                               : { bucket, rows: rows.map(shapeBucketRow) });
   } catch (err) {
     console.error("records query failed", err);

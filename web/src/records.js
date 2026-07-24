@@ -22,7 +22,7 @@ export function aggregationFor(type) {
 /** date_trunc units we allow; also the API's `bucket` allowlist. `raw` is ungrouped. */
 export const BUCKETS = new Set(["raw", "minute", "hour", "day", "week"]);
 
-const RAW_LIMIT = 5000;
+export const RAW_LIMIT = 5000;
 
 /**
  * Builds a parameterized query for GET /api/records.
@@ -54,6 +54,9 @@ export function buildRecordsQuery({ userId, from, to, types, bucket }) {
                   min(value_num) AS min,
                   max(value_num) AS max,
                   avg(value_num) AS avg,
+                  min(value_secondary) AS min2,
+                  max(value_secondary) AS max2,
+                  avg(value_secondary) AS avg2,
                   (array_agg(value_num ORDER BY start_at DESC))[1] AS last,
                   (array_agg(value_text ORDER BY start_at DESC))[1] AS last_text
            FROM records ${where}
@@ -70,5 +73,11 @@ export function shapeBucketRow(row) {
   if (rule === "sum") return { ...base, sum: row.sum };
   if (rule === "last") return { ...base, last: row.last };
   if (rule === "text") return { ...base, last_text: row.last_text };
-  return { ...base, min: row.min, max: row.max, avg: row.avg };
+  return {
+    ...base,
+    min: row.min,
+    max: row.max,
+    avg: row.avg,
+    ...(row.min2 != null ? { min2: row.min2, max2: row.max2, avg2: row.avg2 } : {}),
+  };
 }
