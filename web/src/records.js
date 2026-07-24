@@ -81,3 +81,42 @@ export function shapeBucketRow(row) {
     ...(row.min2 != null ? { min2: row.min2, max2: row.max2, avg2: row.avg2 } : {}),
   };
 }
+
+/**
+ * Rolls mapped samples up to one value per (metric, source) for a single day.
+ * Uses the same aggregation rules as the bucketed API: sum metrics are summed,
+ * last metrics take the latest reading, distributions carry min/max/avg (with
+ * value_num = avg for a single overlay line). Text metrics and null values are
+ * dropped; a null source becomes '(unknown)' so it groups and keys predictably.
+ */
+export function rollupSourceMetrics(samples) {
+  const groups = new Map();
+  for (const s of samples) {
+    if (aggregationFor(s.metric) === "text") continue;
+    if (s.value_num == null) continue;
+    const source = s.source ?? "(unknown)";
+    const key = `${s.metric}|${source}`;
+    let g = groups.get(key);
+    if (!g) { g = { metric: s.metric, source, values: [] }; groups.set(key, g); }
+    g.values.push({ v: Number(s.value_num), t: s.start_at });
+  }
+  const out = [];
+  for (const g of groups.values()) {
+    const rule = aggregationFor(g.metric);
+    const nums = g.values.map((x) => x.v);
+    const count = nums.length;
+    let value_num, min = null, max = null, avg = null;
+    if (rule === "sum") {
+      value_num = nums.reduce((a, b) => a + b, 0);
+    } else if (rule === "last") {
+      value_num = g.values.reduce((a, b) => (a.t >= b.t ? a : b)).v;
+    } else {
+      min = Math.min(...nums);
+      max = Math.max(...nums);
+      avg = nums.reduce((a, b) => a + b, 0) / count;
+      value_num = avg;
+    }
+    out.push({ metric: g.metric, source: g.source, value_num, min, max, avg, count });
+  }
+  return out;
+}

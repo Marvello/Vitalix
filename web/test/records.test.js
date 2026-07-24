@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { aggregationFor, BUCKETS, buildRecordsQuery, shapeBucketRow, RAW_LIMIT } from "../src/records.js";
+import { aggregationFor, BUCKETS, buildRecordsQuery, shapeBucketRow, RAW_LIMIT, rollupSourceMetrics } from "../src/records.js";
 
 test("catalog maps types to aggregation rules", () => {
   assert.equal(aggregationFor("steps"), "sum");
@@ -65,4 +65,48 @@ test("shapeBucketRow omits min2 key for single-value distributions", () => {
 test("RAW_LIMIT is exported and numeric", () => {
   assert.equal(typeof RAW_LIMIT, "number");
   assert.ok(RAW_LIMIT > 0);
+});
+
+test("rollupSourceMetrics sums sum-rule metrics per source", () => {
+  const rows = rollupSourceMetrics([
+    { metric: "steps", source: "fit", value_num: 100, start_at: "2026-07-01T08:00:00Z" },
+    { metric: "steps", source: "fit", value_num: 50, start_at: "2026-07-01T09:00:00Z" },
+    { metric: "steps", source: "samsung", value_num: 200, start_at: "2026-07-01T08:00:00Z" },
+  ]);
+  const fit = rows.find((r) => r.source === "fit");
+  const sam = rows.find((r) => r.source === "samsung");
+  assert.equal(fit.value_num, 150);
+  assert.equal(fit.count, 2);
+  assert.equal(sam.value_num, 200);
+});
+
+test("rollupSourceMetrics takes latest reading for last-rule metrics", () => {
+  const rows = rollupSourceMetrics([
+    { metric: "weight", source: "scale", value_num: 80, start_at: "2026-07-01T06:00:00Z" },
+    { metric: "weight", source: "scale", value_num: 81, start_at: "2026-07-01T20:00:00Z" },
+  ]);
+  assert.equal(rows[0].value_num, 81);
+});
+
+test("rollupSourceMetrics gives min/max/avg for distribution metrics, value_num = avg", () => {
+  const rows = rollupSourceMetrics([
+    { metric: "heartRate", source: "watch", value_num: 60, start_at: "2026-07-01T06:00:00Z" },
+    { metric: "heartRate", source: "watch", value_num: 100, start_at: "2026-07-01T07:00:00Z" },
+  ]);
+  const r = rows[0];
+  assert.equal(r.min, 60);
+  assert.equal(r.max, 100);
+  assert.equal(r.avg, 80);
+  assert.equal(r.value_num, 80);
+});
+
+test("rollupSourceMetrics skips text metrics and null values, coalesces null source", () => {
+  const rows = rollupSourceMetrics([
+    { metric: "menstruation", source: "app", value_num: null, start_at: "2026-07-01T00:00:00Z", value_text: "light" },
+    { metric: "steps", source: null, value_num: 10, start_at: "2026-07-01T08:00:00Z" },
+    { metric: "steps", source: null, value_num: null, start_at: "2026-07-01T09:00:00Z" },
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].source, "(unknown)");
+  assert.equal(rows[0].value_num, 10);
 });
