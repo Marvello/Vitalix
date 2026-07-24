@@ -60,6 +60,15 @@ class SyncSettings(context: Context) {
         set(v) { plain.edit().putInt("sync_interval_hours", v).apply() }
 
     /**
+     * Whether the user has confirmed they added Vitalix to their OEM's background
+     * allow-list (Samsung "Never sleeping apps", etc). That list has no public API,
+     * so this acknowledgment is the only signal we can gate auto-sync on.
+     */
+    var neverSleepingAcknowledged: Boolean
+        get() = plain.getBoolean("never_sleeping_ack", false)
+        set(v) { plain.edit().putBoolean("never_sleeping_ack", v).apply() }
+
+    /**
      * Health Connect permissions we have already shown a prompt for. Health
      * Connect won't re-prompt for a declined permission, so this is what tells a
      * *newly added* permission (never asked) apart from a declined one — without
