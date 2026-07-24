@@ -158,8 +158,8 @@ pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
     const d = rows[0];
     const [aggs, samples, ex] = await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
-      query("SELECT metric,start_at,end_at,value_num,value_secondary,value_text FROM samples WHERE day_id=$1 ORDER BY start_at LIMIT 500", [d.id]),
-      query("SELECT name,start_at,duration_minutes FROM exercises WHERE day_id=$1", [d.id]),
+      query("SELECT metric,start_at,end_at,value_num,value_secondary,value_text,source FROM samples WHERE day_id=$1 ORDER BY start_at LIMIT 500", [d.id]),
+      query("SELECT name,start_at,duration_minutes,source FROM exercises WHERE day_id=$1", [d.id]),
     ]);
     res.render("day", { day: d, aggregates: aggs.rows, samples: samples.rows, exercises: ex.rows, date: req.params.date });
   } catch (err) {

@@ -44,8 +44,8 @@ async function replaceSamples(client, dayId, samples) {
   await client.query("DELETE FROM samples WHERE day_id = $1", [dayId]);
   for (const s of samples) {
     await client.query(
-      "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text) VALUES ($1,$2,$3,$4,$5,$6,$7)",
-      [dayId, s.metric, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text]
+      "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text, source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
+      [dayId, s.metric, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source]
     );
   }
 }
@@ -54,8 +54,8 @@ async function replaceExercises(client, dayId, exercises) {
   await client.query("DELETE FROM exercises WHERE day_id = $1", [dayId]);
   for (const e of exercises) {
     await client.query(
-      "INSERT INTO exercises (day_id, name, start_at, duration_minutes) VALUES ($1,$2,$3,$4)",
-      [dayId, e.name, e.start_at, e.duration_minutes]
+      "INSERT INTO exercises (day_id, name, start_at, duration_minutes, source) VALUES ($1,$2,$3,$4,$5)",
+      [dayId, e.name, e.start_at, e.duration_minutes, e.source]
     );
   }
 }

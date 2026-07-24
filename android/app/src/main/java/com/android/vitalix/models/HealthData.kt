@@ -16,7 +16,9 @@ data class ExerciseData(
     val date: String,
     val startDateTime: String,
     val exerciseName: String,
-    val durationMinutes: Long
+    val durationMinutes: Long,
+    /** Health Connect package that wrote the record (e.g. com.google.android.apps.fitness). */
+    val source: String? = null
 )
 
 data class BodyMeasurementData(
@@ -31,7 +33,9 @@ data class HealthSample(
     val end: String? = null,
     val value: Double? = null,
     val value2: Double? = null,
-    val text: String? = null
+    val text: String? = null,
+    /** Health Connect package that wrote the record (the originating app). */
+    val source: String? = null
 )
 
 data class ExportConfig(
