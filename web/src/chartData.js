@@ -178,3 +178,42 @@ export function metricLabel(metric) {
   const spaced = metric.replace(/([A-Z])/g, (c) => " " + c.toLowerCase()).trim();
   return spaced.charAt(0).toUpperCase() + spaced.slice(1);
 }
+
+/**
+ * Overlay palette for per-source lines. Deliberately avoids the combined line's
+ * teal (#0FA9A0) and the 7-day-average green (#34D399) so sources stand apart.
+ */
+const SOURCE_PALETTE = ["#6366f1", "#f59e0b", "#ec4899", "#0ea5e9", "#eab308", "#a855f7", "#ef4444", "#14b8a6"];
+
+/** Stable source→color map, keyed by position in the given source list. */
+export function assignSourceColors(sources) {
+  const map = {};
+  sources.forEach((s, i) => { map[s] = SOURCE_PALETTE[i % SOURCE_PALETTE.length]; });
+  return map;
+}
+
+/**
+ * Per-source daily lines for one metric, aligned to the same date axis as the
+ * combined series so the overlays share the chart's x-axis. Only sources with
+ * at least one value in range are returned.
+ */
+export function sourceLines(rows, from, to, metricKey, colors) {
+  const bySource = new Map();
+  for (const r of rows) {
+    if (r.metric !== metricKey) continue;
+    if (!bySource.has(r.source)) bySource.set(r.source, new Map());
+    bySource.get(r.source).set(toKey(r.day), r);
+  }
+  const axis = dateRange(from, to);
+  const out = [];
+  for (const [source, byDay] of bySource) {
+    const points = axis.map((date) => {
+      const r = byDay.get(date);
+      return { date, value: r && r.value_num != null ? Number(r.value_num) : null };
+    });
+    if (points.some((p) => p.value != null)) {
+      out.push({ source, color: colors[source] ?? "#94a3b8", points });
+    }
+  }
+  return out;
+}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  bandSeries, dateRange, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
+  assignSourceColors, bandSeries, dateRange, fillDays, metricLabel, rollingAverage, sleepStages, sourceLines, summaryTiles, toKey,
   splitSeries, visibleMetrics, visibleTiles,
 } from "../src/chartData.js";
 
@@ -172,4 +172,33 @@ test("splitSeries coerces numeric strings from pg", () => {
     "2026-06-02", "2026-06-02"
   );
   assert.deepEqual(out[0].rest, { min: 48, max: 115, avg: 63.4, samples: 442 });
+});
+
+test("assignSourceColors gives each source a stable distinct color", () => {
+  const c = assignSourceColors(["fit", "samsung"]);
+  assert.equal(typeof c.fit, "string");
+  assert.notEqual(c.fit, c.samsung);
+  // Stable: same input order -> same mapping.
+  assert.deepEqual(assignSourceColors(["fit", "samsung"]), c);
+});
+
+test("sourceLines aligns per-source points to the date axis, one entry per source", () => {
+  const rows = [
+    { day: "2026-07-01", metric: "steps", source: "fit", value_num: 100 },
+    { day: "2026-07-03", metric: "steps", source: "fit", value_num: 300 },
+    { day: "2026-07-01", metric: "steps", source: "samsung", value_num: 200 },
+    { day: "2026-07-01", metric: "heartRate", source: "fit", value_num: 70 },
+  ];
+  const colors = { fit: "#111", samsung: "#222" };
+  const lines = sourceLines(rows, "2026-07-01", "2026-07-03", "steps", colors);
+  assert.equal(lines.length, 2);
+  const fit = lines.find((l) => l.source === "fit");
+  assert.equal(fit.color, "#111");
+  assert.deepEqual(fit.points.map((p) => p.value), [100, null, 300]);
+});
+
+test("sourceLines drops sources with no value for the metric", () => {
+  const rows = [{ day: "2026-07-01", metric: "steps", source: "fit", value_num: null }];
+  const lines = sourceLines(rows, "2026-07-01", "2026-07-01", "steps", { fit: "#111" });
+  assert.equal(lines.length, 0);
 });

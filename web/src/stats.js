@@ -9,23 +9,23 @@ export const BAND_METRICS = ["heartRate", "spo2", "hrv", "respiratoryRate"];
  * user who has weight but no floors sees weight and no empty floors chart.
  */
 export const DAY_METRICS = [
-  { column: "steps", label: "Steps", chart: "bar", trend: true },
-  { column: "distance", label: "Distance", unit: "m", chart: "line" },
-  { column: "total_calories", label: "Total calories", unit: "kcal", chart: "line" },
-  { column: "active_calories", label: "Active calories", unit: "kcal", chart: "line" },
-  { column: "floors_climbed", label: "Floors climbed", chart: "bar" },
-  { column: "elevation_gained", label: "Elevation gained", unit: "m", chart: "line" },
-  { column: "wheelchair_pushes", label: "Wheelchair pushes", chart: "bar" },
-  { column: "resting_heart_rate", label: "Resting heart rate", unit: "bpm", chart: "line" },
-  { column: "vo2_max", label: "VO2 max", unit: "mL/kg/min", chart: "line" },
-  { column: "weight", label: "Weight", unit: "kg", chart: "line" },
-  { column: "body_fat", label: "Body fat", unit: "%", chart: "line" },
-  { column: "lean_body_mass", label: "Lean body mass", unit: "kg", chart: "line" },
-  { column: "bone_mass", label: "Bone mass", unit: "kg", chart: "line" },
-  { column: "height", label: "Height", unit: "m", chart: "line" },
-  { column: "body_temperature", label: "Body temperature", unit: "\u00b0C", chart: "line" },
-  { column: "hydration_ml", label: "Hydration", unit: "mL", chart: "bar" },
-  { column: "energy_kcal", label: "Nutrition energy", unit: "kcal", chart: "bar" },
+  { column: "steps", label: "Steps", chart: "bar", trend: true, sourceKey: "steps" },
+  { column: "distance", label: "Distance", unit: "m", chart: "line", sourceKey: "distance" },
+  { column: "total_calories", label: "Total calories", unit: "kcal", chart: "line", sourceKey: "totalCalories" },
+  { column: "active_calories", label: "Active calories", unit: "kcal", chart: "line", sourceKey: "activeCalories" },
+  { column: "floors_climbed", label: "Floors climbed", chart: "bar", sourceKey: "floorsClimbed" },
+  { column: "elevation_gained", label: "Elevation gained", unit: "m", chart: "line", sourceKey: "elevationGained" },
+  { column: "wheelchair_pushes", label: "Wheelchair pushes", chart: "bar", sourceKey: "wheelchairPushes" },
+  { column: "resting_heart_rate", label: "Resting heart rate", unit: "bpm", chart: "line", sourceKey: "restingHeartRate" },
+  { column: "vo2_max", label: "VO2 max", unit: "mL/kg/min", chart: "line", sourceKey: "vo2Max" },
+  { column: "weight", label: "Weight", unit: "kg", chart: "line", sourceKey: "weight" },
+  { column: "body_fat", label: "Body fat", unit: "%", chart: "line", sourceKey: "bodyFat" },
+  { column: "lean_body_mass", label: "Lean body mass", unit: "kg", chart: "line", sourceKey: "leanBodyMass" },
+  { column: "bone_mass", label: "Bone mass", unit: "kg", chart: "line", sourceKey: "boneMass" },
+  { column: "height", label: "Height", unit: "m", chart: "line", sourceKey: "height" },
+  { column: "body_temperature", label: "Body temperature", unit: "\u00b0C", chart: "line", sourceKey: "bodyTemperature" },
+  { column: "hydration_ml", label: "Hydration", unit: "mL", chart: "bar", sourceKey: "hydration" },
+  { column: "energy_kcal", label: "Nutrition energy", unit: "kcal", chart: "bar", sourceKey: "nutrition" },
 ];
 
 /** How many days in the range carry a value for each of [DAY_METRICS]. */
@@ -179,6 +179,31 @@ export async function recentDays(userId, limit = 14) {
       ORDER BY day DESC
       LIMIT $2`,
     [userId, limit]
+  );
+  return rows;
+}
+
+/** Distinct data sources present in the range, for the dashboard source filter. */
+export async function availableSources(userId, from, to) {
+  const { rows } = await query(
+    `SELECT DISTINCT source FROM day_source_metrics
+      WHERE user_id = $1 AND day BETWEEN $2 AND $3
+      ORDER BY source`,
+    [userId, from, to]
+  );
+  return rows.map((r) => r.source);
+}
+
+/** Per-(day, metric, source) rollup rows for the requested metrics and sources. */
+export async function sourceRows(userId, from, to, metrics, sources) {
+  if (!metrics.length || !sources.length) return [];
+  const { rows } = await query(
+    `SELECT day, metric, source, value_num, min, max, avg
+       FROM day_source_metrics
+      WHERE user_id = $1 AND day BETWEEN $2 AND $3
+        AND metric = ANY($4) AND source = ANY($5)
+      ORDER BY day`,
+    [userId, from, to, metrics, sources]
   );
   return rows;
 }

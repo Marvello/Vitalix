@@ -8,7 +8,7 @@ import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
-  splitSeries, visibleMetrics, visibleTiles,
+  splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
@@ -98,9 +98,27 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       store.findUserById(req.user.id),
     ]);
 
+    // Source filter: which sources exist in range, and which the user selected.
+    const allSources = await stats.availableSources(req.user.id, fromKey, toKeyStr);
+    const requested = typeof req.query.sources === "string" && req.query.sources.length
+      ? req.query.sources.split(",") : [];
+    const selectedSources = requested.filter((s) => allSources.includes(s));
+    const sourceColors = assignSourceColors(allSources);
+
+    // Metric keys we can overlay: the visible day metrics + the band metrics.
+    const shownDayMetrics = visibleMetrics(stats.DAY_METRICS, cover);
+    const bandKeys = stats.BAND_METRICS.filter((m) => metrics.includes(m));
+    const srcRows = selectedSources.length
+      ? await stats.sourceRows(
+          req.user.id, fromKey, toKeyStr,
+          [...shownDayMetrics.map((m) => m.sourceKey), ...bandKeys],
+          selectedSources,
+        )
+      : [];
+
     // Only chart what this user actually records — the catalogue covers every
     // metric the app can send, which is far more than any one device writes.
-    const series = visibleMetrics(stats.DAY_METRICS, cover).map((m) => {
+    const series = shownDayMetrics.map((m) => {
       const points = fillDays(rows, fromKey, toKeyStr, m.column);
       return {
         key: m.column,
@@ -110,6 +128,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         days: cover[m.column],
         points,
         trend: m.trend ? rollingAverage(points, 7) : null,
+        sources: sourceLines(srcRows, fromKey, toKeyStr, m.sourceKey, sourceColors),
       };
     });
 
@@ -124,10 +143,11 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       hrSplit: hrRows.some((r) => r.scope === "active")
         ? splitSeries(hrRows, fromKey, toKeyStr)
         : [],
-      bands: stats.BAND_METRICS.filter((m) => metrics.includes(m)).map((metric) => ({
+      bands: bandKeys.map((metric) => ({
         metric,
         label: metricLabel(metric),
         points: bandSeries(aggs, fromKey, toKeyStr, metric),
+        sources: sourceLines(srcRows, fromKey, toKeyStr, metric, sourceColors),
       })),
     };
 
@@ -141,12 +161,16 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       workouts,
       recent,
       toKey,
+      availableSources: allSources,
+      selectedSources,
+      sourceColors,
     });
   } catch (err) {
     console.error("GET /dashboard failed", err);
     res.status(500).render("dashboard", {
       email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
       charts: EMPTY_CHARTS, workouts: [], recent: [], toKey,
+      availableSources: [], selectedSources: [], sourceColors: {},
     });
   }
 });
