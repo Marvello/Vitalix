@@ -19,13 +19,11 @@ import androidx.health.connect.client.records.Vo2MaxRecord
  */
 object MetaMappers {
     private fun putIfKnown(out: MutableMap<String, String>, key: String, map: Map<Int, String>, value: Int) {
-        // 0 is the *_UNKNOWN sentinel by contract. Some HC public maps (e.g.
-        // MealType, Vo2MaxRecord.MEASUREMENT_METHOD) define an explicit entry
-        // for 0 (MEAL_TYPE_UNKNOWN -> "unknown", MEASUREMENT_METHOD_OTHER ->
-        // "other") rather than omitting it, so we force-omit 0 here to keep
-        // the "all-unknown reading yields null" contract uniform.
-        if (value == 0) return
-        map[value]?.let { out[key] = it }
+        // Omit genuine "unknown" sentinels: either absent from HC's map or
+        // explicitly mapped to "unknown" (e.g. MealType[0]). Keep real values
+        // that happen to be encoded as 0 — Vo2Max measurementMethod=0 is OTHER,
+        // not unknown, and Vitalix forwards it faithfully.
+        map[value]?.takeIf { it != "unknown" }?.let { out[key] = it }
     }
 
     private fun nullIfEmpty(m: MutableMap<String, String>): Map<String, String>? =

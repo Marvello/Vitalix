@@ -30,8 +30,13 @@ class MetaMappersTest {
 
     @Test fun vo2AndBodyTempSingleKey() {
         assertEquals(setOf("measurementMethod"), MetaMappers.vo2MaxMeta(1)?.keys)
-        assertNull(MetaMappers.vo2MaxMeta(0))
+        // Vo2Max has no MEASUREMENT_METHOD_UNKNOWN constant: 0 is the
+        // legitimate "other" value and must be preserved, not dropped.
+        val vo2Zero = MetaMappers.vo2MaxMeta(0)
+        assertEquals(mapOf("measurementMethod" to "other"), vo2Zero)
         assertEquals(setOf("measurementLocation"), MetaMappers.bodyTemperatureMeta(1)?.keys)
+        // BodyTemperature DOES define MEASUREMENT_LOCATION_UNKNOWN = 0, so
+        // this stays dropped under the new rule too.
         assertNull(MetaMappers.bodyTemperatureMeta(0))
     }
 }
