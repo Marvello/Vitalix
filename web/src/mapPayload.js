@@ -80,6 +80,7 @@ function mapSamples(day) {
       value_secondary: r.value2 ?? null,
       value_text: r.text ?? null,
       source: r.source ?? null,
+      hc_id: r.hcId ?? null,
     });
   }
   return { samples, skipped };
@@ -91,6 +92,7 @@ function mapExercises(day) {
     start_at: e.start ?? null,
     duration_minutes: e.durationMinutes ?? null,
     source: e.source ?? null,
+    hc_id: e.hcId ?? null,
   }));
 }
 
