@@ -46,7 +46,7 @@ th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
   <% } else { %>
   <div class="scroll">
   <table>
-    <thead><tr><th>Metric</th><th>Start</th><th>End</th><th>Value</th><th>Value 2</th><th>Text</th><th>Source</th></tr></thead>
+    <thead><tr><th>Metric</th><th>Start</th><th>End</th><th>Value</th><th>Value 2</th><th>Text</th><th>Source</th><th>Context</th></tr></thead>
     <tbody>
     <% samples.forEach(function(s) { %>
       <tr>
@@ -57,6 +57,7 @@ th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
         <td><%= s.value_secondary === null ? "—" : s.value_secondary %></td>
         <td><%= s.value_text === null ? "—" : s.value_text %></td>
         <td><%= s.source === null ? "—" : s.source %></td>
+        <td><%= s.meta ? Object.values(s.meta).join(" · ") : "—" %></td>
       </tr>
     <% }); %>
     </tbody>
