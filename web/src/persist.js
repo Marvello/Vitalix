@@ -1,4 +1,5 @@
 import { withTransaction } from "./db.js";
+import { rollupSourceMetrics } from "./records.js";
 
 const DAY_COLUMNS = [
   "steps", "active_calories", "total_calories", "distance", "floors_climbed",
@@ -92,6 +93,21 @@ async function upsertRecords(client, userId, samples) {
   return n;
 }
 
+async function upsertSourceMetrics(client, userId, day) {
+  const rows = rollupSourceMetrics(day.samples);
+  for (const r of rows) {
+    await client.query(
+      `INSERT INTO day_source_metrics (user_id, day, metric, source, value_num, min, max, avg, count)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       ON CONFLICT ON CONSTRAINT day_source_metrics_identity DO UPDATE SET
+         value_num = EXCLUDED.value_num, min = EXCLUDED.min, max = EXCLUDED.max,
+         avg = EXCLUDED.avg, count = EXCLUDED.count`,
+      [userId, day.day, r.metric, r.source, r.value_num, r.min, r.max, r.avg, r.count]
+    );
+  }
+  return rows.length;
+}
+
 export function persist(userId, mapped) {
   return withTransaction(async (client) => {
     const { rows } = await client.query(
@@ -99,16 +115,17 @@ export function persist(userId, mapped) {
       [userId, mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days]
     );
     const syncId = rows[0].id;
-    let samples = 0, exercises = 0, records = 0;
+    let samples = 0, exercises = 0, records = 0, sourceMetrics = 0;
     for (const day of mapped.days) {
       const dayId = await upsertDay(client, syncId, userId, day);
       await replaceAggregates(client, dayId, day.aggregates);
       await replaceSamples(client, dayId, day.samples);
       await replaceExercises(client, dayId, day.exercises);
       records += await upsertRecords(client, userId, day.samples);
+      sourceMetrics += await upsertSourceMetrics(client, userId, day);
       samples += day.samples.length;
       exercises += day.exercises.length;
     }
-    return { days: mapped.days.length, samples, exercises, records };
+    return { days: mapped.days.length, samples, exercises, records, sourceMetrics };
   });
 }
