@@ -140,9 +140,12 @@ fully backward-compatible.
 
 ## Scope (YAGNI for v1)
 
-- Overlay covers **line and band metrics only** — the source-carrying ones.
-  Sleep stacked chart, exercise breakdown, and summary tiles remain combined /
-  unchanged.
+- Overlay covers **bar, line, and band metrics** — the source-carrying ones.
+  The combined series keeps its native chart type; each selected source is
+  drawn as a thin dashed line on top, uniformly across all three. (Bars are
+  included because `steps`/`floors` are bar charts and are prime
+  source-comparison targets.) Sleep stacked chart, exercise breakdown, and
+  summary tiles remain combined / unchanged.
 - Source filtering applies to the main `/dashboard` view. The day-detail page
   (`/dashboard/:date`) already shows per-sample source and is out of scope here.
 - No server-side source persistence per user (no "default source" setting);
