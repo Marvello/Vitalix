@@ -111,9 +111,17 @@ export function rollupSourceMetrics(samples) {
     } else if (rule === "last") {
       value_num = g.values.reduce((a, b) => (a.t >= b.t ? a : b)).v;
     } else {
-      min = Math.min(...nums);
-      max = Math.max(...nums);
-      avg = nums.reduce((a, b) => a + b, 0) / count;
+      // Single-pass min/max/sum: a spread (Math.min(...nums)) would risk a
+      // stack overflow on a day's worth of continuous readings for one source.
+      min = Infinity;
+      max = -Infinity;
+      let sum = 0;
+      for (const v of nums) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+        sum += v;
+      }
+      avg = sum / count;
       value_num = avg;
     }
     out.push({ metric: g.metric, source: g.source, value_num, min, max, avg, count });
