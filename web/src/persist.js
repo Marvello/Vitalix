@@ -45,8 +45,8 @@ async function replaceSamples(client, dayId, samples) {
   await client.query("DELETE FROM samples WHERE day_id = $1", [dayId]);
   for (const s of samples) {
     await client.query(
-      "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text, source) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)",
-      [dayId, s.metric, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source]
+      "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text, source, meta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
+      [dayId, s.metric, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source, s.meta ?? null]
     );
   }
 }
@@ -81,12 +81,12 @@ async function upsertRecords(client, userId, samples) {
   for (const s of samples) {
     if (!s.hc_id) continue; // older app builds without a UID: keep out of records
     await client.query(
-      `INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_num, value_secondary, value_text, source)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      `INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_num, value_secondary, value_text, source, meta)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
        ON CONFLICT (user_id, hc_id, start_at) DO UPDATE SET
          type = EXCLUDED.type, end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
-         value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source`,
-      [userId, s.metric, s.hc_id, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source]
+         value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source, meta = EXCLUDED.meta`,
+      [userId, s.metric, s.hc_id, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source, s.meta ?? null]
     );
     n++;
   }
