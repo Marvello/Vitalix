@@ -72,6 +72,8 @@ class HealthConnectManager(
      * the field is simply omitted downstream rather than sent empty.
      */
     private val Record.origin: String? get() = metadata.dataOrigin.packageName.ifBlank { null }
+    /** Health Connect record UID — stable per record; blank collapses to null. */
+    private val Record.uid: String? get() = metadata.id.ifBlank { null }
     /**
      * Metrics whose read failed during the most recent [readHealthDataByDay].
      * Empty means every enabled metric was read (or was legitimately declined).
@@ -326,7 +328,7 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val b = builder(day(r.startTime)); b.hasSteps = true
                 b.steps += r.count
-                b.samples += HealthSample("steps", r.startTime.toString(), r.endTime.toString(), value = r.count.toDouble(), source = r.origin)
+                b.samples += HealthSample("steps", r.startTime.toString(), r.endTime.toString(), value = r.count.toDouble(), source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeDistance, DistanceRecord::class) { recs ->
@@ -334,7 +336,7 @@ class HealthConnectManager(
                 val v = r.distance.inMeters
                 val b = builder(day(r.startTime)); b.hasDistance = true
                 b.distanceMeters += v
-                b.samples += HealthSample("distance", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("distance", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeActiveCalories, ActiveCaloriesBurnedRecord::class) { recs ->
@@ -342,7 +344,7 @@ class HealthConnectManager(
                 val v = r.energy.inKilocalories
                 val b = builder(day(r.startTime)); b.hasActive = true
                 b.activeKcal += v
-                b.samples += HealthSample("activeCalories", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("activeCalories", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeTotalCalories, TotalCaloriesBurnedRecord::class) { recs ->
@@ -350,14 +352,14 @@ class HealthConnectManager(
                 val v = r.energy.inKilocalories
                 val b = builder(day(r.startTime)); b.hasTotal = true
                 b.totalKcal += v
-                b.samples += HealthSample("totalCalories", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("totalCalories", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeFloorsClimbed, FloorsClimbedRecord::class) { recs ->
             recs.forEach { r ->
                 val b = builder(day(r.startTime)); b.hasFloors = true
                 b.floors += r.floors
-                b.samples += HealthSample("floorsClimbed", r.startTime.toString(), r.endTime.toString(), value = r.floors, source = r.origin)
+                b.samples += HealthSample("floorsClimbed", r.startTime.toString(), r.endTime.toString(), value = r.floors, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeElevationGained, ElevationGainedRecord::class) { recs ->
@@ -365,14 +367,14 @@ class HealthConnectManager(
                 val v = r.elevation.inMeters
                 val b = builder(day(r.startTime)); b.hasElevation = true
                 b.elevationMeters += v
-                b.samples += HealthSample("elevationGained", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("elevationGained", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeWheelchairPushes, WheelchairPushesRecord::class) { recs ->
             recs.forEach { r ->
                 val b = builder(day(r.startTime)); b.hasWheelchair = true
                 b.wheelchairPushes += r.count
-                b.samples += HealthSample("wheelchairPushes", r.startTime.toString(), r.endTime.toString(), value = r.count.toDouble(), source = r.origin)
+                b.samples += HealthSample("wheelchairPushes", r.startTime.toString(), r.endTime.toString(), value = r.count.toDouble(), source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includePower, PowerRecord::class) { recs ->
@@ -381,7 +383,7 @@ class HealthConnectManager(
                     val v = s.power.inWatts
                     val b = builder(day(s.time))
                     b.powers += v
-                    b.samples += HealthSample("power", s.time.toString(), value = v, source = r.origin)
+                    b.samples += HealthSample("power", s.time.toString(), value = v, source = r.origin, hcId = r.uid)
                 }
             }
         }
@@ -391,7 +393,7 @@ class HealthConnectManager(
                     val v = s.speed.inMetersPerSecond
                     val b = builder(day(s.time))
                     b.speeds += v
-                    b.samples += HealthSample("speed", s.time.toString(), value = v, source = r.origin)
+                    b.samples += HealthSample("speed", s.time.toString(), value = v, source = r.origin, hcId = r.uid)
                 }
             }
         }
@@ -400,7 +402,7 @@ class HealthConnectManager(
                 val v = r.vo2MillilitersPerMinuteKilogram
                 val b = builder(day(r.time))
                 b.vo2.offer(r.time, v)
-                b.samples += HealthSample("vo2Max", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("vo2Max", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
 
@@ -409,35 +411,35 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val v = r.weight.inKilograms
                 val b = builder(day(r.time)); b.weight.offer(r.time, v)
-                b.samples += HealthSample("weight", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("weight", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeBodyFat, BodyFatRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.percentage.value
                 val b = builder(day(r.time)); b.bodyFat.offer(r.time, v)
-                b.samples += HealthSample("bodyFat", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("bodyFat", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeBoneMass, BoneMassRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.mass.inKilograms
                 val b = builder(day(r.time)); b.boneMass.offer(r.time, v)
-                b.samples += HealthSample("boneMass", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("boneMass", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeHeight, HeightRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.height.inMeters
                 val b = builder(day(r.time)); b.height.offer(r.time, v)
-                b.samples += HealthSample("height", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("height", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeLeanBodyMass, LeanBodyMassRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.mass.inKilograms
                 val b = builder(day(r.time)); b.leanBodyMass.offer(r.time, v)
-                b.samples += HealthSample("leanBodyMass", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("leanBodyMass", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
 
@@ -448,7 +450,7 @@ class HealthConnectManager(
                     val v = s.beatsPerMinute.toDouble()
                     val b = builder(day(s.time))
                     b.heartRates += v
-                    b.samples += HealthSample("heartRate", s.time.toString(), value = v, source = r.origin)
+                    b.samples += HealthSample("heartRate", s.time.toString(), value = v, source = r.origin, hcId = r.uid)
                 }
             }
         }
@@ -456,28 +458,28 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val v = r.heartRateVariabilityMillis
                 val b = builder(day(r.time)); b.hrv += v
-                b.samples += HealthSample("hrv", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("hrv", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeOxygenSaturation, OxygenSaturationRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.percentage.value
                 val b = builder(day(r.time)); b.spo2 += v
-                b.samples += HealthSample("spo2", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("spo2", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeRespiratoryRate, RespiratoryRateRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.rate
                 val b = builder(day(r.time)); b.respRate += v
-                b.samples += HealthSample("respiratoryRate", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("respiratoryRate", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeBloodGlucose, BloodGlucoseRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.level.inMilligramsPerDeciliter
                 val b = builder(day(r.time)); b.glucose += v
-                b.samples += HealthSample("bloodGlucose", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("bloodGlucose", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeBloodPressure, BloodPressureRecord::class) { recs ->
@@ -486,21 +488,21 @@ class HealthConnectManager(
                 val dia = r.diastolic.inMillimetersOfMercury
                 val b = builder(day(r.time))
                 b.bpSystolic += sys; b.bpDiastolic += dia
-                b.samples += HealthSample("bloodPressure", r.time.toString(), value = sys, value2 = dia, source = r.origin)
+                b.samples += HealthSample("bloodPressure", r.time.toString(), value = sys, value2 = dia, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeRestingHeartRate, RestingHeartRateRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.beatsPerMinute.toDouble()
                 val b = builder(day(r.time)); b.restingHeartRate.offer(r.time, v)
-                b.samples += HealthSample("restingHeartRate", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("restingHeartRate", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeBodyTemperature, BodyTemperatureRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.temperature.inCelsius
                 val b = builder(day(r.time)); b.bodyTemperature.offer(r.time, v)
-                b.samples += HealthSample("bodyTemperature", r.time.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("bodyTemperature", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
 
@@ -515,7 +517,7 @@ class HealthConnectManager(
                     val sb = builder(day(st.startTime))
                     sb.hasSleep = true
                     sb.stageMinutes[name] = (sb.stageMinutes[name] ?: 0L) + mins
-                    sb.samples += HealthSample("sleepStage", st.startTime.toString(), st.endTime.toString(), text = name, source = r.origin)
+                    sb.samples += HealthSample("sleepStage", st.startTime.toString(), st.endTime.toString(), text = name, source = r.origin, hcId = r.uid)
                 }
             }
         }
@@ -533,7 +535,8 @@ class HealthConnectManager(
                     startDateTime = r.startTime.toString(),
                     exerciseName = name,
                     durationMinutes = durationMin,
-                    source = r.origin
+                    source = r.origin,
+                    hcId = r.uid
                 )
             }
         }
@@ -544,7 +547,7 @@ class HealthConnectManager(
                 val v = r.volume.inMilliliters
                 val b = builder(day(r.startTime)); b.hasHydration = true
                 b.hydrationMl += v
-                b.samples += HealthSample("hydration", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("hydration", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeNutrition, NutritionRecord::class) { recs ->
@@ -552,7 +555,7 @@ class HealthConnectManager(
                 val v = r.energy?.inKilocalories ?: 0.0
                 val b = builder(day(r.startTime)); b.hasNutrition = true
                 b.nutritionKcal += v
-                b.samples += HealthSample("nutrition", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin)
+                b.samples += HealthSample("nutrition", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
 
@@ -561,28 +564,28 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val text = MenstruationFlowRecord.FLOW_TYPE_INT_TO_STRING_MAP[r.flow] ?: "unknown"
                 val b = builder(day(r.time)); b.menstruation.offer(r.time, text)
-                b.samples += HealthSample("menstruation", r.time.toString(), text = text, source = r.origin)
+                b.samples += HealthSample("menstruation", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeCervicalMucus, CervicalMucusRecord::class) { recs ->
             recs.forEach { r ->
                 val text = CervicalMucusRecord.APPEARANCE_INT_TO_STRING_MAP[r.appearance] ?: "unknown"
                 val b = builder(day(r.time)); b.cervicalMucus.offer(r.time, text)
-                b.samples += HealthSample("cervicalMucus", r.time.toString(), text = text, source = r.origin)
+                b.samples += HealthSample("cervicalMucus", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeOvulationTest, OvulationTestRecord::class) { recs ->
             recs.forEach { r ->
                 val text = OvulationTestRecord.RESULT_INT_TO_STRING_MAP[r.result] ?: "unknown"
                 val b = builder(day(r.time)); b.ovulationTest.offer(r.time, text)
-                b.samples += HealthSample("ovulationTest", r.time.toString(), text = text, source = r.origin)
+                b.samples += HealthSample("ovulationTest", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
             }
         }
         perMetric(cfg.includeSexualActivity, SexualActivityRecord::class) { recs ->
             recs.forEach { r ->
                 val text = SexualActivityRecord.PROTECTION_USED_INT_TO_STRING_MAP[r.protectionUsed] ?: "unknown"
                 val b = builder(day(r.time)); b.sexualActivity.offer(r.time, text)
-                b.samples += HealthSample("sexualActivity", r.time.toString(), text = text, source = r.origin)
+                b.samples += HealthSample("sexualActivity", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
             }
         }
 

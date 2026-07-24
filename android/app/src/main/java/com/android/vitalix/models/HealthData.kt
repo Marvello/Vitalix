@@ -18,7 +18,9 @@ data class ExerciseData(
     val exerciseName: String,
     val durationMinutes: Long,
     /** Health Connect package that wrote the record (e.g. com.google.android.apps.fitness). */
-    val source: String? = null
+    val source: String? = null,
+    /** Health Connect record UID (metadata.id), for idempotent server storage. */
+    val hcId: String? = null
 )
 
 data class BodyMeasurementData(
@@ -35,7 +37,9 @@ data class HealthSample(
     val value2: Double? = null,
     val text: String? = null,
     /** Health Connect package that wrote the record (the originating app). */
-    val source: String? = null
+    val source: String? = null,
+    /** Health Connect record UID (metadata.id), for idempotent server storage. */
+    val hcId: String? = null
 )
 
 data class ExportConfig(

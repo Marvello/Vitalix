@@ -43,6 +43,7 @@ object ServerForwarder {
         s.end?.let { put("end", it) }; s.value?.let { put("value", it) }
         s.value2?.let { put("value2", it) }; s.text?.let { put("text", it) }
         s.source?.let { put("source", it) }
+        s.hcId?.let { put("hcId", it) }
     }
 
     fun buildPayload(days: List<DailyHealthData>, meta: PayloadMeta): String {
@@ -63,7 +64,7 @@ object ServerForwarder {
             section(d.nutritionData)?.let { o.put("nutrition", it) }
             if (d.exercises.isNotEmpty()) o.put("exercises", JSONArray(d.exercises.map {
                 JSONObject().put("name", it.exerciseName).put("start", it.startDateTime).put("durationMinutes", it.durationMinutes)
-                    .apply { it.source?.let { s -> put("source", s) } }
+                    .apply { it.source?.let { s -> put("source", s) }; it.hcId?.let { h -> put("hcId", h) } }
             }))
             if (d.samples.isNotEmpty()) o.put("samples", JSONArray(d.samples.map { sampleJson(it) }))
             arr.put(o)

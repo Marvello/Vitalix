@@ -59,4 +59,16 @@ class ServerForwarderTest {
         assertFalse(activity.has("power"))
         assertFalse(activity.has("speed"))
     }
+
+    @Test fun serializesHcIdOnSampleAndExercise() {
+        val day = DailyHealthData(
+            date = "2026-07-20",
+            exercises = listOf(ExerciseData("2026-07-20", "2026-07-20T06:12:00Z", "Running", 32, source = "com.x", hcId = "ex-uid-1")),
+            samples = listOf(HealthSample("heartRate", "2026-07-20T10:04:12Z", value = 68.0, source = "com.x", hcId = "hr-uid-1"))
+        )
+        val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))
+        val d0 = json.getJSONArray("days").getJSONObject(0)
+        assertEquals("hr-uid-1", d0.getJSONArray("samples").getJSONObject(0).getString("hcId"))
+        assertEquals("ex-uid-1", d0.getJSONArray("exercises").getJSONObject(0).getString("hcId"))
+    }
 }
