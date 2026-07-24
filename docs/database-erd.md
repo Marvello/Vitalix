@@ -116,6 +116,7 @@ erDiagram
         double value_secondary
         text value_text
         text source "indexed"
+        jsonb meta "nullable; per-reading context enums"
     }
 
     exercises {
@@ -140,6 +141,7 @@ erDiagram
         text value_text
         text source
         timestamptz received_at
+        jsonb meta "nullable; per-reading context enums"
     }
 
     day_source_metrics {
@@ -197,6 +199,9 @@ Intraday readings attached to a day. `day_id` FK (CASCADE), `metric`,
 (Health Connect `dataOrigin` package name). Indexed on `(metric, start_at)`,
 `day_id`, and `source`. Legacy granular store — parallel to `records`.
 
+`meta` (jsonb, nullable) — per-reading Health Connect context enums
+(`bodyPosition`, `mealType`, `measurementMethod`, …). `NULL` when the reading carries no context.
+
 ### `exercises`
 Workout sessions per day. `day_id` FK (CASCADE), `name`, `start_at`,
 `duration_minutes`, `source`, `hc_id`. Unique on `(day_id, hc_id)`
@@ -209,6 +214,10 @@ unique `(user_id, hc_id, start_at)` (`records_identity`) so overlapping backfill
 windows and re-syncs upsert rather than duplicate. `type` distinguishes record
 kinds; indexed on `(user_id, type, start_at)`. Not linked to `health_days` —
 owned directly by `user`.
+
+`meta` (jsonb, nullable) — per-reading Health Connect context enums
+(`bodyPosition`, `mealType`, `measurementMethod`, …). Populated at ingest from
+the sample's `meta` object; `NULL` when the reading carries no context.
 
 ### `day_source_metrics`
 **Per-source daily rollup** — one representative value per

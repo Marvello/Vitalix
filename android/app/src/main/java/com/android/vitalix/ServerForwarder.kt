@@ -44,6 +44,7 @@ object ServerForwarder {
         s.value2?.let { put("value2", it) }; s.text?.let { put("text", it) }
         s.source?.let { put("source", it) }
         s.hcId?.let { put("hcId", it) }
+        s.meta?.takeIf { it.isNotEmpty() }?.let { put("meta", JSONObject(it as Map<*, *>)) }
     }
 
     fun buildPayload(days: List<DailyHealthData>, meta: PayloadMeta): String {

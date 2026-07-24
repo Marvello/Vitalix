@@ -81,6 +81,7 @@ function mapSamples(day) {
       value_text: r.text ?? null,
       source: r.source ?? null,
       hc_id: r.hcId ?? null,
+      meta: r.meta ?? null,
     });
   }
   return { samples, skipped };

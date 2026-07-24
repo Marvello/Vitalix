@@ -38,6 +38,7 @@ import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.WheelchairPushesRecord
 import com.android.vitalix.health.Aggregation
 import com.android.vitalix.health.HealthConnectRecordReader
+import com.android.vitalix.health.MetaMappers
 import com.android.vitalix.health.RecordReader
 import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.models.ExerciseData
@@ -402,7 +403,8 @@ class HealthConnectManager(
                 val v = r.vo2MillilitersPerMinuteKilogram
                 val b = builder(day(r.time))
                 b.vo2.offer(r.time, v)
-                b.samples += HealthSample("vo2Max", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
+                b.samples += HealthSample("vo2Max", r.time.toString(), value = v, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.vo2MaxMeta(r.measurementMethod))
             }
         }
 
@@ -479,7 +481,8 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val v = r.level.inMilligramsPerDeciliter
                 val b = builder(day(r.time)); b.glucose += v
-                b.samples += HealthSample("bloodGlucose", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
+                b.samples += HealthSample("bloodGlucose", r.time.toString(), value = v, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.bloodGlucoseMeta(r.mealType, r.relationToMeal, r.specimenSource))
             }
         }
         perMetric(cfg.includeBloodPressure, BloodPressureRecord::class) { recs ->
@@ -488,7 +491,8 @@ class HealthConnectManager(
                 val dia = r.diastolic.inMillimetersOfMercury
                 val b = builder(day(r.time))
                 b.bpSystolic += sys; b.bpDiastolic += dia
-                b.samples += HealthSample("bloodPressure", r.time.toString(), value = sys, value2 = dia, source = r.origin, hcId = r.uid)
+                b.samples += HealthSample("bloodPressure", r.time.toString(), value = sys, value2 = dia, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.bloodPressureMeta(r.bodyPosition, r.measurementLocation))
             }
         }
         perMetric(cfg.includeRestingHeartRate, RestingHeartRateRecord::class) { recs ->
@@ -502,7 +506,8 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val v = r.temperature.inCelsius
                 val b = builder(day(r.time)); b.bodyTemperature.offer(r.time, v)
-                b.samples += HealthSample("bodyTemperature", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
+                b.samples += HealthSample("bodyTemperature", r.time.toString(), value = v, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.bodyTemperatureMeta(r.measurementLocation))
             }
         }
 

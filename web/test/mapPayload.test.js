@@ -67,7 +67,7 @@ test("maps samples by record shape and skips unknown metrics", () => {
   const { days, skipped } = mapPayload(payload);
   const samples = days[0].samples;
   const hr = samples.find((s) => s.metric === "heartRate");
-  assert.deepEqual(hr, { metric: "heartRate", start_at: "2026-07-20T10:04:12Z", end_at: null, value_num: 68, value_secondary: null, value_text: null, source: "com.samsung.health", hc_id: "hr-1" });
+  assert.deepEqual(hr, { metric: "heartRate", start_at: "2026-07-20T10:04:12Z", end_at: null, value_num: 68, value_secondary: null, value_text: null, source: "com.samsung.health", hc_id: "hr-1", meta: null });
   const steps = samples.find((s) => s.metric === "steps");
   assert.equal(steps.source, null); // absent source maps to null
   assert.equal(steps.end_at, "2026-07-20T11:00:00Z");
@@ -93,4 +93,22 @@ test("carries hc_id through samples and exercises", () => {
   const steps = days[0].samples.find((s) => s.metric === "steps");
   assert.equal(steps.hc_id, null); // absent hcId maps to null
   assert.equal(days[0].exercises[0].hc_id, "ex-1");
+});
+
+test("mapSamples passes a meta object through and defaults missing meta to null", () => {
+  const mapped = mapPayload({
+    days: [{
+      date: "2026-07-01",
+      samples: [
+        { metric: "bloodPressure", start: "2026-07-01T08:00:00Z", value: 120, value2: 80,
+          hcId: "bp-1", meta: { bodyPosition: "standing", measurementLocation: "left_wrist" } },
+        { metric: "heartRate", start: "2026-07-01T08:01:00Z", value: 70, hcId: "hr-1" },
+      ],
+    }],
+  });
+  const samples = mapped.days[0].samples;
+  const bp = samples.find((s) => s.metric === "bloodPressure");
+  const hr = samples.find((s) => s.metric === "heartRate");
+  assert.deepEqual(bp.meta, { bodyPosition: "standing", measurementLocation: "left_wrist" });
+  assert.equal(hr.meta, null);
 });

@@ -90,9 +90,14 @@ currently-collected reading is byte-identical.
    (`BloodPressureRecord`, `BloodGlucoseRecord`, `Vo2MaxRecord`,
    `BodyTemperatureRecord`) build a `meta` map from HC's `*_INT_TO_STRING_MAP`
    companion maps and pass it to the `HealthSample`. Rules:
-   - Each enum resolved via its HC int→string map; an unmapped/`0`
-     (`*_UNKNOWN`) value is **omitted** from the map rather than written as
-     `"unknown"`, so absent context stays absent.
+   - Each enum resolved via its HC int→string map; an unmapped or
+     explicitly-`"unknown"`-mapped value is **omitted** from the map rather
+     than written as `"unknown"`, so absent context stays absent. The rule
+     keys on the *resolved string*, not on the int being `0`: Vo2Max has no
+     `_UNKNOWN` constant, so `measurementMethod = 0` resolves to the
+     legitimate value `"other"` and is preserved, while enums with a real
+     `*_UNKNOWN = 0` constant (body position, meal type, body-temperature
+     location, etc.) still get dropped at `0`.
    - If every enum for a reading is unknown, `meta` is left `null` (empty map
      collapses to null before constructing the sample).
    - No new `ExportConfig` flags and no UI changes: enrichment rides on the

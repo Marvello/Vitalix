@@ -39,7 +39,12 @@ data class HealthSample(
     /** Health Connect package that wrote the record (the originating app). */
     val source: String? = null,
     /** Health Connect record UID (metadata.id), for idempotent server storage. */
-    val hcId: String? = null
+    val hcId: String? = null,
+    /**
+     * Per-reading context enums Health Connect attaches (e.g. a blood-pressure
+     * reading's body position). Null/empty when the record has no context.
+     */
+    val meta: Map<String, String>? = null
 )
 
 data class ExportConfig(
