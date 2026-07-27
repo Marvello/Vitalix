@@ -5,22 +5,31 @@ import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
+import androidx.health.connect.client.records.ActivityIntensityRecord
+import androidx.health.connect.client.records.BasalBodyTemperatureRecord
+import androidx.health.connect.client.records.BasalMetabolicRateRecord
 import androidx.health.connect.client.records.BloodGlucoseRecord
 import androidx.health.connect.client.records.BloodPressureRecord
 import androidx.health.connect.client.records.BodyFatRecord
 import androidx.health.connect.client.records.BodyTemperatureRecord
+import androidx.health.connect.client.records.BodyWaterMassRecord
 import androidx.health.connect.client.records.BoneMassRecord
 import androidx.health.connect.client.records.CervicalMucusRecord
+import androidx.health.connect.client.records.CyclingPedalingCadenceRecord
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ElevationGainedRecord
+import androidx.health.connect.client.records.ExerciseRouteResult
 import androidx.health.connect.client.records.ExerciseSessionRecord
 import androidx.health.connect.client.records.FloorsClimbedRecord
 import androidx.health.connect.client.records.HeartRateRecord
 import androidx.health.connect.client.records.HeartRateVariabilityRmssdRecord
 import androidx.health.connect.client.records.HeightRecord
 import androidx.health.connect.client.records.HydrationRecord
+import androidx.health.connect.client.records.IntermenstrualBleedingRecord
 import androidx.health.connect.client.records.LeanBodyMassRecord
 import androidx.health.connect.client.records.MenstruationFlowRecord
+import androidx.health.connect.client.records.MenstruationPeriodRecord
+import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.OvulationTestRecord
 import androidx.health.connect.client.records.OxygenSaturationRecord
@@ -29,8 +38,10 @@ import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.RespiratoryRateRecord
 import androidx.health.connect.client.records.RestingHeartRateRecord
 import androidx.health.connect.client.records.SexualActivityRecord
+import androidx.health.connect.client.records.SkinTemperatureRecord
 import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.SpeedRecord
+import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.records.Vo2MaxRecord
@@ -42,6 +53,9 @@ import com.android.vitalix.health.MetaMappers
 import com.android.vitalix.health.RecordReader
 import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.models.ExerciseData
+import com.android.vitalix.models.ExerciseLap
+import com.android.vitalix.models.ExerciseSegment
+import com.android.vitalix.models.RoutePoint
 import com.android.vitalix.models.ExportConfig
 import com.android.vitalix.models.HealthSample
 import kotlinx.coroutines.delay
@@ -142,6 +156,19 @@ class HealthConnectManager(
         HealthPermission.getReadPermission(CervicalMucusRecord::class),
         HealthPermission.getReadPermission(OvulationTestRecord::class),
         HealthPermission.getReadPermission(SexualActivityRecord::class),
+        HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
+        HealthPermission.getReadPermission(BodyWaterMassRecord::class),
+        HealthPermission.getReadPermission(BasalBodyTemperatureRecord::class),
+        HealthPermission.getReadPermission(IntermenstrualBleedingRecord::class),
+        HealthPermission.getReadPermission(MenstruationPeriodRecord::class),
+        HealthPermission.getReadPermission(ActivityIntensityRecord::class),
+        HealthPermission.getReadPermission(MindfulnessSessionRecord::class),
+        HealthPermission.getReadPermission(CyclingPedalingCadenceRecord::class),
+        HealthPermission.getReadPermission(StepsCadenceRecord::class),
+        HealthPermission.getReadPermission(SkinTemperatureRecord::class),
+        // Exercise GPS route: a separate permission from ExerciseSessionRecord;
+        // without it exerciseRouteResult comes back as ConsentRequired/NoData.
+        HealthPermission.PERMISSION_READ_EXERCISE_ROUTES,
         // Without this, Health Connect truncates every read to the last 30 days,
         // which would make the full-history backfill return almost nothing.
         // Spelled out because connect-client 1.1.0-alpha07 has no constant for it.
@@ -398,6 +425,13 @@ class HealthConnectManager(
                 }
             }
         }
+        perMetric(cfg.includeActivityIntensity, ActivityIntensityRecord::class) { recs ->
+            recs.forEach { r ->
+                val label = MetaMappers.activityIntensityMeta(r.activityIntensityType)?.get("intensityType")
+                builder(day(r.startTime)).samples += HealthSample("activityIntensity", r.startTime.toString(), r.endTime.toString(), text = label, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.activityIntensityMeta(r.activityIntensityType))
+            }
+        }
         perMetric(cfg.includeVO2Max, Vo2MaxRecord::class) { recs ->
             recs.forEach { r ->
                 val v = r.vo2MillilitersPerMinuteKilogram
@@ -442,6 +476,18 @@ class HealthConnectManager(
                 val v = r.mass.inKilograms
                 val b = builder(day(r.time)); b.leanBodyMass.offer(r.time, v)
                 b.samples += HealthSample("leanBodyMass", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
+            }
+        }
+
+        perMetric(cfg.includeBasalMetabolicRate, BasalMetabolicRateRecord::class) { recs ->
+            recs.forEach { r ->
+                val v = r.basalMetabolicRate.inKilocaloriesPerDay
+                builder(day(r.time)).samples += HealthSample("basalMetabolicRate", r.time.toString(), value = v, source = r.origin, hcId = r.uid)
+            }
+        }
+        perMetric(cfg.includeBodyWaterMass, BodyWaterMassRecord::class) { recs ->
+            recs.forEach { r ->
+                builder(day(r.time)).samples += HealthSample("bodyWaterMass", r.time.toString(), value = r.mass.inKilograms, source = r.origin, hcId = r.uid)
             }
         }
 
@@ -534,6 +580,26 @@ class HealthConnectManager(
                     ?: ExerciseSessionRecord.EXERCISE_TYPE_INT_TO_STRING_MAP[r.exerciseType]
                     ?: "unknown"
                 val durationMin = ChronoUnit.MINUTES.between(r.startTime, r.endTime)
+                val laps = r.laps.map { l ->
+                    ExerciseLap(l.startTime.toString(), l.endTime.toString(), l.length?.inMeters)
+                }
+                val segments = r.segments.map { s ->
+                    ExerciseSegment(
+                        s.startTime.toString(),
+                        s.endTime.toString(),
+                        segmentTypeNames[s.segmentType] ?: "unknown",
+                    )
+                }
+                val route = if (cfg.includeExerciseRoute) {
+                    (r.exerciseRouteResult as? ExerciseRouteResult.Data)?.exerciseRoute?.route?.map { p ->
+                        RoutePoint(
+                            p.time.toString(), p.latitude, p.longitude,
+                            p.altitude?.inMeters, p.horizontalAccuracy?.inMeters, p.verticalAccuracy?.inMeters,
+                        )
+                    } ?: emptyList()
+                } else {
+                    emptyList()
+                }
                 val b = builder(day(r.startTime))
                 b.exercises += ExerciseData(
                     date = day(r.startTime).toString(),
@@ -541,7 +607,10 @@ class HealthConnectManager(
                     exerciseName = name,
                     durationMinutes = durationMin,
                     source = r.origin,
-                    hcId = r.uid
+                    hcId = r.uid,
+                    laps = laps,
+                    segments = segments,
+                    route = route,
                 )
             }
         }
@@ -563,6 +632,17 @@ class HealthConnectManager(
                 b.samples += HealthSample("nutrition", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid)
             }
         }
+        perMetric(cfg.includeNutritionDetail, NutritionRecord::class) { recs ->
+            recs.forEach { r ->
+                val mealMeta = MetaMappers.mealTypeMeta(r.mealType)
+                val b = builder(day(r.startTime))
+                nutrientExtractors.forEach { (name, extract) ->
+                    extract(r)?.let { v ->
+                        b.samples += HealthSample("nutrition.$name", r.startTime.toString(), r.endTime.toString(), value = v, source = r.origin, hcId = r.uid, meta = mealMeta)
+                    }
+                }
+            }
+        }
 
         // ---- Cycle tracking ----
         perMetric(cfg.includeMenstruation, MenstruationFlowRecord::class) { recs ->
@@ -576,7 +656,7 @@ class HealthConnectManager(
             recs.forEach { r ->
                 val text = CervicalMucusRecord.APPEARANCE_INT_TO_STRING_MAP[r.appearance] ?: "unknown"
                 val b = builder(day(r.time)); b.cervicalMucus.offer(r.time, text)
-                b.samples += HealthSample("cervicalMucus", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
+                b.samples += HealthSample("cervicalMucus", r.time.toString(), text = text, source = r.origin, hcId = r.uid, meta = MetaMappers.cervicalMucusMeta(r.sensation))
             }
         }
         perMetric(cfg.includeOvulationTest, OvulationTestRecord::class) { recs ->
@@ -593,11 +673,99 @@ class HealthConnectManager(
                 b.samples += HealthSample("sexualActivity", r.time.toString(), text = text, source = r.origin, hcId = r.uid)
             }
         }
+        perMetric(cfg.includeBasalBodyTemperature, BasalBodyTemperatureRecord::class) { recs ->
+            recs.forEach { r ->
+                builder(day(r.time)).samples += HealthSample("basalBodyTemperature", r.time.toString(), value = r.temperature.inCelsius, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.basalBodyTemperatureMeta(r.measurementLocation))
+            }
+        }
+        perMetric(cfg.includeIntermenstrualBleeding, IntermenstrualBleedingRecord::class) { recs ->
+            recs.forEach { r ->
+                builder(day(r.time)).samples += HealthSample("intermenstrualBleeding", r.time.toString(), value = 1.0, source = r.origin, hcId = r.uid)
+            }
+        }
+        perMetric(cfg.includeMenstruationPeriod, MenstruationPeriodRecord::class) { recs ->
+            recs.forEach { r ->
+                builder(day(r.startTime)).samples += HealthSample("menstruationPeriod", r.startTime.toString(), r.endTime.toString(), value = 1.0, source = r.origin, hcId = r.uid)
+            }
+        }
+
+        // ---- Mindfulness ----
+        perMetric(cfg.includeMindfulness, MindfulnessSessionRecord::class) { recs ->
+            recs.forEach { r ->
+                val mins = ChronoUnit.MINUTES.between(r.startTime, r.endTime)
+                val label = r.title ?: MetaMappers.mindfulnessMeta(r.mindfulnessSessionType)?.get("sessionType")
+                builder(day(r.startTime)).samples += HealthSample("mindfulness", r.startTime.toString(), r.endTime.toString(), value = mins.toDouble(), text = label, source = r.origin, hcId = r.uid,
+                    meta = MetaMappers.mindfulnessMeta(r.mindfulnessSessionType))
+            }
+        }
+
+        // ---- Series (cadence + skin temperature) ----
+        perMetric(cfg.includeCyclingCadence, CyclingPedalingCadenceRecord::class) { recs ->
+            recs.forEach { r -> r.samples.forEach { s ->
+                builder(day(s.time)).samples += HealthSample("cyclingCadence", s.time.toString(), value = s.revolutionsPerMinute, source = r.origin, hcId = r.uid)
+            } }
+        }
+        perMetric(cfg.includeStepsCadence, StepsCadenceRecord::class) { recs ->
+            recs.forEach { r -> r.samples.forEach { s ->
+                builder(day(s.time)).samples += HealthSample("stepsCadence", s.time.toString(), value = s.rate, source = r.origin, hcId = r.uid)
+            } }
+        }
+        perMetric(cfg.includeSkinTemperature, SkinTemperatureRecord::class) { recs ->
+            recs.forEach { r ->
+                val m = MetaMappers.skinTemperatureMeta(r.measurementLocation, r.baseline?.inCelsius)
+                r.deltas.forEach { d ->
+                    builder(day(d.time)).samples += HealthSample("skinTemperature", d.time.toString(), value = d.delta.inCelsius, source = r.origin, hcId = r.uid, meta = m)
+                }
+            }
+        }
 
         lastFailedMetrics = failed
         lastSkippedWindows = (reader as? HealthConnectRecordReader)?.skippedWindows ?: 0
         return builders.values.sortedBy { it.date }.map { it.build() }
     }
+
+    /**
+     * `ExerciseSegment.EXERCISE_SEGMENT_TYPE_*` int → lowercase name (e.g.
+     * `EXERCISE_SEGMENT_TYPE_RUNNING` → `"running"`). connect-client 1.2.0-alpha
+     * exposes the constants but no public int→string map, so derive it once by
+     * reflection over the record class's static fields.
+     */
+    private val segmentTypeNames: Map<Int, String> by lazy {
+        androidx.health.connect.client.records.ExerciseSegment::class.java.fields
+            .filter { it.name.startsWith("EXERCISE_SEGMENT_TYPE_") && it.type == Int::class.javaPrimitiveType }
+            .associate { it.getInt(null) to it.name.removePrefix("EXERCISE_SEGMENT_TYPE_").lowercase() }
+    }
+
+    /**
+     * Maps a `nutrition.<field>` metric suffix to its nullable field accessor
+     * on [NutritionRecord], each already in its canonical unit (grams for
+     * masses, kilocalories for energies). Energy itself is excluded here: it
+     * is already covered by the `includeNutrition` day-rollup sample.
+     */
+    private val nutrientExtractors: List<Pair<String, (NutritionRecord) -> Double?>> = listOf(
+        "biotin" to { r -> r.biotin?.inGrams }, "caffeine" to { r -> r.caffeine?.inGrams },
+        "calcium" to { r -> r.calcium?.inGrams }, "energyFromFat" to { r -> r.energyFromFat?.inKilocalories },
+        "chloride" to { r -> r.chloride?.inGrams }, "cholesterol" to { r -> r.cholesterol?.inGrams },
+        "chromium" to { r -> r.chromium?.inGrams }, "copper" to { r -> r.copper?.inGrams },
+        "dietaryFiber" to { r -> r.dietaryFiber?.inGrams }, "folate" to { r -> r.folate?.inGrams },
+        "folicAcid" to { r -> r.folicAcid?.inGrams }, "iodine" to { r -> r.iodine?.inGrams },
+        "iron" to { r -> r.iron?.inGrams }, "magnesium" to { r -> r.magnesium?.inGrams },
+        "manganese" to { r -> r.manganese?.inGrams }, "molybdenum" to { r -> r.molybdenum?.inGrams },
+        "monounsaturatedFat" to { r -> r.monounsaturatedFat?.inGrams }, "niacin" to { r -> r.niacin?.inGrams },
+        "pantothenicAcid" to { r -> r.pantothenicAcid?.inGrams }, "phosphorus" to { r -> r.phosphorus?.inGrams },
+        "polyunsaturatedFat" to { r -> r.polyunsaturatedFat?.inGrams }, "potassium" to { r -> r.potassium?.inGrams },
+        "protein" to { r -> r.protein?.inGrams }, "riboflavin" to { r -> r.riboflavin?.inGrams },
+        "saturatedFat" to { r -> r.saturatedFat?.inGrams }, "selenium" to { r -> r.selenium?.inGrams },
+        "sodium" to { r -> r.sodium?.inGrams }, "sugar" to { r -> r.sugar?.inGrams },
+        "thiamin" to { r -> r.thiamin?.inGrams }, "totalCarbohydrate" to { r -> r.totalCarbohydrate?.inGrams },
+        "totalFat" to { r -> r.totalFat?.inGrams }, "transFat" to { r -> r.transFat?.inGrams },
+        "unsaturatedFat" to { r -> r.unsaturatedFat?.inGrams }, "vitaminA" to { r -> r.vitaminA?.inGrams },
+        "vitaminB12" to { r -> r.vitaminB12?.inGrams }, "vitaminB6" to { r -> r.vitaminB6?.inGrams },
+        "vitaminC" to { r -> r.vitaminC?.inGrams }, "vitaminD" to { r -> r.vitaminD?.inGrams },
+        "vitaminE" to { r -> r.vitaminE?.inGrams }, "vitaminK" to { r -> r.vitaminK?.inGrams },
+        "zinc" to { r -> r.zinc?.inGrams },
+    )
 
     /**
      * Split [start, end] into read windows. In safer-export mode reads are chunked

@@ -10,13 +10,14 @@ constraintlayout = "2.1.4"
 activityKtx = "1.8.0"
 navigationFragmentKtx = "2.6.0"
 navigationUiKtx = "2.6.0"
-healthConnect = "1.1.0-alpha07"
+healthConnect = "1.2.0-alpha04"
 okhttp = "4.12.0"
 securityCrypto = "1.1.0-alpha06"
 workManager = "2.9.1"
 coroutines = "1.8.1"
 kotlinReflect = "2.3.20"
 json = "20240303"
+mockitoCore = "5.12.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,9 +35,11 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
 work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version = "1.9.24" }
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
 json = { group = "org.json", name = "json", version.ref = "json" }
+mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

@@ -3,9 +3,12 @@
 // unit-testable without Postgres.
 
 const SUM = ["steps", "distance", "activeCalories", "totalCalories", "floorsClimbed",
-  "elevationGained", "wheelchairPushes", "hydration", "nutrition"];
-const LAST = ["weight", "bodyFat", "boneMass", "height", "leanBodyMass", "restingHeartRate"];
-const TEXT = ["menstruation", "cervicalMucus", "ovulationTest", "sexualActivity", "sleepStage"];
+  "elevationGained", "wheelchairPushes", "hydration", "nutrition",
+  "mindfulness", "intermenstrualBleeding"];
+const LAST = ["weight", "bodyFat", "boneMass", "height", "leanBodyMass", "restingHeartRate",
+  "basalMetabolicRate", "bodyWaterMass", "basalBodyTemperature", "menstruationPeriod"];
+const TEXT = ["menstruation", "cervicalMucus", "ovulationTest", "sexualActivity", "sleepStage",
+  "activityIntensity"];
 // Everything else (heartRate, hrv, spo2, bloodGlucose, respiratoryRate,
 // bloodPressure, power, speed, bodyTemperature, vo2Max) is a distribution.
 
@@ -16,6 +19,7 @@ for (const t of TEXT) RULES.set(t, "text");
 
 /** Aggregation rule for a metric type; unknown types default to a distribution. */
 export function aggregationFor(type) {
+  if (typeof type === "string" && type.startsWith("nutrition.")) return "sum";
   return RULES.get(type) ?? "minmaxavg";
 }
 

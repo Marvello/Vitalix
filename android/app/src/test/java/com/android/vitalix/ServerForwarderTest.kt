@@ -99,4 +99,39 @@ class ServerForwarderTest {
         assertFalse(samples.getJSONObject(0).has("meta"))
         assertFalse(samples.getJSONObject(1).has("meta"))
     }
+
+    @Test
+    fun exerciseSerializesLapsSegmentsRoute() {
+        val day = DailyHealthData(
+            date = "2026-07-24",
+            exercises = listOf(
+                ExerciseData(
+                    date = "2026-07-24", startDateTime = "2026-07-24T06:00:00Z",
+                    exerciseName = "Running", durationMinutes = 30,
+                    source = "com.x", hcId = "ex-1",
+                    laps = listOf(ExerciseLap("2026-07-24T06:00:00Z", "2026-07-24T06:10:00Z", 2000.0)),
+                    segments = listOf(ExerciseSegment("2026-07-24T06:00:00Z", "2026-07-24T06:05:00Z", "running")),
+                    route = listOf(RoutePoint("2026-07-24T06:00:00Z", 1.29, 103.85, 15.0, 3.0, 5.0)),
+                )
+            )
+        )
+        val json = ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "Pixel", 7))
+        val ex = JSONObject(json).getJSONArray("days").getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+        assertEquals(2000.0, ex.getJSONArray("laps").getJSONObject(0).getDouble("lengthMeters"), 0.0)
+        assertEquals("running", ex.getJSONArray("segments").getJSONObject(0).getString("type"))
+        val pt = ex.getJSONArray("route").getJSONObject(0)
+        assertEquals(1.29, pt.getDouble("lat"), 0.0)
+        assertEquals(103.85, pt.getDouble("lng"), 0.0)
+    }
+
+    @Test
+    fun exerciseOmitsEmptyDetail() {
+        val day = DailyHealthData(
+            date = "2026-07-24",
+            exercises = listOf(ExerciseData("2026-07-24", "2026-07-24T06:00:00Z", "Walk", 10, hcId = "ex-2"))
+        )
+        val json = ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "Pixel", 7))
+        val ex = JSONObject(json).getJSONArray("days").getJSONObject(0).getJSONArray("exercises").getJSONObject(0)
+        assertFalse(ex.has("laps")); assertFalse(ex.has("segments")); assertFalse(ex.has("route"))
+    }
 }

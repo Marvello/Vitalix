@@ -6,3 +6,4 @@ node_modules/
 .superpowers/
 .idea/
 .DS_Store
+graphify-out/

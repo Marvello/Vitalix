@@ -71,6 +71,10 @@ This keeps the JSON builder and the settings↔`ExportConfig` mapping pure and u
 
 `models/HealthData.kt` (in the reference project) is reused as-is: `DailyHealthData`, `ExerciseData`, `BodyMeasurementData`, `ExportConfig` (the ~30 `include*` metric flags + `daysBack`), and `MinMaxAvg`.
 
+## Data Completeness
+
+Read `./docs/health-connect-data-coverage.md` to get the comparison of the data that it scraped versus the availability
+
 ## Branding
 
 App name **Vitalix**. Primary Vital Teal `#0FA9A0`, accent Pulse Green `#34D399` (gradient 135°). Voice is direct/technical — sync states are *Idle · Exporting · Sent · Failed (retry)*; no emoji or wellness fluff in system messages. Full guide: `docs/branding/vitalix-branding.md`.

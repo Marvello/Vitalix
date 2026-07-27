@@ -2,6 +2,22 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { aggregationFor, BUCKETS, buildRecordsQuery, shapeBucketRow, RAW_LIMIT, rollupSourceMetrics } from "../src/records.js";
 
+test("new metrics map to the right aggregation", () => {
+  assert.equal(aggregationFor("mindfulness"), "sum");
+  assert.equal(aggregationFor("intermenstrualBleeding"), "sum");
+  assert.equal(aggregationFor("basalMetabolicRate"), "last");
+  assert.equal(aggregationFor("bodyWaterMass"), "last");
+  assert.equal(aggregationFor("basalBodyTemperature"), "last");
+  assert.equal(aggregationFor("menstruationPeriod"), "last");
+  assert.equal(aggregationFor("activityIntensity"), "text");
+  assert.equal(aggregationFor("skinTemperature"), "minmaxavg");
+});
+
+test("all nutrition.* nutrients aggregate as sum", () => {
+  assert.equal(aggregationFor("nutrition.protein"), "sum");
+  assert.equal(aggregationFor("nutrition.vitaminB12"), "sum");
+});
+
 test("catalog maps types to aggregation rules", () => {
   assert.equal(aggregationFor("steps"), "sum");
   assert.equal(aggregationFor("heartRate"), "minmaxavg");

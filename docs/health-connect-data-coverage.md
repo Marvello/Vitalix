@@ -11,7 +11,7 @@ each record type, plus a **sample of how the data is stored** end to end.
 > change. Source of truth for capture:
 > `android/app/src/main/java/com/android/vitalix/HealthConnectManager.kt`.
 
-Last verified: 2026-07-25 against `connect-client 1.1.0-alpha07`.
+Last verified: 2026-07-27 against `connect-client 1.2.0-alpha04`.
 
 ## Record shapes (granularity primer)
 
@@ -30,10 +30,10 @@ web re-aggregate to any granularity later.
 
 ## Coverage summary
 
-- **Captured: 31 record types** across all six standard categories.
-- **Not captured: 11 record types** (see [Gaps](#not-captured)).
-- Field-level gaps exist on a few captured types (Exercise, Nutrition, Cervical
-  Mucus) — noted inline.
+- **Captured: 41 record types** across all six standard categories.
+- **Not captured: 1 record type** (`PlannedExerciseSessionRecord`; see [Gaps](#not-captured)).
+- No remaining field-level gaps on captured types: Exercise now carries
+  laps/segments/route, Nutrition all ~40 nutrients, Cervical Mucus `sensation`.
 
 ## Activity
 
@@ -42,7 +42,7 @@ web re-aggregate to any granularity later.
 | Active calories | `ActiveCaloriesBurnedRecord` | Interval | ✅ | `energy`→kcal |
 | Distance | `DistanceRecord` | Interval | ✅ | `distance`→m |
 | Elevation gained | `ElevationGainedRecord` | Interval | ✅ | `elevation`→m |
-| Exercise session | `ExerciseSessionRecord` | Interval | ⚠️ | `title`/`exerciseType`, duration. **Dropped:** `laps`, `segments`, `route` |
+| Exercise session | `ExerciseSessionRecord` | Interval | ✅ | `title`/`exerciseType`, duration, `laps`, `segments`, GPS `route` (route needs `READ_EXERCISE_ROUTES` + user consent) |
 | Floors climbed | `FloorsClimbedRecord` | Interval | ✅ | `floors` |
 | Power | `PowerRecord` | Series | ✅ | per-sample `power`→W |
 | Speed | `SpeedRecord` | Series | ✅ | per-sample `speed`→m/s |
@@ -50,10 +50,10 @@ web re-aggregate to any granularity later.
 | Total calories | `TotalCaloriesBurnedRecord` | Interval | ✅ | `energy`→kcal |
 | VO₂ max | `Vo2MaxRecord` | Instantaneous | ✅ | `vo2…`, meta: `measurementMethod` |
 | Wheelchair pushes | `WheelchairPushesRecord` | Interval | ✅ | `count` |
-| Activity intensity | `ActivityIntensityRecord` | Interval | ❌ | — |
-| Cycling pedaling cadence | `CyclingPedalingCadenceRecord` | Series | ❌ | — |
+| Activity intensity | `ActivityIntensityRecord` | Interval | ✅ | intensity type string (`text`), meta: `intensityType` |
+| Cycling pedaling cadence | `CyclingPedalingCadenceRecord` | Series | ✅ | per-sample `revolutionsPerMinute` |
 | Planned exercise | `PlannedExerciseSessionRecord` | Interval | ❌ | — |
-| Steps cadence | `StepsCadenceRecord` | Series | ❌ | — |
+| Steps cadence | `StepsCadenceRecord` | Series | ✅ | per-sample `rate` |
 
 ## Body measurement
 
@@ -64,8 +64,8 @@ web re-aggregate to any granularity later.
 | Height | `HeightRecord` | Instantaneous | ✅ | `height`→m |
 | Lean body mass | `LeanBodyMassRecord` | Instantaneous | ✅ | `mass`→kg |
 | Weight | `WeightRecord` | Instantaneous | ✅ | `weight`→kg |
-| Basal metabolic rate | `BasalMetabolicRateRecord` | Instantaneous | ❌ | — |
-| Body water mass | `BodyWaterMassRecord` | Instantaneous | ❌ | — |
+| Basal metabolic rate | `BasalMetabolicRateRecord` | Instantaneous | ✅ | `basalMetabolicRate`→kcal/day |
+| Body water mass | `BodyWaterMassRecord` | Instantaneous | ✅ | `mass`→kg |
 
 ## Vitals
 
@@ -79,7 +79,7 @@ web re-aggregate to any granularity later.
 | Oxygen saturation | `OxygenSaturationRecord` | Instantaneous | ✅ | `percentage` |
 | Respiratory rate | `RespiratoryRateRecord` | Instantaneous | ✅ | `rate` |
 | Resting heart rate | `RestingHeartRateRecord` | Instantaneous | ✅ | `beatsPerMinute` |
-| Skin temperature | `SkinTemperatureRecord` | Series | ❌ | — |
+| Skin temperature | `SkinTemperatureRecord` | Series | ✅ | per-`delta`→°C, meta: `measurementLocation`,`baseline` |
 
 ## Sleep
 
@@ -92,42 +92,37 @@ web re-aggregate to any granularity later.
 | Data type | Record class | Shape | Captured | Fields taken / dropped |
 |-----------|--------------|-------|:--------:|------------------------|
 | Hydration | `HydrationRecord` | Interval | ✅ | `volume`→mL |
-| Nutrition | `NutritionRecord` | Interval | ⚠️ | `energy`→kcal only. **Dropped:** `mealType`, macros (protein/fat/carbs/sugar), vitamins/minerals (~40 optional fields) |
+| Nutrition | `NutritionRecord` | Interval | ✅ | day rollup `energy`→kcal; with **Nutrition detail** on, one `nutrition.<field>` sample per non-null nutrient (~40 macros/vitamins/minerals), meta: `mealType` |
 
 ## Cycle tracking
 
 | Data type | Record class | Shape | Captured | Fields taken / dropped |
 |-----------|--------------|-------|:--------:|------------------------|
-| Cervical mucus | `CervicalMucusRecord` | Instantaneous | ⚠️ | `appearance`. **Dropped:** `sensation` |
+| Cervical mucus | `CervicalMucusRecord` | Instantaneous | ✅ | `appearance` (`text`), meta: `sensation` |
 | Menstruation flow | `MenstruationFlowRecord` | Instantaneous | ✅ | `flow` |
 | Ovulation test | `OvulationTestRecord` | Instantaneous | ✅ | `result` |
 | Sexual activity | `SexualActivityRecord` | Instantaneous | ✅ | `protectionUsed` |
-| Basal body temperature | `BasalBodyTemperatureRecord` | Instantaneous | ❌ | — |
-| Intermenstrual bleeding | `IntermenstrualBleedingRecord` | Instantaneous | ❌ | — |
-| Menstruation period | `MenstruationPeriodRecord` | Interval | ❌ | — |
+| Basal body temperature | `BasalBodyTemperatureRecord` | Instantaneous | ✅ | `temperature`→°C, meta: `measurementLocation` |
+| Intermenstrual bleeding | `IntermenstrualBleedingRecord` | Instantaneous | ✅ | presence flag (`value`=1) |
+| Menstruation period | `MenstruationPeriodRecord` | Interval | ✅ | period span start→end (`value`=1) |
 
 ## Wellness
 
 | Data type | Record class | Shape | Captured | Fields taken / dropped |
 |-----------|--------------|-------|:--------:|------------------------|
-| Mindfulness | `MindfulnessSessionRecord` | Interval | ❌ | — |
+| Mindfulness | `MindfulnessSessionRecord` | Interval | ✅ | duration + `title`, meta: `mindfulnessSessionType` |
 
 ## Not captured
 
-11 record types are not read. None require a permission we hold, so adding one
-means: a new `HealthPermission.getReadPermission(...)` entry, an `include*` flag
-in `ExportConfig`, a `perMetric{}` block, and a UI checkbox.
+Only `PlannedExerciseSessionRecord` is not read. Adding it means: a new
+`HealthPermission.getReadPermission(...)` entry, an `include*` flag in
+`ExportConfig`, a `perMetric{}` block, and a UI checkbox.
 
 | Category | Missing types |
 |----------|---------------|
-| Activity | ActivityIntensity, CyclingPedalingCadence, PlannedExercise, StepsCadence |
-| Body | BasalMetabolicRate, BodyWaterMass |
-| Vitals | SkinTemperature |
-| Cycle | BasalBodyTemperature, IntermenstrualBleeding, MenstruationPeriod |
-| Wellness | Mindfulness |
+| Activity | PlannedExercise |
 
-Field-level gaps on captured types: Exercise (laps/segments/route),
-Nutrition (all nutrients beyond energy), Cervical Mucus (sensation).
+No field-level gaps remain on captured types.
 
 ## How the data is stored
 

@@ -52,6 +52,9 @@ class SettingsActivity : AppCompatActivity() {
         btnAllowBackground = findViewById(R.id.btnAllowBackground)
         btnOpenDeviceSettings = findViewById(R.id.btnOpenDeviceSettings)
 
+        findViewById<TextView>(R.id.txtVersion).text =
+            "Vitalix v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nbuilt ${BuildConfig.BUILD_TIME}"
+
         btnChangeServerUrl.setOnClickListener {
             ServerUrlDialog.show(this, settings) { showServerUrl() }
         }

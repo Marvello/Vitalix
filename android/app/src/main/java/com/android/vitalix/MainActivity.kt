@@ -59,6 +59,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkTotalCalories: CheckBox
     private lateinit var checkVO2Max: CheckBox
     private lateinit var checkWheelchairPushes: CheckBox
+    private lateinit var checkActivityIntensity: CheckBox
+    private lateinit var checkCyclingCadence: CheckBox
+    private lateinit var checkStepsCadence: CheckBox
+    private lateinit var checkExerciseRoute: CheckBox
 
     // Body
     private lateinit var checkBodyFat: CheckBox
@@ -66,16 +70,22 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkHeight: CheckBox
     private lateinit var checkLeanBodyMass: CheckBox
     private lateinit var checkWeight: CheckBox
+    private lateinit var checkBasalMetabolicRate: CheckBox
+    private lateinit var checkBodyWaterMass: CheckBox
 
     // Cycle
     private lateinit var checkCervicalMucus: CheckBox
     private lateinit var checkMenstruation: CheckBox
     private lateinit var checkOvulationTest: CheckBox
     private lateinit var checkSexualActivity: CheckBox
+    private lateinit var checkBasalBodyTemperature: CheckBox
+    private lateinit var checkIntermenstrualBleeding: CheckBox
+    private lateinit var checkMenstruationPeriod: CheckBox
 
     // Nutrition
     private lateinit var checkHydration: CheckBox
     private lateinit var checkNutrition: CheckBox
+    private lateinit var checkNutritionDetail: CheckBox
 
     // Sleep
     private lateinit var checkSleepSession: CheckBox
@@ -89,6 +99,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var checkOxygenSaturation: CheckBox
     private lateinit var checkRespiratoryRate: CheckBox
     private lateinit var checkRestingHeartRate: CheckBox
+    private lateinit var checkSkinTemperature: CheckBox
+
+    // Wellness
+    private lateinit var checkMindfulness: CheckBox
 
     // Options
     private lateinit var editDaysBack: TextInputEditText
@@ -248,20 +262,30 @@ class MainActivity : AppCompatActivity() {
         checkTotalCalories = findViewById(R.id.checkTotalCalories)
         checkVO2Max = findViewById(R.id.checkVO2Max)
         checkWheelchairPushes = findViewById(R.id.checkWheelchairPushes)
+        checkActivityIntensity = findViewById(R.id.checkActivityIntensity)
+        checkCyclingCadence = findViewById(R.id.checkCyclingCadence)
+        checkStepsCadence = findViewById(R.id.checkStepsCadence)
+        checkExerciseRoute = findViewById(R.id.checkExerciseRoute)
 
         checkBodyFat = findViewById(R.id.checkBodyFat)
         checkBoneMass = findViewById(R.id.checkBoneMass)
         checkHeight = findViewById(R.id.checkHeight)
         checkLeanBodyMass = findViewById(R.id.checkLeanBodyMass)
         checkWeight = findViewById(R.id.checkWeight)
+        checkBasalMetabolicRate = findViewById(R.id.checkBasalMetabolicRate)
+        checkBodyWaterMass = findViewById(R.id.checkBodyWaterMass)
 
         checkCervicalMucus = findViewById(R.id.checkCervicalMucus)
         checkMenstruation = findViewById(R.id.checkMenstruation)
         checkOvulationTest = findViewById(R.id.checkOvulationTest)
         checkSexualActivity = findViewById(R.id.checkSexualActivity)
+        checkBasalBodyTemperature = findViewById(R.id.checkBasalBodyTemperature)
+        checkIntermenstrualBleeding = findViewById(R.id.checkIntermenstrualBleeding)
+        checkMenstruationPeriod = findViewById(R.id.checkMenstruationPeriod)
 
         checkHydration = findViewById(R.id.checkHydration)
         checkNutrition = findViewById(R.id.checkNutrition)
+        checkNutritionDetail = findViewById(R.id.checkNutritionDetail)
 
         checkSleepSession = findViewById(R.id.checkSleepSession)
 
@@ -273,6 +297,9 @@ class MainActivity : AppCompatActivity() {
         checkOxygenSaturation = findViewById(R.id.checkOxygenSaturation)
         checkRespiratoryRate = findViewById(R.id.checkRespiratoryRate)
         checkRestingHeartRate = findViewById(R.id.checkRestingHeartRate)
+        checkSkinTemperature = findViewById(R.id.checkSkinTemperature)
+
+        checkMindfulness = findViewById(R.id.checkMindfulness)
 
         editDaysBack = findViewById(R.id.editDaysBack)
         switchSaferExport = findViewById(R.id.switchSaferExport)
@@ -335,14 +362,18 @@ class MainActivity : AppCompatActivity() {
             listOf(
                 checkActiveCalories, checkDistance, checkElevationGained, checkExercise,
                 checkFloorsClimbed, checkPower, checkSpeed, checkSteps, checkTotalCalories,
-                checkVO2Max, checkWheelchairPushes,
+                checkVO2Max, checkWheelchairPushes, checkActivityIntensity, checkCyclingCadence,
+                checkStepsCadence, checkExerciseRoute,
             )
         ),
         Category(
             R.id.headerBodyMeasurements, R.id.checkCategoryBodyMeasurements,
             R.id.countBodyMeasurements, R.id.chevronBodyMeasurements,
             R.id.layoutBodyMeasurementsSubtypes,
-            listOf(checkBodyFat, checkBoneMass, checkHeight, checkLeanBodyMass, checkWeight)
+            listOf(
+                checkBodyFat, checkBoneMass, checkHeight, checkLeanBodyMass, checkWeight,
+                checkBasalMetabolicRate, checkBodyWaterMass,
+            )
         ),
         Category(
             R.id.headerVitals, R.id.checkCategoryVitals, R.id.countVitals,
@@ -350,7 +381,7 @@ class MainActivity : AppCompatActivity() {
             listOf(
                 checkBloodGlucose, checkBloodPressure, checkBodyTemperature, checkHeartRate,
                 checkHeartRateVariability, checkOxygenSaturation, checkRespiratoryRate,
-                checkRestingHeartRate,
+                checkRestingHeartRate, checkSkinTemperature,
             )
         ),
         Category(
@@ -361,12 +392,20 @@ class MainActivity : AppCompatActivity() {
         Category(
             R.id.headerCycleTracking, R.id.checkCategoryCycleTracking, R.id.countCycleTracking,
             R.id.chevronCycleTracking, R.id.layoutCycleTrackingSubtypes,
-            listOf(checkCervicalMucus, checkMenstruation, checkOvulationTest, checkSexualActivity)
+            listOf(
+                checkCervicalMucus, checkMenstruation, checkOvulationTest, checkSexualActivity,
+                checkBasalBodyTemperature, checkIntermenstrualBleeding, checkMenstruationPeriod,
+            )
         ),
         Category(
             R.id.headerNutrition, R.id.checkCategoryNutrition, R.id.countNutrition,
             R.id.chevronNutrition, R.id.layoutNutritionSubtypes,
-            listOf(checkHydration, checkNutrition)
+            listOf(checkHydration, checkNutrition, checkNutritionDetail)
+        ),
+        Category(
+            R.id.headerWellness, R.id.checkCategoryWellness, R.id.countWellness,
+            R.id.chevronWellness, R.id.layoutWellnessSubtypes,
+            listOf(checkMindfulness)
         ),
     )
 
@@ -413,20 +452,30 @@ class MainActivity : AppCompatActivity() {
         checkTotalCalories.isChecked = cfg.includeTotalCalories
         checkVO2Max.isChecked = cfg.includeVO2Max
         checkWheelchairPushes.isChecked = cfg.includeWheelchairPushes
+        checkActivityIntensity.isChecked = cfg.includeActivityIntensity
+        checkCyclingCadence.isChecked = cfg.includeCyclingCadence
+        checkStepsCadence.isChecked = cfg.includeStepsCadence
+        checkExerciseRoute.isChecked = cfg.includeExerciseRoute
 
         checkBodyFat.isChecked = cfg.includeBodyFat
         checkBoneMass.isChecked = cfg.includeBoneMass
         checkHeight.isChecked = cfg.includeHeight
         checkLeanBodyMass.isChecked = cfg.includeLeanBodyMass
         checkWeight.isChecked = cfg.includeWeight
+        checkBasalMetabolicRate.isChecked = cfg.includeBasalMetabolicRate
+        checkBodyWaterMass.isChecked = cfg.includeBodyWaterMass
 
         checkCervicalMucus.isChecked = cfg.includeCervicalMucus
         checkMenstruation.isChecked = cfg.includeMenstruation
         checkOvulationTest.isChecked = cfg.includeOvulationTest
         checkSexualActivity.isChecked = cfg.includeSexualActivity
+        checkBasalBodyTemperature.isChecked = cfg.includeBasalBodyTemperature
+        checkIntermenstrualBleeding.isChecked = cfg.includeIntermenstrualBleeding
+        checkMenstruationPeriod.isChecked = cfg.includeMenstruationPeriod
 
         checkHydration.isChecked = cfg.includeHydration
         checkNutrition.isChecked = cfg.includeNutrition
+        checkNutritionDetail.isChecked = cfg.includeNutritionDetail
 
         checkSleepSession.isChecked = cfg.includeSleepSession
 
@@ -438,6 +487,9 @@ class MainActivity : AppCompatActivity() {
         checkOxygenSaturation.isChecked = cfg.includeOxygenSaturation
         checkRespiratoryRate.isChecked = cfg.includeRespiratoryRate
         checkRestingHeartRate.isChecked = cfg.includeRestingHeartRate
+        checkSkinTemperature.isChecked = cfg.includeSkinTemperature
+
+        checkMindfulness.isChecked = cfg.includeMindfulness
 
         editDaysBack.setText(cfg.daysBack.toString())
         switchSaferExport.isChecked = cfg.saferExportMode
@@ -458,20 +510,30 @@ class MainActivity : AppCompatActivity() {
         includeTotalCalories = checkTotalCalories.isChecked,
         includeVO2Max = checkVO2Max.isChecked,
         includeWheelchairPushes = checkWheelchairPushes.isChecked,
+        includeActivityIntensity = checkActivityIntensity.isChecked,
+        includeCyclingCadence = checkCyclingCadence.isChecked,
+        includeStepsCadence = checkStepsCadence.isChecked,
+        includeExerciseRoute = checkExerciseRoute.isChecked,
 
         includeBodyFat = checkBodyFat.isChecked,
         includeBoneMass = checkBoneMass.isChecked,
         includeHeight = checkHeight.isChecked,
         includeLeanBodyMass = checkLeanBodyMass.isChecked,
         includeWeight = checkWeight.isChecked,
+        includeBasalMetabolicRate = checkBasalMetabolicRate.isChecked,
+        includeBodyWaterMass = checkBodyWaterMass.isChecked,
 
         includeCervicalMucus = checkCervicalMucus.isChecked,
         includeMenstruation = checkMenstruation.isChecked,
         includeOvulationTest = checkOvulationTest.isChecked,
         includeSexualActivity = checkSexualActivity.isChecked,
+        includeBasalBodyTemperature = checkBasalBodyTemperature.isChecked,
+        includeIntermenstrualBleeding = checkIntermenstrualBleeding.isChecked,
+        includeMenstruationPeriod = checkMenstruationPeriod.isChecked,
 
         includeHydration = checkHydration.isChecked,
         includeNutrition = checkNutrition.isChecked,
+        includeNutritionDetail = checkNutritionDetail.isChecked,
 
         includeSleepSession = checkSleepSession.isChecked,
 
@@ -483,6 +545,9 @@ class MainActivity : AppCompatActivity() {
         includeOxygenSaturation = checkOxygenSaturation.isChecked,
         includeRespiratoryRate = checkRespiratoryRate.isChecked,
         includeRestingHeartRate = checkRestingHeartRate.isChecked,
+        includeSkinTemperature = checkSkinTemperature.isChecked,
+
+        includeMindfulness = checkMindfulness.isChecked,
 
         daysBack = editDaysBack.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 7,
         saferExportMode = switchSaferExport.isChecked,

@@ -83,7 +83,7 @@ test("maps samples by record shape and skips unknown metrics", () => {
 
 test("maps exercises", () => {
   const ex = mapPayload(payload).days[0].exercises[0];
-  assert.deepEqual(ex, { name: "Running", start_at: "2026-07-20T06:12:00Z", duration_minutes: 32, source: "com.google.android.apps.fitness", hc_id: "ex-1" });
+  assert.deepEqual(ex, { name: "Running", start_at: "2026-07-20T06:12:00Z", duration_minutes: 32, source: "com.google.android.apps.fitness", hc_id: "ex-1", detail: null });
 });
 
 test("carries hc_id through samples and exercises", () => {
@@ -111,4 +111,33 @@ test("mapSamples passes a meta object through and defaults missing meta to null"
   const hr = samples.find((s) => s.metric === "heartRate");
   assert.deepEqual(bp.meta, { bodyPosition: "standing", measurementLocation: "left_wrist" });
   assert.equal(hr.meta, null);
+});
+
+test("keeps new gap metrics and nutrition.* samples", () => {
+  const { days, skipped } = mapPayload({ days: [{ date: "2026-07-24", samples: [
+    { metric: "skinTemperature", start: "2026-07-24T06:00:00Z", value: 0.3, hcId: "s1" },
+    { metric: "mindfulness", start: "2026-07-24T06:00:00Z", end: "2026-07-24T06:10:00Z", value: 10, hcId: "m1" },
+    { metric: "nutrition.protein", start: "2026-07-24T06:00:00Z", value: 20, hcId: "n1" },
+  ] }] });
+  assert.equal(skipped, 0);
+  assert.equal(days[0].samples.length, 3);
+});
+
+test("maps exercise detail into a detail object", () => {
+  const { days } = mapPayload({ days: [{ date: "2026-07-24", exercises: [
+    { name: "Run", start: "2026-07-24T06:00:00Z", durationMinutes: 30, hcId: "e1",
+      laps: [{ start: "a", end: "b", lengthMeters: 2000 }],
+      segments: [{ start: "a", end: "b", type: "running" }],
+      route: [{ time: "a", lat: 1.2, lng: 103.8 }] },
+  ] }] });
+  const ex = days[0].exercises[0];
+  assert.equal(ex.detail.laps.length, 1);
+  assert.equal(ex.detail.route[0].lat, 1.2);
+});
+
+test("exercise without detail has null detail", () => {
+  const { days } = mapPayload({ days: [{ date: "2026-07-24", exercises: [
+    { name: "Walk", start: "2026-07-24T06:00:00Z", durationMinutes: 10, hcId: "e2" },
+  ] }] });
+  assert.equal(days[0].exercises[0].detail, null);
 });

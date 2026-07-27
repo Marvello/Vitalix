@@ -2,7 +2,7 @@
 
 **Own your health data.** Vitalix reads your [Health Connect](https://health.google/health-connect-android/) records on-device and forwards them as JSON to a server **you** control — no Google Sheets, no CSV, no third-party data path. It ships with a self-hosted receiver that stores the data in your own Postgres and shows it back to you on a private dashboard.
 
-It is a privacy-first re-target of the upstream [`teqxnology/healthexport`](https://github.com/teqxnology/healthexport) app, swapping the Google Sheets / CSV export destination for a generic authenticated HTTP `POST`.
+List of data that we export and store can be check on [Data Coverage](./docs/health-connect-data-coverage.md)
 
 ```
 ┌──────────────┐   reads    ┌───────────────┐   POST /api/health   ┌──────────────────┐

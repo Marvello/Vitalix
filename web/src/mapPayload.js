@@ -18,6 +18,8 @@ const KNOWN_SAMPLE_METRICS = new Set([
   "heartRate", "hrv", "spo2", "bloodGlucose", "respiratoryRate", "restingHeartRate", "bodyTemperature",
   "bloodPressure", "sleepStage",
   "menstruation", "cervicalMucus", "ovulationTest", "sexualActivity",
+  "activityIntensity", "cyclingCadence", "stepsCadence", "basalMetabolicRate", "bodyWaterMass",
+  "skinTemperature", "basalBodyTemperature", "intermenstrualBleeding", "menstruationPeriod", "mindfulness",
 ]);
 
 function num(v) {
@@ -71,7 +73,7 @@ function mapSamples(day) {
   const samples = [];
   let skipped = 0;
   for (const r of raw) {
-    if (!KNOWN_SAMPLE_METRICS.has(r.metric)) { skipped++; continue; }
+    if (!KNOWN_SAMPLE_METRICS.has(r.metric) && !String(r.metric).startsWith("nutrition.")) { skipped++; continue; }
     samples.push({
       metric: r.metric,
       start_at: r.start,
@@ -88,13 +90,19 @@ function mapSamples(day) {
 }
 
 function mapExercises(day) {
-  return (Array.isArray(day.exercises) ? day.exercises : []).map((e) => ({
-    name: e.name ?? null,
-    start_at: e.start ?? null,
-    duration_minutes: e.durationMinutes ?? null,
-    source: e.source ?? null,
-    hc_id: e.hcId ?? null,
-  }));
+  return (Array.isArray(day.exercises) ? day.exercises : []).map((e) => {
+    const detail = (e.laps || e.segments || e.route)
+      ? { laps: e.laps ?? [], segments: e.segments ?? [], route: e.route ?? [] }
+      : null;
+    return {
+      name: e.name ?? null,
+      start_at: e.start ?? null,
+      duration_minutes: e.durationMinutes ?? null,
+      source: e.source ?? null,
+      hc_id: e.hcId ?? null,
+      detail,
+    };
+  });
 }
 
 export function mapPayload(body) {

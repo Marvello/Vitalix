@@ -3,8 +3,18 @@ package com.android.vitalix
 import com.android.vitalix.models.ExportConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class SyncSettingsMappingTest {
+    @Test fun newFlagsRoundTripThroughMap() {
+        val cfg = ExportConfig(includeSkinTemperature = true, includeMindfulness = true, includeNutritionDetail = true, includeExerciseRoute = true)
+        val restored = SyncSettings.mapToConfig(SyncSettings.configToMap(cfg))
+        assertTrue(restored.includeSkinTemperature)
+        assertTrue(restored.includeMindfulness)
+        assertTrue(restored.includeNutritionDetail)
+        assertTrue(restored.includeExerciseRoute)
+    }
+
     @Test fun roundTripsConfigFlags() {
         val cfg = ExportConfig(includeSteps = true, includeHeartRate = true, includeWeight = true, daysBack = 14, saferExportMode = true)
         val restored = SyncSettings.mapToConfig(SyncSettings.configToMap(cfg))

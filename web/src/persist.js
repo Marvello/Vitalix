@@ -59,19 +59,19 @@ async function replaceExercises(client, dayId, exercises) {
     await client.query("DELETE FROM exercises WHERE day_id = $1 AND hc_id IS NULL", [dayId]);
     for (const e of withoutId) {
       await client.query(
-        "INSERT INTO exercises (day_id, name, start_at, duration_minutes, source) VALUES ($1,$2,$3,$4,$5)",
-        [dayId, e.name, e.start_at, e.duration_minutes, e.source]
+        "INSERT INTO exercises (day_id, name, start_at, duration_minutes, source, detail) VALUES ($1,$2,$3,$4,$5,$6)",
+        [dayId, e.name, e.start_at, e.duration_minutes, e.source, e.detail ? JSON.stringify(e.detail) : null]
       );
     }
   }
   for (const e of withId) {
     await client.query(
-      `INSERT INTO exercises (day_id, name, start_at, duration_minutes, source, hc_id)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO exercises (day_id, name, start_at, duration_minutes, source, hc_id, detail)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        ON CONFLICT (day_id, hc_id) DO UPDATE SET
          name = EXCLUDED.name, start_at = EXCLUDED.start_at,
-         duration_minutes = EXCLUDED.duration_minutes, source = EXCLUDED.source`,
-      [dayId, e.name, e.start_at, e.duration_minutes, e.source, e.hc_id]
+         duration_minutes = EXCLUDED.duration_minutes, source = EXCLUDED.source, detail = EXCLUDED.detail`,
+      [dayId, e.name, e.start_at, e.duration_minutes, e.source, e.hc_id, e.detail ? JSON.stringify(e.detail) : null]
     );
   }
 }

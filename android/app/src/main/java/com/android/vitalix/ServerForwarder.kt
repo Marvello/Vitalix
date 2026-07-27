@@ -63,9 +63,26 @@ object ServerForwarder {
             section(d.sleepData)?.let { o.put("sleep", it) }
             section(d.cycleTrackingData)?.let { o.put("cycle", it) }
             section(d.nutritionData)?.let { o.put("nutrition", it) }
-            if (d.exercises.isNotEmpty()) o.put("exercises", JSONArray(d.exercises.map {
-                JSONObject().put("name", it.exerciseName).put("start", it.startDateTime).put("durationMinutes", it.durationMinutes)
-                    .apply { it.source?.let { s -> put("source", s) }; it.hcId?.let { h -> put("hcId", h) } }
+            if (d.exercises.isNotEmpty()) o.put("exercises", JSONArray(d.exercises.map { ex ->
+                JSONObject().put("name", ex.exerciseName).put("start", ex.startDateTime).put("durationMinutes", ex.durationMinutes)
+                    .apply {
+                        ex.source?.let { put("source", it) }; ex.hcId?.let { put("hcId", it) }
+                        if (ex.laps.isNotEmpty()) put("laps", JSONArray(ex.laps.map { l ->
+                            JSONObject().put("start", l.start).put("end", l.end)
+                                .apply { l.lengthMeters?.let { put("lengthMeters", it) } }
+                        }))
+                        if (ex.segments.isNotEmpty()) put("segments", JSONArray(ex.segments.map { s ->
+                            JSONObject().put("start", s.start).put("end", s.end).put("type", s.type)
+                        }))
+                        if (ex.route.isNotEmpty()) put("route", JSONArray(ex.route.map { p ->
+                            JSONObject().put("time", p.time).put("lat", p.lat).put("lng", p.lng)
+                                .apply {
+                                    p.altitudeMeters?.let { put("altitudeMeters", it) }
+                                    p.horizontalAccuracyMeters?.let { put("horizontalAccuracyMeters", it) }
+                                    p.verticalAccuracyMeters?.let { put("verticalAccuracyMeters", it) }
+                                }
+                        }))
+                    }
             }))
             if (d.samples.isNotEmpty()) o.put("samples", JSONArray(d.samples.map { sampleJson(it) }))
             arr.put(o)

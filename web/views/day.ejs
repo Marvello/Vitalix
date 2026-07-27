@@ -70,10 +70,16 @@ th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
     <p class="empty">No exercises.</p>
   <% } else { %>
   <table>
-    <thead><tr><th>Name</th><th>Start</th><th>Duration (min)</th><th>Source</th></tr></thead>
+    <thead><tr><th>Name</th><th>Start</th><th>Duration (min)</th><th>Source</th><th>Laps</th><th>Segments</th><th>Route</th></tr></thead>
     <tbody>
     <% exercises.forEach(function(ex) { %>
-      <tr><td><%= ex.name %></td><td><%= ex.start_at %></td><td><%= ex.duration_minutes %></td><td><%= ex.source === null ? "—" : ex.source %></td></tr>
+      <tr>
+        <td><%= ex.name %></td><td><%= ex.start_at %></td><td><%= ex.duration_minutes %></td>
+        <td><%= ex.source === null ? "—" : ex.source %></td>
+        <td><%= ex.detail && ex.detail.laps ? ex.detail.laps.length : 0 %></td>
+        <td><%= ex.detail && ex.detail.segments ? ex.detail.segments.length : 0 %></td>
+        <td><%= ex.detail && ex.detail.route && ex.detail.route.length ? "yes (" + ex.detail.route.length + " pts)" : "—" %></td>
+      </tr>
     <% }); %>
     </tbody>
   </table>

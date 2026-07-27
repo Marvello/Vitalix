@@ -10,8 +10,8 @@
 
 ## Global Constraints
 
-- **Android project is `android/`** (root project `Vitalix`, package `com.android.vitalix`). Gradle 9.5, `compileSdk 36` / `minSdk 30` / Java 11, deps via `gradle/libs.versions.toml` `libs.*` aliases. Never touch `android/healthexport/` (reference only).
-- **connect-client must be bumped** from `1.1.0-alpha07` to a 1.1.x version containing ActivityIntensity/SkinTemperature/BodyWaterMass/Mindfulness (Task 1).
+- **Android project is `android/`** (root project `Vitalix`, package `com.android.vitalix`). Gradle 9.5, **`compileSdk 37`** / `minSdk 30` / Java 11, deps via `gradle/libs.versions.toml` `libs.*` aliases. Never touch `android/healthexport/` (reference only). (compileSdk was 36; Task 1 bumps it to 37 because `ActivityIntensityRecord` only ships in connect-client 1.2.0-alpha, which requires 37.)
+- **connect-client must be bumped** from `1.1.0-alpha07` to a **1.2.0-alpha** version containing ActivityIntensity/SkinTemperature/BodyWaterMass/Mindfulness (Task 1). 1.1.0 stable has the other 9 types but NOT ActivityIntensity.
 - **Component boundaries stay strict:** `HealthConnectManager` knows only HC (in `ExportConfig`, out `List<DailyHealthData>`); `MetaMappers` is pure enum→map; `ServerForwarder` knows only JSON+HTTP; `SyncSettings` is the only thing touching `SharedPreferences`.
 - **Payload rule:** only user-enabled metrics appear; omitted not null; aggregates use `MinMaxAvg`.
 - **Web runs from `web/`.** Tests: `npm test`. Migrations: `.cjs` in `web/migrations/`, run `npm run migrate`. Unit-testable logic stays free of the pg client.
@@ -47,23 +47,24 @@
 
 ---
 
-## Task 1: Bump connect-client
+## Task 1: Bump connect-client + compileSdk
 
 **Files:**
-- Modify: `android/gradle/libs.versions.toml:13`
+- Modify: `android/gradle/libs.versions.toml:13` (and the `compileSdk` alias if it lives there)
+- Modify: `android/app/build.gradle.kts` (`compileSdk = 37`, and `targetSdk` if set to 36)
 
 **Interfaces:**
-- Produces: a connect-client version exposing `ActivityIntensityRecord`, `CyclingPedalingCadenceRecord`, `StepsCadenceRecord`, `BasalMetabolicRateRecord`, `BodyWaterMassRecord`, `SkinTemperatureRecord`, `BasalBodyTemperatureRecord`, `IntermenstrualBleedingRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`, and exercise route/laps/segments accessors.
+- Produces: a connect-client version exposing `ActivityIntensityRecord`, `CyclingPedalingCadenceRecord`, `StepsCadenceRecord`, `BasalMetabolicRateRecord`, `BodyWaterMassRecord`, `SkinTemperatureRecord`, `BasalBodyTemperatureRecord`, `IntermenstrualBleedingRecord`, `MenstruationPeriodRecord`, `MindfulnessSessionRecord`, and exercise route/laps/segments accessors; compileSdk 37.
 
-- [ ] **Step 1: Bump the version**
+- [ ] **Step 1: Bump compileSdk to 37 and connect-client to 1.2.0-alpha**
 
-In `android/gradle/libs.versions.toml`, change line 13:
+`ActivityIntensityRecord` only ships in connect-client `1.2.0-alpha*`, which requires `compileSdk 37`. Set `compileSdk = 37` (and `targetSdk = 37` if present) in `android/app/build.gradle.kts`, and in `android/gradle/libs.versions.toml` set:
 
 ```toml
-healthConnect = "1.1.0-alpha12"
+healthConnect = "1.2.0-alpha01"
 ```
 
-If `1.1.0-alpha12` fails to resolve or still lacks a type, pick the newest published `androidx.health.connect:connect-client` in the 1.1.x line (check https://maven.google.com/web/index.html#androidx.health.connect:connect-client) and use that. The build in Step 2 is the gate.
+Use the newest published `androidx.health.connect:connect-client` in the 1.2.0-alpha line if alpha01 is superseded (check https://maven.google.com/web/index.html#androidx.health.connect:connect-client). Verify `ActivityIntensityRecord` resolves. The build in Step 2 is the gate.
 
 - [ ] **Step 2: Verify build + existing tests still green**
 
@@ -73,8 +74,8 @@ Expected: BUILD SUCCESSFUL. If the alpha bump broke an existing API call in `Hea
 - [ ] **Step 3: Commit**
 
 ```bash
-git add android/gradle/libs.versions.toml android/app/src/main/java/com/android/vitalix
-git commit -m "build(android): bump connect-client for alpha10+ record types"
+git add android/gradle/libs.versions.toml android/app/build.gradle.kts android/app/src/main/java/com/android/vitalix
+git commit -m "build(android): compileSdk 37 + connect-client 1.2.0-alpha for new record types"
 ```
 
 ---

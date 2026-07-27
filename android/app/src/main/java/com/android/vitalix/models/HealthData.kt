@@ -20,7 +20,21 @@ data class ExerciseData(
     /** Health Connect package that wrote the record (e.g. com.google.android.apps.fitness). */
     val source: String? = null,
     /** Health Connect record UID (metadata.id), for idempotent server storage. */
-    val hcId: String? = null
+    val hcId: String? = null,
+    val laps: List<ExerciseLap> = emptyList(),
+    val segments: List<ExerciseSegment> = emptyList(),
+    val route: List<RoutePoint> = emptyList(),
+)
+
+data class ExerciseLap(val start: String, val end: String, val lengthMeters: Double? = null)
+data class ExerciseSegment(val start: String, val end: String, val type: String)
+data class RoutePoint(
+    val time: String,
+    val lat: Double,
+    val lng: Double,
+    val altitudeMeters: Double? = null,
+    val horizontalAccuracyMeters: Double? = null,
+    val verticalAccuracyMeters: Double? = null,
 )
 
 data class BodyMeasurementData(
@@ -61,6 +75,12 @@ data class ExportConfig(
     val includeVO2Max: Boolean = false,
     val includeWheelchairPushes: Boolean = false,
 
+    // Activity (new)
+    val includeActivityIntensity: Boolean = false,
+    val includeCyclingCadence: Boolean = false,
+    val includeStepsCadence: Boolean = false,
+    val includeExerciseRoute: Boolean = false,
+
     // Body Measurements
     val includeBodyFat: Boolean = false,
     val includeBoneMass: Boolean = false,
@@ -68,15 +88,27 @@ data class ExportConfig(
     val includeLeanBodyMass: Boolean = false,
     val includeWeight: Boolean = false,
 
+    // Body Measurements (new)
+    val includeBasalMetabolicRate: Boolean = false,
+    val includeBodyWaterMass: Boolean = false,
+
     // Cycle Tracking
     val includeCervicalMucus: Boolean = false,
     val includeMenstruation: Boolean = false,
     val includeOvulationTest: Boolean = false,
     val includeSexualActivity: Boolean = false,
 
+    // Cycle Tracking (new)
+    val includeBasalBodyTemperature: Boolean = false,
+    val includeIntermenstrualBleeding: Boolean = false,
+    val includeMenstruationPeriod: Boolean = false,
+
     // Nutrition
     val includeHydration: Boolean = false,
     val includeNutrition: Boolean = false,
+
+    // Nutrition (new)
+    val includeNutritionDetail: Boolean = false,
 
     // Sleep
     val includeSleepSession: Boolean = false,
@@ -90,6 +122,12 @@ data class ExportConfig(
     val includeOxygenSaturation: Boolean = false,
     val includeRespiratoryRate: Boolean = false,
     val includeRestingHeartRate: Boolean = false,
+
+    // Vitals (new)
+    val includeSkinTemperature: Boolean = false,
+
+    // Wellness (new)
+    val includeMindfulness: Boolean = false,
 
     val daysBack: Int = 7,
     val saferExportMode: Boolean = false,
