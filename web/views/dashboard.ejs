@@ -234,8 +234,8 @@ td.num,th.num{text-align:right}
 </div>
 
 <script>
-const DATA = <%- JSON.stringify(charts) %>;
-const SOURCE_NAMES = <%- JSON.stringify(sourceNames || {}) %>;
+const DATA = <%- JSON.stringify(charts).replace(/</g, '\\u003c') %>;
+const SOURCE_NAMES = <%- JSON.stringify(sourceNames || {}).replace(/</g, '\\u003c') %>;
 function srcName(pkg) { return SOURCE_NAMES[pkg] || pkg; }
 
 // Minimal SVG charting, hand-rolled rather than pulled from a CDN so the
@@ -341,8 +341,9 @@ function prettyDate(key) {
   });
 }
 
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 function tipRow(label, value) {
-  return `<span class="k">${label}</span><span class="v">${value}</span>`;
+  return `<span class="k">${esc(label)}</span><span class="v">${esc(String(value))}</span>`;
 }
 
 function num(v, digits = 0) {
