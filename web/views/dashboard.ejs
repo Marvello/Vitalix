@@ -57,6 +57,8 @@ td.num,th.num{text-align:right}
 #tooltip .k{color:var(--muted)}
 #tooltip .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
 .chart{touch-action:pan-y}
+.build-footer{text-align:center;color:var(--muted);font-size:11px;padding:32px 0 8px;letter-spacing:.02em}
+.build-hash{font-family:ui-monospace,SFMono-Regular,monospace;background:rgba(100,116,139,.1);padding:1px 5px;border-radius:4px}
 </style>
 </head>
 <body>
@@ -71,7 +73,16 @@ td.num,th.num{text-align:right}
     <form method="post" action="/logout"><button type="submit">Log out</button></form>
   </div>
 
-  <% var sourcesQ = selectedSources && selectedSources.length ? "&sources=" + encodeURIComponent(selectedSources.join(",")) : ""; %>
+  <%
+    var sourcesQ;
+    if (allActive) {
+      sourcesQ = "";
+    } else if (selectedSources.length) {
+      sourcesQ = "&sources=" + encodeURIComponent(selectedSources.join(","));
+    } else {
+      sourcesQ = "&sources=none";
+    }
+  %>
   <nav class="ranges">
     <% Object.entries(ranges).forEach(function([value, label]) { %>
       <a class="<%= String(range) === String(value) ? 'on' : '' %>" href="/dashboard?range=<%= value %><%= sourcesQ %>"><%= label %></a>
@@ -81,13 +92,26 @@ td.num,th.num{text-align:right}
   <% if (availableSources && availableSources.length) { %>
   <nav class="sources">
     <span class="sources-label">Sources</span>
+    <%# All pill: active = no sources param; click toggles to sources=none or back to no param %>
+    <a class="chip <%= allActive ? 'on' : '' %>"
+       href="/dashboard?range=<%= range %><%= allActive ? '&sources=none' : '' %>"
+       title="<%= availableSources.length %> sources">All</a>
     <% availableSources.forEach(function(s) {
          var on = selectedSources.indexOf(s) !== -1;
-         var next = on ? selectedSources.filter(function(x){ return x !== s; }) : selectedSources.concat([s]);
-         var q = next.length ? "&sources=" + encodeURIComponent(next.join(",")) : "";
+         var next;
+         if (allActive) {
+           next = [s];
+         } else {
+           next = on ? selectedSources.filter(function(x){ return x !== s; }) : selectedSources.concat([s]);
+         }
+         var q = next.length ? "&sources=" + encodeURIComponent(next.join(",")) : "&sources=none";
+         var count = sourceCounts[s] || 0;
+         var countStr = count.toLocaleString("en-US");
+         var displayName = sourceNames[s] || s;
     %>
-      <a class="chip <%= on ? 'on' : '' %>" href="/dashboard?range=<%= range %><%= q %>">
-        <i style="background:<%= sourceColors[s] %>"></i><%= s %>
+      <a class="chip <%= on ? 'on' : '' %>" href="/dashboard?range=<%= range %><%= q %>"
+         title="<%= displayName %>&#10;<%= countStr %> data points">
+        <i style="background:<%= sourceColors[s] %>"></i><%= sourceNames[s] || s %>
       </a>
     <% }); %>
   </nav>
@@ -114,7 +138,7 @@ td.num,th.num{text-align:right}
         <span><i style="background:#0FA9A0"></i><%= sr.label %></span>
         <% if (sr.trend) { %><span><i style="background:#34D399"></i>7-day average</span><% } %>
         <% (sr.sources || []).forEach(function(s) { %>
-          <span><i style="background:<%= s.color %>"></i><%= s.source %></span>
+          <span><i style="background:<%= s.color %>"></i><%= sourceNames[s.source] || s.source %></span>
         <% }); %>
         <span><%= sr.days %> days with data</span>
       </div>
@@ -202,10 +226,17 @@ td.num,th.num{text-align:right}
   </div>
 
   <% } %>
+
+  <% var bd = new Date(buildInfo.date); var buildDateStr = bd.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }); %>
+  <footer class="build-footer">
+    Vitalix <span class="build-hash"><%= buildInfo.version %></span> · built <%= buildDateStr %>
+  </footer>
 </div>
 
 <script>
 const DATA = <%- JSON.stringify(charts) %>;
+const SOURCE_NAMES = <%- JSON.stringify(sourceNames || {}) %>;
+function srcName(pkg) { return SOURCE_NAMES[pkg] || pkg; }
 
 // Minimal SVG charting, hand-rolled rather than pulled from a CDN so the
 // dashboard stays self-contained and works offline.
@@ -343,14 +374,14 @@ function linePath(values, f, max, slot) {
   return d || null;
 }
 
-// Per-source overlay: a thin dashed line per selected source, sharing the
-// chart's axis. Drawn on top of the combined series for bar/line/band charts.
-function drawSourceLines(f, sources, max, slot) {
+// Per-source lines: dashed overlay when combined data is shown,
+// solid primary lines when filtering by source.
+function drawSourceLines(f, sources, max, slot, filtered) {
   for (const s of (sources || [])) {
     const d = linePath(s.points.map((p) => p.value), f, max, slot);
-    if (d) f.svg.appendChild(el("path", {
-      d, fill: "none", stroke: s.color, "stroke-width": 1.5, "stroke-dasharray": "4 2",
-    }));
+    if (d) f.svg.appendChild(el("path", Object.assign({
+      d, fill: "none", stroke: s.color, "stroke-width": filtered ? 2 : 1.5,
+    }, filtered ? {} : { "stroke-dasharray": "4 2" })));
   }
 }
 
@@ -361,7 +392,7 @@ function overlayMax(values, sources) {
   return maxOf(values.concat(extra)) * 1.1 || 1;
 }
 
-function barChart(id, points, trend, unit, sources) {
+function barChart(id, points, trend, unit, sources, filtered) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
@@ -387,12 +418,17 @@ function barChart(id, points, trend, unit, sources) {
   attachHover(f, points.length, slot, (i) => {
     const p = points[i];
     const t = trend ? trend[i] : null;
-    return `<b>${prettyDate(p.date)}</b>` +
+    let html = `<b>${prettyDate(p.date)}</b>` +
       tipRow(unit ? `Value (${unit})` : "Value", num(p.value)) +
       (t && t.value != null ? tipRow("7-day avg", num(t.value)) : "");
+    for (const s of (sources || [])) {
+      const sv = s.points[i];
+      if (sv && sv.value != null) html += tipRow(srcName(s.source), num(sv.value));
+    }
+    return html;
   });
 
-  drawSourceLines(f, sources, max, slot);
+  drawSourceLines(f, sources, max, slot, filtered);
 }
 
 function stackedChart(id, points, keys, colors) {
@@ -436,7 +472,7 @@ function stackedChart(id, points, keys, colors) {
   });
 }
 
-function bandChart(id, points, sources) {
+function bandChart(id, points, sources, filtered) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
@@ -462,14 +498,19 @@ function bandChart(id, points, sources) {
     if (p.min == null && p.max == null && p.avg == null) {
       return `<b>${prettyDate(p.date)}</b>${tipRow("No reading", "—")}`;
     }
-    return `<b>${prettyDate(p.date)}</b>` +
+    let html = `<b>${prettyDate(p.date)}</b>` +
       tipRow("Min", num(p.min, 1)) + tipRow("Max", num(p.max, 1)) + tipRow("Avg", num(p.avg, 1));
+    for (const s of (sources || [])) {
+      const sv = s.points[i];
+      if (sv && sv.value != null) html += tipRow(srcName(s.source), num(sv.value, 1));
+    }
+    return html;
   });
 
-  drawSourceLines(f, sources, max, slot);
+  drawSourceLines(f, sources, max, slot, filtered);
 }
 
-function lineChart(id, points, unit, digits, sources) {
+function lineChart(id, points, unit, digits, sources, filtered) {
   const host = document.getElementById(id);
   if (!host || !points.length) return;
   const f = frame(host);
@@ -480,7 +521,7 @@ function lineChart(id, points, unit, digits, sources) {
 
   const d = linePath(values, f, max, slot);
   if (d) f.svg.appendChild(el("path", { d, fill: "none", stroke: "#0FA9A0", "stroke-width": 2 }));
-  drawSourceLines(f, sources, max, slot);
+  drawSourceLines(f, sources, max, slot, filtered);
   // Dots make isolated readings visible — a weight logged once a month has no
   // neighbours to draw a line to.
   points.forEach((p, i) => {
@@ -492,8 +533,15 @@ function lineChart(id, points, unit, digits, sources) {
     }));
   });
 
-  attachHover(f, points.length, slot, (i) => `<b>${prettyDate(points[i].date)}</b>` +
-    tipRow(unit ? `Value (${unit})` : "Value", num(points[i].value, digits)));
+  attachHover(f, points.length, slot, (i) => {
+    let html = `<b>${prettyDate(points[i].date)}</b>` +
+      tipRow(unit ? `Value (${unit})` : "Value", num(points[i].value, digits));
+    for (const s of (sources || [])) {
+      const sv = s.points[i];
+      if (sv && sv.value != null) html += tipRow(srcName(s.source), num(sv.value, digits));
+    }
+    return html;
+  });
 }
 
 /**
@@ -568,13 +616,13 @@ function drawAll() {
     const id = `chart-series-${i}`;
     // Values below ~10 (body fat, VO2 max, height) need decimals to move at all.
     const digits = maxOf(sr.points.map((p) => p.value)) < 10 ? 2 : 0;
-    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit, sr.sources);
-    else lineChart(id, sr.points, sr.unit, digits, sr.sources);
+    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit, sr.sources, sr.filtered);
+    else lineChart(id, sr.points, sr.unit, digits, sr.sources, sr.filtered);
   });
   stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
     ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
   splitBandChart("chart-hr-split", DATA.hrSplit);
-  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points, band.sources));
+  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points, band.sources, band.filtered));
 }
 
 drawAll();

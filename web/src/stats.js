@@ -194,6 +194,19 @@ export async function availableSources(userId, from, to) {
   return rows.map((r) => r.source);
 }
 
+/** Number of data points per source in range. */
+export async function sourceCounts(userId, from, to) {
+  const { rows } = await query(
+    `SELECT source, sum(count)::int AS total
+       FROM day_source_metrics
+      WHERE user_id = $1 AND day BETWEEN $2 AND $3
+      GROUP BY source
+      ORDER BY total DESC`,
+    [userId, from, to]
+  );
+  return Object.fromEntries(rows.map((r) => [r.source, r.total]));
+}
+
 /** Per-(day, metric, source) rollup rows for the requested metrics and sources. */
 export async function sourceRows(userId, from, to, metrics, sources) {
   if (!metrics.length || !sources.length) return [];

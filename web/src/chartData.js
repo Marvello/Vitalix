@@ -192,6 +192,50 @@ export function assignSourceColors(sources) {
   return map;
 }
 
+const KNOWN_APPS = {
+  "com.google.android.apps.fitness": "Google Fit",
+  "com.samsung.shealth": "Samsung Health",
+  "com.samsung.health": "Samsung Health",
+  "com.sec.android.app.shealth": "Samsung Health",
+  "com.huawei.health": "Huawei Health",
+  "com.xiaomi.wearable": "Mi Fitness",
+  "com.mi.health": "Mi Health",
+  "com.fitbit.FitbitMobile": "Fitbit",
+  "com.garmin.android.apps.connectmobile": "Garmin Connect",
+  "com.polar.polarflow": "Polar Flow",
+  "com.withings.wiscale2": "Withings",
+  "com.oura.android": "Oura",
+  "com.whoop.android": "WHOOP",
+  "com.strava": "Strava",
+  "com.zepp.client": "Zepp",
+  "com.amazfit.watch": "Amazfit",
+  "com.headspin.coros": "COROS",
+  "com.suunto.suuntoapp": "Suunto",
+  "com.apple.health": "Apple Health",
+  "com.android.vitalix": "Vitalix",
+  "com.healthexport": "Health Export",
+};
+
+const PREFIX_APPS = [
+  ["com.android.healthconnect", "Health Connect"],
+  ["com.google.android.apps.healthdata", "Health Connect"],
+];
+
+export function sourceDisplayName(pkg) {
+  if (!pkg) return "Unknown";
+  if (KNOWN_APPS[pkg]) return KNOWN_APPS[pkg];
+  for (const [prefix, name] of PREFIX_APPS) {
+    if (pkg.startsWith(prefix)) return name;
+  }
+  const parts = pkg.split(".");
+  if (parts.length >= 2) {
+    const last = parts[parts.length - 1];
+    if (/^[a-f0-9]{20,}$/.test(last) && parts.length >= 3) return parts[parts.length - 2];
+    return last.charAt(0).toUpperCase() + last.slice(1);
+  }
+  return pkg;
+}
+
 /**
  * Per-source daily lines for one metric, aligned to the same date axis as the
  * combined series so the overlays share the chart's x-axis. Only sources with

@@ -8,10 +8,12 @@ import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
-  splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines,
+  splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines, sourceDisplayName,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
+
+const buildInfo = { version: config.buildVersion, date: config.buildDate };
 
 export const pagesRouter = Router();
 const show = (res, view, extra = {}) => res.render(view, { error: null, ...extra });
@@ -98,14 +100,19 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       store.findUserById(req.user.id),
     ]);
 
-    // Source filter: which sources exist in range, and which the user selected.
+    // Source filter: absent param = "All" (show combined); "none"/empty = nothing;
+    // comma list = only those sources.
     const allSources = await stats.availableSources(req.user.id, fromKey, toKeyStr);
-    const requested = typeof req.query.sources === "string" && req.query.sources.length
-      ? req.query.sources.split(",") : [];
-    const selectedSources = requested.filter((s) => allSources.includes(s));
+    const sourceCounts = await stats.sourceCounts(req.user.id, fromKey, toKeyStr);
+    const sourcesParam = req.query.sources;
+    const allActive = sourcesParam === undefined;
+    const selectedSources = allActive ? []
+      : (sourcesParam === "none" || !sourcesParam ? []
+        : sourcesParam.split(",").filter((s) => allSources.includes(s)));
+    const filterActive = !allActive;
     const sourceColors = assignSourceColors(allSources);
+    const sourceNames = Object.fromEntries(allSources.map((s) => [s, sourceDisplayName(s)]));
 
-    // Metric keys we can overlay: the visible day metrics + the band metrics.
     const shownDayMetrics = visibleMetrics(stats.DAY_METRICS, cover);
     const bandKeys = stats.BAND_METRICS.filter((m) => metrics.includes(m));
     const srcRows = selectedSources.length
@@ -116,38 +123,40 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         )
       : [];
 
-    // Only chart what this user actually records — the catalogue covers every
-    // metric the app can send, which is far more than any one device writes.
+    const nullPoints = (pts) => pts.map((p) => ({ ...p, value: null }));
+    const nullBand = (pts) => pts.map((p) => ({ ...p, min: null, max: null, avg: null }));
+
     const series = shownDayMetrics.map((m) => {
       const points = fillDays(rows, fromKey, toKeyStr, m.column);
+      const srcLines = sourceLines(srcRows, fromKey, toKeyStr, m.sourceKey, sourceColors);
       return {
         key: m.column,
         label: m.label,
         unit: m.unit ?? null,
         chart: m.chart,
         days: cover[m.column],
-        points,
-        trend: m.trend ? rollingAverage(points, 7) : null,
-        sources: sourceLines(srcRows, fromKey, toKeyStr, m.sourceKey, sourceColors),
+        points: filterActive ? nullPoints(points) : points,
+        trend: m.trend && !filterActive ? rollingAverage(points, 7) : null,
+        sources: srcLines,
+        filtered: filterActive,
       };
     });
 
     const charts = {
       series,
-      // Sleep isn't in the coverage catalogue (it's a stacked chart of its own
-      // columns), so check the rows directly.
-      sleep: rows.some((r) => r.sleep_duration_minutes != null)
-        ? sleepStages(rows, fromKey, toKeyStr)
-        : [],
-      // Only worth its own chart once some samples fall inside a workout.
-      hrSplit: hrRows.some((r) => r.scope === "active")
-        ? splitSeries(hrRows, fromKey, toKeyStr)
-        : [],
+      sleep: filterActive ? []
+        : rows.some((r) => r.sleep_duration_minutes != null)
+          ? sleepStages(rows, fromKey, toKeyStr) : [],
+      hrSplit: filterActive ? []
+        : hrRows.some((r) => r.scope === "active")
+          ? splitSeries(hrRows, fromKey, toKeyStr) : [],
       bands: bandKeys.map((metric) => ({
         metric,
         label: metricLabel(metric),
-        points: bandSeries(aggs, fromKey, toKeyStr, metric),
+        points: filterActive ? nullBand(bandSeries(aggs, fromKey, toKeyStr, metric))
+          : bandSeries(aggs, fromKey, toKeyStr, metric),
         sources: sourceLines(srcRows, fromKey, toKeyStr, metric, sourceColors),
+        filtered: filterActive,
       })),
     };
 
@@ -155,22 +164,27 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       email: user?.email,
       range: days,
       ranges: RANGES,
-      tiles: visibleTiles(summaryTiles(totals)),
-      totals,
+      tiles: filterActive ? [] : visibleTiles(summaryTiles(totals)),
+      totals: filterActive && !selectedSources.length ? {} : totals,
       charts,
-      workouts,
+      workouts: filterActive ? [] : workouts,
       recent,
       toKey,
+      allActive,
       availableSources: allSources,
       selectedSources,
       sourceColors,
+      sourceNames,
+      sourceCounts,
+      buildInfo,
     });
   } catch (err) {
     console.error("GET /dashboard failed", err);
     res.status(500).render("dashboard", {
       email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
       charts: EMPTY_CHARTS, workouts: [], recent: [], toKey,
-      availableSources: [], selectedSources: [], sourceColors: {},
+      allActive: true, availableSources: [], selectedSources: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
+      buildInfo,
     });
   }
 });

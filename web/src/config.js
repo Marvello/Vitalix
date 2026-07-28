@@ -1,3 +1,15 @@
+import { execSync } from "node:child_process";
+
+function gitInfo() {
+  try {
+    const hash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
+    const date = execSync("git log -1 --format=%cI", { encoding: "utf8" }).trim();
+    return { hash, date };
+  } catch { return { hash: "dev", date: new Date().toISOString() }; }
+}
+
+const git = gitInfo();
+
 export const config = {
   databaseUrl: process.env.DATABASE_URL,
   port: Number(process.env.PORT || 3000),
@@ -19,6 +31,9 @@ export const config = {
       }
     : null,
 };
+
+config.buildVersion = git.hash;
+config.buildDate = git.date;
 
 if (!config.databaseUrl) throw new Error("DATABASE_URL is required");
 if (!config.jwtSecret) throw new Error("JWT_SECRET is required");
