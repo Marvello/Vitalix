@@ -18,6 +18,8 @@ const buildInfo = { version: config.buildVersion, date: config.buildDate };
 export const pagesRouter = Router();
 const show = (res, view, extra = {}) => res.render(view, { error: null, ...extra });
 
+pagesRouter.get("/", (_req, res) => res.redirect("/dashboard"));
+
 pagesRouter.get("/login", (req, res) => show(res, "login"));
 pagesRouter.get("/signup", (req, res) => show(res, "signup", { token: req.query.token || "" }));
 pagesRouter.get("/forgot", (req, res) => show(res, "forgot", { sent: false }));

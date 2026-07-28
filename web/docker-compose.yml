@@ -15,7 +15,11 @@ services:
       retries: 10
   vitalis-app:
     container_name: vitalix-app
-    build: .
+    build:
+      context: .
+      args:
+        BUILD_VERSION: ${BUILD_VERSION:-dev}
+        BUILD_DATE: ${BUILD_DATE:-}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-vitalix}:${POSTGRES_PASSWORD:-vitalix}@vitalix-db:5432/${POSTGRES_DB:-vitalix}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}

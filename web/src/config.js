@@ -1,14 +1,7 @@
-import { execSync } from "node:child_process";
-
-function gitInfo() {
-  try {
-    const hash = execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim();
-    const date = execSync("git log -1 --format=%cI", { encoding: "utf8" }).trim();
-    return { hash, date };
-  } catch { return { hash: "dev", date: new Date().toISOString() }; }
-}
-
-const git = gitInfo();
+const git = {
+  hash: process.env.BUILD_VERSION || "dev",
+  date: process.env.BUILD_DATE || new Date().toISOString().split("T")[0],
+};
 
 export const config = {
   databaseUrl: process.env.DATABASE_URL,
