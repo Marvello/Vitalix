@@ -59,6 +59,22 @@ td.num,th.num{text-align:right}
 .chart{touch-action:pan-y}
 .build-footer{text-align:center;color:var(--muted);font-size:11px;padding:32px 0 8px;letter-spacing:.02em}
 .build-hash{font-family:ui-monospace,SFMono-Regular,monospace;background:rgba(100,116,139,.1);padding:1px 5px;border-radius:4px}
+.card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.card-header h2{flex:1;margin:0}
+.card-btn{background:none;border:1px solid var(--line);color:var(--muted);width:28px;height:28px;padding:0;border-radius:6px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0}
+.card-btn:hover{border-color:var(--teal);color:var(--teal)}
+.card-btn.remove:hover{border-color:#b91c1c;color:#b91c1c}
+.add-chart-bar{margin-top:16px;text-align:center}
+.add-chart-bar button{width:auto;padding:10px 24px}
+.picker{display:none;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.picker.open{display:block}
+.picker h3{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:16px 0 8px;font-weight:600}
+.picker h3:first-child{margin-top:0}
+.picker-grid{display:flex;flex-wrap:wrap;gap:8px}
+.picker-item{padding:6px 14px;border:1px solid var(--line);border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;color:var(--ink);background:var(--card)}
+.picker-item:hover{border-color:var(--teal);color:var(--teal)}
+.picker-item.no-data{opacity:.4;pointer-events:none}
+.reset-link{font-size:13px;color:var(--muted);margin-top:8px;display:inline-block}
 </style>
 </head>
 <body>
@@ -130,99 +146,143 @@ td.num,th.num{text-align:right}
     <% }); %>
   </div>
 
-  <% charts.series.forEach(function(sr, i) { %>
-    <div class="card">
-      <h2><%= sr.label %><% if (sr.unit) { %> <span class="unit">(<%= sr.unit %>)</span><% } %></h2>
-      <div class="chart" id="chart-series-<%= i %>"></div>
-      <div class="legend">
-        <span><i style="background:#0FA9A0"></i><%= sr.label %></span>
-        <% if (sr.trend) { %><span><i style="background:#34D399"></i>7-day average</span><% } %>
-        <% (sr.sources || []).forEach(function(s) { %>
-          <span><i style="background:<%= s.color %>"></i><%= sourceNames[s.source] || s.source %></span>
-        <% }); %>
-        <span><%= sr.days %> days with data</span>
+  <% cardList.forEach(function(card, idx) {
+       var cd = chartData[card.key] || {};
+  %>
+    <div class="card" data-card="<%= card.key %>">
+      <div class="card-header">
+        <h2><%= card.label %><% if (card.type === 'line' || card.type === 'bar') { var dm = cd; if (dm && dm.unit) { %> <span class="unit">(<%= dm.unit %>)</span><% } } %><% if (card.key === 'hr_split') { %> <span class="unit">(bpm)</span><% } %></h2>
+        <% if (layoutMode === 'custom') { %>
+          <% if (idx > 0) { %>
+            <form method="post" action="/dashboard/layout/reorder" style="display:inline">
+              <input type="hidden" name="card" value="<%= card.key %>">
+              <input type="hidden" name="dir" value="up">
+              <input type="hidden" name="range" value="<%= range %>">
+              <button type="submit" class="card-btn" title="Move up">&uarr;</button>
+            </form>
+          <% } %>
+          <% if (idx < cardList.length - 1) { %>
+            <form method="post" action="/dashboard/layout/reorder" style="display:inline">
+              <input type="hidden" name="card" value="<%= card.key %>">
+              <input type="hidden" name="dir" value="down">
+              <input type="hidden" name="range" value="<%= range %>">
+              <button type="submit" class="card-btn" title="Move down">&darr;</button>
+            </form>
+          <% } %>
+          <form method="post" action="/dashboard/layout/remove" style="display:inline">
+            <input type="hidden" name="card" value="<%= card.key %>">
+            <input type="hidden" name="range" value="<%= range %>">
+            <button type="submit" class="card-btn remove" title="Remove">&times;</button>
+          </form>
+        <% } %>
       </div>
-    </div>
-  <% }); %>
 
-  <% if (charts.sleep.length) { %>
-    <div class="card">
-      <h2>Sleep</h2>
-      <div class="chart" id="chart-sleep"></div>
-      <div class="legend">
-        <span><i style="background:#1e3a8a"></i>Deep</span>
-        <span><i style="background:#3b82f6"></i>Light</span>
-        <span><i style="background:#a78bfa"></i>REM</span>
-        <span><i style="background:#cbd5e1"></i>Awake</span>
-      </div>
-    </div>
-  <% } %>
-
-  <% if (charts.hrSplit.length) { %>
-    <div class="card">
-      <h2>Heart rate — workout vs rest <span class="unit">(bpm)</span></h2>
-      <div class="chart" id="chart-hr-split"></div>
-      <div class="legend">
-        <span><i style="background:rgba(245,158,11,.30)"></i>During a workout</span>
-        <span><i style="background:rgba(15,169,160,.25)"></i>Outside workouts</span>
-        <span>Bands show the day's range; lines show the average.</span>
-      </div>
-    </div>
-  <% } %>
-
-  <% charts.bands.forEach(function(band, i) { %>
-    <div class="card">
-      <h2><%= band.label %></h2>
-      <div class="chart" id="chart-band-<%= i %>"></div>
-      <div class="legend">
-        <span><i style="background:rgba(15,169,160,.25)"></i>Daily range</span>
-        <span><i style="background:#0FA9A0"></i>Average</span>
-      </div>
-    </div>
-  <% }); %>
-
-  <% if (workouts.length) { %>
-    <div class="card">
-      <h2>Workouts</h2>
-      <div class="table-scroll">
-        <table>
-          <thead><tr><th>Activity</th><th class="num">Sessions</th><th class="num">Total time</th></tr></thead>
-          <tbody>
-          <% workouts.forEach(function(w) { %>
-            <tr>
-              <td><%= w.name %></td>
-              <td class="num"><%= w.sessions %></td>
-              <td class="num"><%= Math.floor(w.minutes / 60) %>h <%= String(w.minutes % 60).padStart(2, "0") %>m</td>
-            </tr>
+      <% if (card.type === 'bar' || card.type === 'line') { %>
+        <div class="chart" id="chart-<%= card.key %>"></div>
+        <div class="legend">
+          <span><i style="background:#0FA9A0"></i><%= card.label %></span>
+          <% if (cd.trend) { %><span><i style="background:#34D399"></i>7-day average</span><% } %>
+          <% (cd.sources || []).forEach(function(s) { %>
+            <span><i style="background:<%= s.color %>"></i><%= sourceNames[s.source] || s.source %></span>
           <% }); %>
-          </tbody>
-        </table>
-      </div>
+          <% if (cd.days) { %><span><%= cd.days %> days with data</span><% } %>
+        </div>
+      <% } else if (card.type === 'band') { %>
+        <div class="chart" id="chart-<%= card.key %>"></div>
+        <div class="legend">
+          <span><i style="background:rgba(15,169,160,.25)"></i>Daily range</span>
+          <span><i style="background:#0FA9A0"></i>Average</span>
+          <% (cd.sources || []).forEach(function(s) { %>
+            <span><i style="background:<%= s.color %>"></i><%= sourceNames[s.source] || s.source %></span>
+          <% }); %>
+        </div>
+      <% } else if (card.key === 'sleep') { %>
+        <div class="chart" id="chart-sleep"></div>
+        <div class="legend">
+          <span><i style="background:#1e3a8a"></i>Deep</span>
+          <span><i style="background:#3b82f6"></i>Light</span>
+          <span><i style="background:#a78bfa"></i>REM</span>
+          <span><i style="background:#cbd5e1"></i>Awake</span>
+        </div>
+      <% } else if (card.key === 'hr_split') { %>
+        <div class="chart" id="chart-hr-split"></div>
+        <div class="legend">
+          <span><i style="background:rgba(245,158,11,.30)"></i>During a workout</span>
+          <span><i style="background:rgba(15,169,160,.25)"></i>Outside workouts</span>
+          <span>Bands show the day's range; lines show the average.</span>
+        </div>
+      <% } else if (card.key === 'workouts') { %>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Activity</th><th class="num">Sessions</th><th class="num">Total time</th></tr></thead>
+            <tbody>
+            <% (cd.rows || []).forEach(function(w) { %>
+              <tr>
+                <td><%= w.name %></td>
+                <td class="num"><%= w.sessions %></td>
+                <td class="num"><%= Math.floor(w.minutes / 60) %>h <%= String(w.minutes % 60).padStart(2, "0") %>m</td>
+              </tr>
+            <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } else if (card.key === 'recent') { %>
+        <div class="table-scroll">
+          <table>
+            <thead><tr>
+              <th>Day</th><th class="num">Steps</th><th class="num">Distance (m)</th>
+              <th class="num">Active kcal</th><th class="num">Sleep</th><th class="num">Resting HR</th>
+            </tr></thead>
+            <tbody>
+            <% (cd.rows || recent).forEach(function(d) { var k = toKey(d.day); %>
+              <tr>
+                <td><a href="/dashboard/<%= k %>"><%= k %></a></td>
+                <td class="num"><%= d.steps == null ? "—" : Number(d.steps).toLocaleString("en-US") %></td>
+                <td class="num"><%= d.distance == null ? "—" : Math.round(d.distance).toLocaleString("en-US") %></td>
+                <td class="num"><%= d.active_calories == null ? "—" : Math.round(d.active_calories) %></td>
+                <td class="num"><%= d.sleep_duration_minutes == null ? "—" : Math.floor(d.sleep_duration_minutes / 60) + "h " + String(Math.round(d.sleep_duration_minutes % 60)).padStart(2, "0") + "m" %></td>
+                <td class="num"><%= d.resting_heart_rate == null ? "—" : Math.round(d.resting_heart_rate) %></td>
+              </tr>
+            <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
     </div>
-  <% } %>
+  <% }); %>
 
-  <div class="card">
-    <h2>Recent days</h2>
-    <div class="table-scroll">
-      <table>
-        <thead><tr>
-          <th>Day</th><th class="num">Steps</th><th class="num">Distance (m)</th>
-          <th class="num">Active kcal</th><th class="num">Sleep</th><th class="num">Resting HR</th>
-        </tr></thead>
-        <tbody>
-        <% recent.forEach(function(d) { var k = toKey(d.day); %>
-          <tr>
-            <td><a href="/dashboard/<%= k %>"><%= k %></a></td>
-            <td class="num"><%= d.steps == null ? "—" : Number(d.steps).toLocaleString("en-US") %></td>
-            <td class="num"><%= d.distance == null ? "—" : Math.round(d.distance).toLocaleString("en-US") %></td>
-            <td class="num"><%= d.active_calories == null ? "—" : Math.round(d.active_calories) %></td>
-            <td class="num"><%= d.sleep_duration_minutes == null ? "—" : Math.floor(d.sleep_duration_minutes / 60) + "h " + String(Math.round(d.sleep_duration_minutes % 60)).padStart(2, "0") + "m" %></td>
-            <td class="num"><%= d.resting_heart_rate == null ? "—" : Math.round(d.resting_heart_rate) %></td>
-          </tr>
+  <%# Add chart button + picker %>
+  <div class="add-chart-bar">
+    <button onclick="document.getElementById('chart-picker').classList.toggle('open')">+ Add Chart</button>
+    <% if (layoutMode === 'custom') { %>
+      <br><a href="#" class="reset-link" onclick="fetch('/dashboard/layout',{method:'DELETE'}).then(()=>location.reload());return false">Reset to default</a>
+    <% } %>
+  </div>
+
+  <div id="chart-picker" class="picker">
+    <% var cats = {};
+       // Group available cards by category
+       (availableCards || []).forEach(function(c) {
+         if (!cats[c.category]) cats[c.category] = [];
+         cats[c.category].push(c);
+       });
+       var catOrder = ["Activity", "Heart & Lungs", "Body", "Nutrition", "Sleep & Recovery", "Workouts", "Overview"];
+       catOrder.forEach(function(cat) {
+         if (!cats[cat] || !cats[cat].length) return;
+    %>
+      <h3><%= cat %></h3>
+      <div class="picker-grid">
+        <% cats[cat].forEach(function(c) { %>
+          <form method="post" action="/dashboard/layout/add?range=<%= range %>" style="display:inline">
+            <input type="hidden" name="card" value="<%= c.key %>">
+            <button type="submit" class="picker-item"><%= c.label %></button>
+          </form>
         <% }); %>
-        </tbody>
-      </table>
-    </div>
+      </div>
+    <% }); %>
+    <% if (!availableCards || !availableCards.length) { %>
+      <p style="color:var(--muted);font-size:13px">All available charts are already on your dashboard.</p>
+    <% } %>
   </div>
 
   <% } %>
@@ -234,7 +294,8 @@ td.num,th.num{text-align:right}
 </div>
 
 <script>
-const DATA = <%- JSON.stringify(charts).replace(/</g, '\\u003c') %>;
+const CHART_DATA = <%- JSON.stringify(chartData).replace(/</g, '\\u003c') %>;
+const CARD_LIST = <%- JSON.stringify(cardList).replace(/</g, '\\u003c') %>;
 const SOURCE_NAMES = <%- JSON.stringify(sourceNames || {}).replace(/</g, '\\u003c') %>;
 function srcName(pkg) { return SOURCE_NAMES[pkg] || pkg; }
 
@@ -613,17 +674,26 @@ function dualLineChart(id, a, b) {
 }
 
 function drawAll() {
-  DATA.series.forEach((sr, i) => {
-    const id = `chart-series-${i}`;
-    // Values below ~10 (body fat, VO2 max, height) need decimals to move at all.
-    const digits = maxOf(sr.points.map((p) => p.value)) < 10 ? 2 : 0;
-    if (sr.chart === "bar") barChart(id, sr.points, sr.trend, sr.unit, sr.sources, sr.filtered);
-    else lineChart(id, sr.points, sr.unit, digits, sr.sources, sr.filtered);
+  CARD_LIST.forEach((card) => {
+    const cd = CHART_DATA[card.key];
+    if (!cd) return;
+    const id = `chart-${card.key}`;
+
+    if (card.type === "bar") {
+      const digits = maxOf(cd.points.map((p) => p.value)) < 10 ? 2 : 0;
+      barChart(id, cd.points, cd.trend, cd.unit, cd.sources, cd.filtered);
+    } else if (card.type === "line") {
+      const digits = maxOf(cd.points.map((p) => p.value)) < 10 ? 2 : 0;
+      lineChart(id, cd.points, cd.unit, digits, cd.sources, cd.filtered);
+    } else if (card.type === "band") {
+      bandChart(id, cd.points, cd.sources, cd.filtered);
+    } else if (card.key === "sleep") {
+      stackedChart("chart-sleep", cd.points, ["deep", "light", "rem", "awake"],
+        ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
+    } else if (card.key === "hr_split") {
+      splitBandChart("chart-hr-split", cd.points);
+    }
   });
-  stackedChart("chart-sleep", DATA.sleep, ["deep", "light", "rem", "awake"],
-    ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
-  splitBandChart("chart-hr-split", DATA.hrSplit);
-  DATA.bands.forEach((band, i) => bandChart(`chart-band-${i}`, band.points, band.sources, band.filtered));
 }
 
 drawAll();
