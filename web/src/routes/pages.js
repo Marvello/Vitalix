@@ -80,8 +80,6 @@ pagesRouter.post("/logout", async (req, res) => {
 
 const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
 
-const EMPTY_CHARTS = { series: [], sleep: [], bands: [], hrSplit: [] };
-
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   try {
     const days = RANGES[req.query.range] ? Number(req.query.range) : 30;
@@ -90,7 +88,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const fromKey = toKey(from);
     const toKeyStr = toKey(to);
 
-    const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user] = await Promise.all([
+    const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user, savedLayout] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
       stats.aggregateRows(req.user.id, fromKey, toKeyStr),
       stats.summary(req.user.id, fromKey, toKeyStr),
@@ -100,6 +98,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       stats.heartRateSplit(req.user.id, fromKey, toKeyStr),
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
+      stats.getLayout(req.user.id),
     ]);
 
     // Source filter: absent param = "All" (show combined); "none"/empty = nothing;
@@ -115,8 +114,56 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const sourceColors = assignSourceColors(allSources);
     const sourceNames = Object.fromEntries(allSources.map((s) => [s, sourceDisplayName(s)]));
 
+    const layoutMode = savedLayout ? "custom" : "default";
+
+    // Determine which special cards have data
+    const hasSleep = !filterActive && rows.some((r) => r.sleep_duration_minutes != null);
+    const hasHrSplit = !filterActive && hrRows.some((r) => r.scope === "active");
+    const hasWorkouts = !filterActive && workouts.length > 0;
+
+    // Map of card key → whether it has data in this range
     const shownDayMetrics = visibleMetrics(stats.DAY_METRICS, cover);
     const bandKeys = stats.BAND_METRICS.filter((m) => metrics.includes(m));
+    const dayKeysWithData = new Set(shownDayMetrics.map((m) => m.column));
+    const bandKeysWithData = new Set(bandKeys.map((k) => `band:${k}`));
+
+    function cardHasData(key) {
+      if (dayKeysWithData.has(key)) return true;
+      if (bandKeysWithData.has(key)) return true;
+      if (key === "sleep") return hasSleep;
+      if (key === "hr_split") return hasHrSplit;
+      if (key === "workouts") return hasWorkouts;
+      if (key === "recent") return recent.length > 0;
+      return false;
+    }
+
+    // Ordered list of card keys to render
+    let cardKeys;
+    if (savedLayout) {
+      // Custom: use saved order, filter to cards that have data
+      cardKeys = savedLayout.filter((k) => stats.isValidCardKey(k) && cardHasData(k));
+    } else {
+      // Default: all DAY_METRICS with data, then sleep, hr_split, bands, workouts, recent
+      cardKeys = [
+        ...shownDayMetrics.map((m) => m.column),
+        ...(hasSleep ? ["sleep"] : []),
+        ...(hasHrSplit ? ["hr_split"] : []),
+        ...bandKeys.map((k) => `band:${k}`),
+        ...(hasWorkouts ? ["workouts"] : []),
+        ...((recent.length > 0) ? ["recent"] : []),
+      ];
+    }
+
+    // Build card descriptors for the template
+    const catalogByKey = Object.fromEntries(stats.CARD_CATALOG.map((c) => [c.key, c]));
+    const cardList = cardKeys.map((key) => ({ key, ...catalogByKey[key] }));
+
+    // Available cards for the "add chart" picker (have data but not in layout)
+    const cardKeySet = new Set(cardKeys);
+    const availableCards = stats.CARD_CATALOG
+      .filter((c) => !cardKeySet.has(c.key) && cardHasData(c.key))
+      .map((c) => ({ ...c }));
+
     const srcRows = selectedSources.length
       ? await stats.sourceRows(
           req.user.id, fromKey, toKeyStr,
@@ -128,10 +175,14 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const nullPoints = (pts) => pts.map((p) => ({ ...p, value: null }));
     const nullBand = (pts) => pts.map((p) => ({ ...p, min: null, max: null, avg: null }));
 
-    const series = shownDayMetrics.map((m) => {
+    // Build per-key chart data
+    const chartData = {};
+
+    // DAY_METRICS
+    for (const m of shownDayMetrics) {
       const points = fillDays(rows, fromKey, toKeyStr, m.column);
       const srcLines = sourceLines(srcRows, fromKey, toKeyStr, m.sourceKey, sourceColors);
-      return {
+      chartData[m.column] = {
         key: m.column,
         label: m.label,
         unit: m.unit ?? null,
@@ -142,25 +193,32 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         sources: srcLines,
         filtered: filterActive,
       };
-    });
+    }
 
-    const charts = {
-      series,
-      sleep: filterActive ? []
-        : rows.some((r) => r.sleep_duration_minutes != null)
-          ? sleepStages(rows, fromKey, toKeyStr) : [],
-      hrSplit: filterActive ? []
-        : hrRows.some((r) => r.scope === "active")
-          ? splitSeries(hrRows, fromKey, toKeyStr) : [],
-      bands: bandKeys.map((metric) => ({
+    // BAND_METRICS
+    for (const metric of bandKeys) {
+      chartData[`band:${metric}`] = {
+        key: `band:${metric}`,
         metric,
         label: metricLabel(metric),
         points: filterActive ? nullBand(bandSeries(aggs, fromKey, toKeyStr, metric))
           : bandSeries(aggs, fromKey, toKeyStr, metric),
         sources: sourceLines(srcRows, fromKey, toKeyStr, metric, sourceColors),
         filtered: filterActive,
-      })),
-    };
+      };
+    }
+
+    // Special charts
+    if (hasSleep) {
+      chartData.sleep = { points: sleepStages(rows, fromKey, toKeyStr) };
+    }
+    if (hasHrSplit) {
+      chartData.hr_split = { points: splitSeries(hrRows, fromKey, toKeyStr) };
+    }
+    if (hasWorkouts) {
+      chartData.workouts = { rows: workouts };
+    }
+    chartData.recent = { rows: recent };
 
     res.render("dashboard", {
       email: user?.email,
@@ -168,7 +226,10 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       ranges: RANGES,
       tiles: filterActive ? [] : visibleTiles(summaryTiles(totals)),
       totals: filterActive && !selectedSources.length ? {} : totals,
-      charts,
+      chartData,
+      cardList,
+      layoutMode,
+      availableCards,
       workouts: filterActive ? [] : workouts,
       recent,
       toKey,
@@ -184,7 +245,8 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     console.error("GET /dashboard failed", err);
     res.status(500).render("dashboard", {
       email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
-      charts: EMPTY_CHARTS, workouts: [], recent: [], toKey,
+      chartData: {}, cardList: [], layoutMode: "default", availableCards: [],
+      workouts: [], recent: [], toKey,
       allActive: true, availableSources: [], selectedSources: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
       buildInfo,
     });
