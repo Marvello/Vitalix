@@ -73,7 +73,6 @@ td.num,th.num{text-align:right}
 .picker-grid{display:flex;flex-wrap:wrap;gap:8px}
 .picker-item{padding:6px 14px;border:1px solid var(--line);border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;color:var(--ink);background:var(--card)}
 .picker-item:hover{border-color:var(--teal);color:var(--teal)}
-.picker-item.no-data{opacity:.4;pointer-events:none}
 .reset-link{font-size:13px;color:var(--muted);margin-top:8px;display:inline-block}
 </style>
 </head>
@@ -253,6 +252,11 @@ td.num,th.num{text-align:right}
 
   <%# Add chart button + picker %>
   <div class="add-chart-bar">
+    <% if (layoutMode === 'default' && cardList.length) { %>
+      <form method="post" action="/dashboard/layout/customize?range=<%= range %>" style="display:inline">
+        <button type="submit">Customize layout</button>
+      </form>
+    <% } %>
     <button onclick="document.getElementById('chart-picker').classList.toggle('open')">+ Add Chart</button>
     <% if (layoutMode === 'custom') { %>
       <br><a href="#" class="reset-link" onclick="fetch('/dashboard/layout',{method:'DELETE'}).then(()=>location.reload());return false">Reset to default</a>

@@ -287,9 +287,27 @@ pagesRouter.post("/dashboard/layout/add", requireAuth, async (req, res) => {
   }
 });
 
+pagesRouter.post("/dashboard/layout/customize", requireAuth, async (req, res) => {
+  try {
+    const existing = await stats.getLayout(req.user.id);
+    if (!existing) {
+      // Snapshot current visible cards as the starting layout
+      // We need to compute what the default view shows — use all catalog keys
+      // and let the render filter by data availability
+      const defaultKeys = stats.CARD_CATALOG.map((c) => c.key);
+      await stats.saveLayout(req.user.id, defaultKeys);
+    }
+    res.redirect(`/dashboard?range=${req.query.range || 30}`);
+  } catch (err) {
+    console.error("POST /dashboard/layout/customize failed", err);
+    res.redirect("/dashboard");
+  }
+});
+
 pagesRouter.post("/dashboard/layout/reorder", requireAuth, async (req, res) => {
   try {
     const { card, dir, range } = req.body;
+    if (dir !== "up" && dir !== "down") return res.redirect(`/dashboard?range=${range || 30}`);
     const existing = await stats.getLayout(req.user.id);
     if (!existing) return res.redirect(`/dashboard?range=${range || 30}`);
     const idx = existing.indexOf(card);
