@@ -220,3 +220,65 @@ export async function sourceRows(userId, from, to, metrics, sources) {
   );
   return rows;
 }
+
+export const CARD_CATALOG = [
+  // Activity
+  { key: "steps",             label: "Steps",              category: "Activity",        type: "bar"  },
+  { key: "distance",          label: "Distance",           category: "Activity",        type: "line" },
+  { key: "total_calories",    label: "Total calories",     category: "Activity",        type: "line" },
+  { key: "active_calories",   label: "Active calories",    category: "Activity",        type: "line" },
+  { key: "floors_climbed",    label: "Floors climbed",     category: "Activity",        type: "bar"  },
+  { key: "elevation_gained",  label: "Elevation gained",   category: "Activity",        type: "line" },
+  { key: "wheelchair_pushes", label: "Wheelchair pushes",  category: "Activity",        type: "bar"  },
+  // Heart & Lungs
+  { key: "resting_heart_rate",    label: "Resting heart rate",  category: "Heart & Lungs", type: "line" },
+  { key: "band:heartRate",        label: "Heart rate",          category: "Heart & Lungs", type: "band" },
+  { key: "band:spo2",             label: "SpO2",                category: "Heart & Lungs", type: "band" },
+  { key: "band:hrv",              label: "HRV",                 category: "Heart & Lungs", type: "band" },
+  { key: "band:respiratoryRate",  label: "Respiratory rate",    category: "Heart & Lungs", type: "band" },
+  { key: "vo2_max",               label: "VO2 max",             category: "Heart & Lungs", type: "line" },
+  // Body
+  { key: "weight",           label: "Weight",          category: "Body", type: "line" },
+  { key: "body_fat",         label: "Body fat",        category: "Body", type: "line" },
+  { key: "lean_body_mass",   label: "Lean body mass",  category: "Body", type: "line" },
+  { key: "bone_mass",        label: "Bone mass",       category: "Body", type: "line" },
+  { key: "height",           label: "Height",          category: "Body", type: "line" },
+  { key: "body_temperature", label: "Body temperature",category: "Body", type: "line" },
+  // Nutrition
+  { key: "hydration_ml",  label: "Hydration",  category: "Nutrition", type: "bar"  },
+  { key: "energy_kcal",   label: "Energy",     category: "Nutrition", type: "bar"  },
+  // Sleep & Recovery
+  { key: "sleep",  label: "Sleep",  category: "Sleep & Recovery", type: "stacked" },
+  // Workouts
+  { key: "workouts",  label: "Workouts",                    category: "Workouts", type: "table" },
+  { key: "hr_split",  label: "Heart rate — workout vs rest", category: "Workouts", type: "split_band" },
+  // Overview
+  { key: "recent",  label: "Recent days",  category: "Overview", type: "table" },
+];
+
+const VALID_KEYS = new Set(CARD_CATALOG.map((c) => c.key));
+
+export function isValidCardKey(key) {
+  return VALID_KEYS.has(key);
+}
+
+export async function getLayout(userId) {
+  const { rows } = await query(
+    "SELECT cards FROM dashboard_layouts WHERE user_id = $1",
+    [userId],
+  );
+  return rows.length ? rows[0].cards : null;
+}
+
+export async function saveLayout(userId, cards) {
+  await query(
+    `INSERT INTO dashboard_layouts (user_id, cards)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id) DO UPDATE SET cards = $2`,
+    [userId, JSON.stringify(cards)],
+  );
+}
+
+export async function deleteLayout(userId) {
+  await query("DELETE FROM dashboard_layouts WHERE user_id = $1", [userId]);
+}
