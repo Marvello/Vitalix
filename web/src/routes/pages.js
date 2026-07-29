@@ -287,6 +287,38 @@ pagesRouter.post("/dashboard/layout/add", requireAuth, async (req, res) => {
   }
 });
 
+pagesRouter.post("/dashboard/layout/reorder", requireAuth, async (req, res) => {
+  try {
+    const { card, dir, range } = req.body;
+    const existing = await stats.getLayout(req.user.id);
+    if (!existing) return res.redirect(`/dashboard?range=${range || 30}`);
+    const idx = existing.indexOf(card);
+    if (idx === -1) return res.redirect(`/dashboard?range=${range || 30}`);
+    const swap = dir === "up" ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= existing.length) return res.redirect(`/dashboard?range=${range || 30}`);
+    [existing[idx], existing[swap]] = [existing[swap], existing[idx]];
+    await stats.saveLayout(req.user.id, existing);
+    res.redirect(`/dashboard?range=${range || 30}`);
+  } catch (err) {
+    console.error("POST /dashboard/layout/reorder failed", err);
+    res.redirect("/dashboard");
+  }
+});
+
+pagesRouter.post("/dashboard/layout/remove", requireAuth, async (req, res) => {
+  try {
+    const { card, range } = req.body;
+    const existing = await stats.getLayout(req.user.id);
+    if (!existing) return res.redirect(`/dashboard?range=${range || 30}`);
+    const cards = existing.filter((k) => k !== card);
+    await stats.saveLayout(req.user.id, cards);
+    res.redirect(`/dashboard?range=${range || 30}`);
+  } catch (err) {
+    console.error("POST /dashboard/layout/remove failed", err);
+    res.redirect("/dashboard");
+  }
+});
+
 pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
   try {
     await stats.deleteLayout(req.user.id);
