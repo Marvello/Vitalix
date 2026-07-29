@@ -214,8 +214,9 @@ pagesRouter.post("/dashboard/layout/add", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "invalid card key" });
     }
     const existing = await stats.getLayout(req.user.id);
-    const cards = existing || stats.CARD_CATALOG.map((c) => c.key);
+    let cards = existing || stats.CARD_CATALOG.map((c) => c.key);
     if (!cards.includes(card)) cards.push(card);
+    if (cards.length > 25) cards = cards.slice(0, 25);
     await stats.saveLayout(req.user.id, cards);
     res.redirect(`/dashboard?range=${req.query.range || 30}`);
   } catch (err) {
