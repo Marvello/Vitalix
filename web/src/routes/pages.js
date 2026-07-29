@@ -191,6 +191,49 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   }
 });
 
+// --- Dashboard layout management ---
+
+pagesRouter.put("/dashboard/layout", requireAuth, async (req, res) => {
+  try {
+    let { cards } = req.body;
+    if (!Array.isArray(cards)) return res.status(400).json({ error: "cards must be an array" });
+    cards = [...new Set(cards)].filter(stats.isValidCardKey);
+    if (cards.length > 25) cards = cards.slice(0, 25);
+    await stats.saveLayout(req.user.id, cards);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("PUT /dashboard/layout failed", err);
+    res.status(500).json({ error: "save failed" });
+  }
+});
+
+pagesRouter.post("/dashboard/layout/add", requireAuth, async (req, res) => {
+  try {
+    const { card } = req.body;
+    if (!card || !stats.isValidCardKey(card)) {
+      return res.status(400).json({ error: "invalid card key" });
+    }
+    const existing = await stats.getLayout(req.user.id);
+    const cards = existing || stats.CARD_CATALOG.map((c) => c.key);
+    if (!cards.includes(card)) cards.push(card);
+    await stats.saveLayout(req.user.id, cards);
+    res.redirect(`/dashboard?range=${req.query.range || 30}`);
+  } catch (err) {
+    console.error("POST /dashboard/layout/add failed", err);
+    res.status(500).json({ error: "add failed" });
+  }
+});
+
+pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
+  try {
+    await stats.deleteLayout(req.user.id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error("DELETE /dashboard/layout failed", err);
+    res.status(500).json({ error: "reset failed" });
+  }
+});
+
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
   try {
     const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
