@@ -20,6 +20,16 @@ router.post("/api/health", requireAuth, async (req, res) => {
   try {
     const mapped = mapPayload(body);
     const inserted = await persist(req.user.id, mapped);
+    const profileHeightM = typeof body.profileHeightM === "number" ? body.profileHeightM : null;
+    const bmiScale = body.bmiScale === "asian" ? "asian" : "standard";
+    if (profileHeightM !== null || body.bmiScale) {
+      const sets = [];
+      const vals = [req.user.id];
+      let i = 2;
+      if (profileHeightM !== null) { sets.push(`profile_height_m = $${i++}`); vals.push(profileHeightM); }
+      sets.push(`bmi_scale = $${i++}`); vals.push(bmiScale);
+      await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, vals);
+    }
     res.status(200).json({ inserted, skipped: mapped.skipped });
   } catch (err) {
     console.error("ingest failed", err);
