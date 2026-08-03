@@ -160,6 +160,12 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (!SyncSettings(this).onboardingComplete) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
         if (!authStore.isLoggedIn()) {
             startActivity(Intent(this, LoginActivity::class.java)); finish(); return
         }

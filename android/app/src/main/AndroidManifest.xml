@@ -140,6 +140,11 @@
             android:theme="@style/Theme.Vitalix" />
 
         <activity
+            android:name=".OnboardingActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix" />
+
+        <activity
             android:name=".ForgotActivity"
             android:exported="false"
             android:theme="@style/Theme.Vitalix"
