@@ -4,6 +4,9 @@ import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
+import androidx.health.connect.client.records.metadata.DataOrigin
+import androidx.health.connect.client.records.metadata.Device
+import androidx.health.connect.client.records.metadata.Metadata
 import androidx.health.connect.client.records.ActiveCaloriesBurnedRecord
 import androidx.health.connect.client.records.ActivityIntensityRecord
 import androidx.health.connect.client.records.BasalBodyTemperatureRecord
@@ -63,6 +66,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
+import java.util.UUID
 import kotlin.reflect.KClass
 
 /**
@@ -75,8 +79,9 @@ import kotlin.reflect.KClass
  */
 class HealthConnectManager(
     private val context: Context,
+    private val client: HealthConnectClient = HealthConnectClient.getOrCreate(context),
     private val reader: RecordReader =
-        HealthConnectRecordReader(HealthConnectClient.getOrCreate(context))
+        HealthConnectRecordReader(client)
 ) {
     private val zone: ZoneId = ZoneId.systemDefault()
 
@@ -173,6 +178,8 @@ class HealthConnectManager(
         // which would make the full-history backfill return almost nothing.
         // Spelled out because connect-client 1.1.0-alpha07 has no constant for it.
         PERMISSION_READ_HEALTH_DATA_HISTORY,
+        HealthPermission.getWritePermission(WeightRecord::class),
+        HealthPermission.getWritePermission(HeightRecord::class),
     )
 
     /** Tracks the most-recent value seen in a day (for "latest wins" scalars). */
@@ -783,6 +790,48 @@ class HealthConnectManager(
         }
         if (out.isEmpty()) out += start to end
         return out
+    }
+
+    suspend fun insertWeightRecord(kg: Double, date: java.time.LocalDate) {
+        val time = date.atStartOfDay(zone).toInstant()
+        val metadata = createMetadata(java.util.UUID.randomUUID().toString())
+        val record = WeightRecord(
+            weight = androidx.health.connect.client.units.Mass.kilograms(kg),
+            time = time,
+            zoneOffset = zone.rules.getOffset(time),
+            metadata = metadata,
+        )
+        client.insertRecords(listOf(record))
+    }
+
+    suspend fun insertHeightRecord(cm: Double, date: java.time.LocalDate) {
+        val time = date.atStartOfDay(zone).toInstant()
+        val metadata = createMetadata(java.util.UUID.randomUUID().toString())
+        val record = HeightRecord(
+            height = androidx.health.connect.client.units.Length.meters(cm / 100.0),
+            time = time,
+            zoneOffset = zone.rules.getOffset(time),
+            metadata = metadata,
+        )
+        client.insertRecords(listOf(record))
+    }
+
+    private fun createMetadata(id: String): Metadata {
+        val ctor = Metadata::class.java.getDeclaredConstructor(
+            Int::class.javaPrimitiveType, String::class.java, DataOrigin::class.java,
+            Instant::class.java, String::class.java, Long::class.javaPrimitiveType,
+            Device::class.java,
+        )
+        ctor.isAccessible = true
+        return ctor.newInstance(
+            Metadata.RECORDING_METHOD_MANUAL_ENTRY,
+            id,
+            DataOrigin(context.packageName),
+            Instant.EPOCH,
+            null,
+            0L,
+            null,
+        ) as Metadata
     }
 
     companion object {
