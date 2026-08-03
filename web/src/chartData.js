@@ -261,21 +261,26 @@ export function sourceDisplayName(pkg) {
  * at least one value in range are returned.
  */
 export function sourceLines(rows, from, to, metricKey, colors) {
-  const bySource = new Map();
+  const byDisplay = new Map();
   for (const r of rows) {
     if (r.metric !== metricKey) continue;
-    if (!bySource.has(r.source)) bySource.set(r.source, new Map());
-    bySource.get(r.source).set(toKey(r.day), r);
+    const name = sourceDisplayName(r.source);
+    if (!byDisplay.has(name)) byDisplay.set(name, { firstPkg: r.source, byDay: new Map() });
+    const group = byDisplay.get(name);
+    const day = toKey(r.day);
+    const val = r.value_num != null ? Number(r.value_num) : null;
+    if (val != null) {
+      group.byDay.set(day, (group.byDay.get(day) || 0) + val);
+    }
   }
   const axis = dateRange(from, to);
   const out = [];
-  for (const [source, byDay] of bySource) {
-    const points = axis.map((date) => {
-      const r = byDay.get(date);
-      return { date, value: r && r.value_num != null ? Number(r.value_num) : null };
-    });
+  for (const [name, { firstPkg, byDay }] of byDisplay) {
+    const points = axis.map((date) => ({
+      date, value: byDay.has(date) ? byDay.get(date) : null,
+    }));
     if (points.some((p) => p.value != null)) {
-      out.push({ source, color: colors[source] ?? "#94a3b8", points });
+      out.push({ source: name, color: colors[firstPkg] ?? "#94a3b8", points });
     }
   }
   return out;
