@@ -192,6 +192,25 @@ export function assignSourceColors(sources) {
   return map;
 }
 
+/**
+ * Group raw package names by display name. Returns array of
+ * { displayName, packages: [raw1, raw2, ...], slug } objects,
+ * ordered by first appearance. `slug` is a stable key for URL params.
+ */
+export function groupSources(rawSources) {
+  const groups = new Map();
+  for (const pkg of rawSources) {
+    const name = sourceDisplayName(pkg);
+    if (!groups.has(name)) groups.set(name, []);
+    groups.get(name).push(pkg);
+  }
+  return [...groups.entries()].map(([displayName, packages]) => ({
+    displayName,
+    packages,
+    slug: packages.length === 1 ? packages[0] : displayName.toLowerCase().replace(/\s+/g, "_"),
+  }));
+}
+
 const KNOWN_APPS = {
   "com.google.android.apps.fitness": "Google Fit",
   "com.samsung.shealth": "Samsung Health",

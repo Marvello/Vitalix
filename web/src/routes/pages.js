@@ -8,7 +8,7 @@ import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
-  splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines, sourceDisplayName,
+  splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines, sourceDisplayName, groupSources,
   bmiFromWeightHeight, bmiCategory, fillForward,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
@@ -108,14 +108,22 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     // comma list = only those sources.
     const allSources = await stats.availableSources(req.user.id, fromKey, toKeyStr);
     const sourceCounts = await stats.sourceCounts(req.user.id, fromKey, toKeyStr);
+    const sourceGroups = groupSources(allSources);
+    const slugToPackages = Object.fromEntries(sourceGroups.map((g) => [g.slug, g.packages]));
     const sourcesParam = req.query.sources;
     const allActive = sourcesParam === undefined;
-    const selectedSources = allActive ? []
+    const selectedSlugs = allActive ? []
       : (sourcesParam === "none" || !sourcesParam ? []
-        : sourcesParam.split(",").filter((s) => allSources.includes(s)));
+        : sourcesParam.split(",").filter((s) => slugToPackages[s]));
+    const selectedSources = selectedSlugs.flatMap((s) => slugToPackages[s] || []);
     const filterActive = !allActive;
     const sourceColors = assignSourceColors(allSources);
     const sourceNames = Object.fromEntries(allSources.map((s) => [s, sourceDisplayName(s)]));
+    const groupCounts = Object.fromEntries(sourceGroups.map((g) => [
+      g.slug, g.packages.reduce((sum, pkg) => sum + (sourceCounts[pkg] || 0), 0),
+    ]));
+    const groupColors = Object.fromEntries(sourceGroups.map((g) => [g.slug, sourceColors[g.packages[0]]]));
+
 
     const layoutMode = savedLayout ? "custom" : "default";
 
@@ -283,9 +291,13 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       allActive,
       availableSources: allSources,
       selectedSources,
+      selectedSlugs,
       sourceColors,
       sourceNames,
       sourceCounts,
+      sourceGroups,
+      groupCounts,
+      groupColors,
       bmiScale,
       buildInfo,
     });
@@ -295,7 +307,8 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
       chartData: {}, cardList: [], layoutMode: "default", availableCards: [],
       workouts: [], recent: [], toKey,
-      allActive: true, availableSources: [], selectedSources: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
+      allActive: true, availableSources: [], selectedSources: [], selectedSlugs: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
+      sourceGroups: [], groupCounts: {}, groupColors: {},
       bmiScale: "standard",
       buildInfo,
     });

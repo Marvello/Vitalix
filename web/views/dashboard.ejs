@@ -100,8 +100,8 @@ body.editing .edit-controls{display:inline}
     var sourcesQ;
     if (allActive) {
       sourcesQ = "";
-    } else if (selectedSources.length) {
-      sourcesQ = "&sources=" + encodeURIComponent(selectedSources.join(","));
+    } else if (selectedSlugs.length) {
+      sourcesQ = "&sources=" + encodeURIComponent(selectedSlugs.join(","));
     } else {
       sourcesQ = "&sources=none";
     }
@@ -112,29 +112,27 @@ body.editing .edit-controls{display:inline}
     <% }); %>
   </nav>
 
-  <% if (availableSources && availableSources.length) { %>
+  <% if (sourceGroups && sourceGroups.length) { %>
   <nav class="sources">
     <span class="sources-label">Sources</span>
-    <%# All pill: active = no sources param; click toggles to sources=none or back to no param %>
     <a class="chip <%= allActive ? 'on' : '' %>"
        href="/dashboard?range=<%= range %><%= allActive ? '&sources=none' : '' %>"
-       title="<%= availableSources.length %> sources">All</a>
-    <% availableSources.forEach(function(s) {
-         var on = selectedSources.indexOf(s) !== -1;
+       title="<%= sourceGroups.length %> sources">All</a>
+    <% sourceGroups.forEach(function(g) {
+         var on = selectedSlugs.indexOf(g.slug) !== -1;
          var next;
          if (allActive) {
-           next = [s];
+           next = [g.slug];
          } else {
-           next = on ? selectedSources.filter(function(x){ return x !== s; }) : selectedSources.concat([s]);
+           next = on ? selectedSlugs.filter(function(x){ return x !== g.slug; }) : selectedSlugs.concat([g.slug]);
          }
          var q = next.length ? "&sources=" + encodeURIComponent(next.join(",")) : "&sources=none";
-         var count = sourceCounts[s] || 0;
+         var count = groupCounts[g.slug] || 0;
          var countStr = count.toLocaleString("en-US");
-         var displayName = sourceNames[s] || s;
     %>
       <a class="chip <%= on ? 'on' : '' %>" href="/dashboard?range=<%= range %><%= q %>"
-         title="<%= displayName %>&#10;<%= countStr %> data points">
-        <i style="background:<%= sourceColors[s] %>"></i><%= sourceNames[s] || s %>
+         title="<%= g.displayName %>&#10;<%= countStr %> data points">
+        <i style="background:<%= groupColors[g.slug] %>"></i><%= g.displayName %>
       </a>
     <% }); %>
   </nav>
