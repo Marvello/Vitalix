@@ -3,7 +3,7 @@ import { hash, verify, DUMMY_HASH } from "../auth/passwords.js";
 import { signAccess } from "../auth/tokens.js";
 import * as store from "../auth/store.js";
 import { setAuthCookies } from "./auth.js";
-import { requireAuth } from "../auth/middleware.js";
+import { requireAuth, requireAdmin } from "../auth/middleware.js";
 import { query } from "../db.js";
 import * as stats from "../stats.js";
 import {
@@ -31,6 +31,7 @@ pagesRouter.post("/login", async (req, res) => {
   const user = email ? await store.findUserByEmail(email) : null;
   const ok = await verify(String(password || ""), user?.password_hash ?? DUMMY_HASH);
   if (!user || !ok) return show(res, "login", { error: "Invalid email or password." });
+  if (user.disabled_at) return show(res, "login", { error: "Account disabled." });
   setAuthCookies(res, signAccess({ id: user.id, role: user.role }), await store.issueRefresh(user.id));
   res.redirect("/dashboard");
 });
@@ -277,6 +278,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     }
     res.render("dashboard", {
       email: user?.email,
+      userRole: user?.role,
       range: days,
       ranges: RANGES,
       tiles: filterActive ? [] : visibleTiles(summaryTiles(totals)),
@@ -304,7 +306,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("GET /dashboard failed", err);
     res.status(500).render("dashboard", {
-      email: null, range: 30, ranges: RANGES, tiles: [], totals: {},
+      email: null, userRole: null, range: 30, ranges: RANGES, tiles: [], totals: {},
       chartData: {}, cardList: [], layoutMode: "default", availableCards: [],
       workouts: [], recent: [], toKey,
       allActive: true, availableSources: [], selectedSources: [], selectedSlugs: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
@@ -313,6 +315,25 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       buildInfo,
     });
   }
+});
+
+pagesRouter.get("/admin", requireAuth, requireAdmin, async (req, res) => {
+  const [users, invites, user] = await Promise.all([
+    store.listUsers(),
+    store.listInvites(),
+    store.findUserById(req.user.id),
+  ]);
+  const now = new Date();
+  const invitesWithStatus = invites.map((inv) => ({
+    ...inv,
+    status: inv.used_at ? "used" : new Date(inv.expires_at) < now ? "expired" : "pending",
+  }));
+  res.render("admin", {
+    email: user?.email,
+    users,
+    invites: invitesWithStatus,
+    currentUserId: req.user.id,
+  });
 });
 
 // --- Dashboard layout management ---

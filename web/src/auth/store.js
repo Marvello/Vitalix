@@ -10,7 +10,7 @@ export async function createUser(email, passwordHash, role = "user") {
   return rows[0];
 }
 export async function findUserByEmail(email) {
-  const { rows } = await query("SELECT id, email, role, password_hash FROM users WHERE email = $1", [email]);
+  const { rows } = await query("SELECT id, email, role, password_hash, disabled_at FROM users WHERE email = $1", [email]);
   return rows[0] || null;
 }
 export async function findUserById(id) {
@@ -34,8 +34,9 @@ export async function rotateRefresh(raw) {
     );
     if (revoked.rows.length === 0) return null;
     const userId = revoked.rows[0].user_id;
-    const u = await client.query("SELECT id, role, email FROM users WHERE id = $1", [userId]);
+    const u = await client.query("SELECT id, role, email, disabled_at FROM users WHERE id = $1", [userId]);
     if (u.rows.length === 0) return null;
+    if (u.rows[0].disabled_at) return null;
     const rawNew = randomToken();
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await client.query(
@@ -87,4 +88,39 @@ export async function revokeAllRefresh(userId) {
 
 export async function updatePassword(userId, passwordHash) {
   await query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, userId]);
+}
+
+export async function listUsers() {
+  const { rows } = await query(
+    "SELECT id, email, role, created_at, disabled_at FROM users ORDER BY created_at DESC"
+  );
+  return rows;
+}
+
+export async function updateUserRole(id, role) {
+  await query("UPDATE users SET role = $1 WHERE id = $2", [role, id]);
+}
+
+export async function setUserDisabled(id, disabled) {
+  if (disabled) {
+    await query("UPDATE users SET disabled_at = now() WHERE id = $1", [id]);
+  } else {
+    await query("UPDATE users SET disabled_at = NULL WHERE id = $1", [id]);
+  }
+}
+
+export async function countAdmins() {
+  const { rows } = await query("SELECT count(*)::int AS n FROM users WHERE role = 'admin' AND disabled_at IS NULL");
+  return rows[0].n;
+}
+
+export async function listInvites() {
+  const { rows } = await query(
+    `SELECT i.email, i.role, i.created_at, i.expires_at, i.used_at,
+            u.email AS created_by_email
+       FROM invites i
+       LEFT JOIN users u ON u.id = i.created_by
+      ORDER BY i.created_at DESC`
+  );
+  return rows;
 }
