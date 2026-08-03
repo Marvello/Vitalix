@@ -2,6 +2,7 @@ import { Router } from "express";
 import { requireAuth, requireAdmin } from "../auth/middleware.js";
 import * as store from "../auth/store.js";
 import { sendMail } from "../auth/mailer.js";
+import { inviteEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 import { getInstallUrl } from "../zealot.js";
 
@@ -12,13 +13,8 @@ adminRouter.post("/api/admin/invites", requireAuth, requireAdmin, async (req, re
   if (!email) return res.status(400).json({ error: "email required" });
   const raw = await store.createInvite(email, role === "admin" ? "admin" : "user", req.user.id);
   const link = `${config.appBaseUrl}/signup?token=${raw}`;
-  const installUrl = await getInstallUrl();
-  const downloadLine = installUrl ? `\nDownload the Vitalix app: ${installUrl}\n` : "";
-  await sendMail(
-    email,
-    "You're invited to Vitalix",
-    `Dear Friend,\n\nYour Vitalix invite code is:\n\n    ${raw}\n\nSign up on the web: ${link}\n${downloadLine}\nExpires in 7 days.`
-  );
+  const downloadUrl = await getInstallUrl();
+  await sendMail(email, "You're invited to Vitalix", inviteEmail({ code: raw, link, downloadUrl }));
   res.status(201).json({ ok: true });
 });
 
@@ -75,12 +71,7 @@ adminRouter.post("/api/admin/invites/:id/resend", requireAuth, requireAdmin, asy
   await store.deleteInvite(invite.id);
   const raw = await store.createInvite(invite.email, invite.role, req.user.id);
   const link = `${config.appBaseUrl}/signup?token=${raw}`;
-  const installUrl = await getInstallUrl();
-  const downloadLine = installUrl ? `\nDownload the Vitalix app: ${installUrl}\n` : "";
-  await sendMail(
-    invite.email,
-    "You're invited to Vitalix",
-    `Dear Friend,\n\nYour Vitalix invite code is:\n\n    ${raw}\n\nSign up on the web: ${link}\n${downloadLine}\nExpires in 7 days.`
-  );
+  const downloadUrl = await getInstallUrl();
+  await sendMail(invite.email, "You're invited to Vitalix", inviteEmail({ code: raw, link, downloadUrl }));
   res.json({ ok: true });
 });

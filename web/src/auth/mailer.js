@@ -10,13 +10,13 @@ const transport = config.smtp
     })
   : null;
 
-export async function sendMail(to, subject, body) {
+export async function sendMail(to, subject, { html, text }) {
   if (!transport) {
-    console.log(`[mail:log] to=${to} subject=${subject}\n${body}`);
+    console.log(`[mail:log] to=${to} subject=${subject}\n${text}`);
     return;
   }
   try {
-    const info = await transport.sendMail({ from: config.mailFrom, to, subject, text: body });
+    const info = await transport.sendMail({ from: config.mailFrom, to, subject, text, html });
     console.log(`[mail:sent] to=${to} messageId=${info.messageId}`);
   } catch (err) {
     console.error(`[mail:error] to=${to} subject=${subject}`, err.message);

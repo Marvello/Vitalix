@@ -12,6 +12,7 @@ import {
   bmiFromWeightHeight, bmiCategory, fillForward,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
+import { resetEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 
 const buildInfo = { version: config.buildVersion, date: config.buildDate };
@@ -56,7 +57,8 @@ pagesRouter.post("/forgot", async (req, res) => {
   const user = typeof email === "string" && email ? await store.findUserByEmail(email) : null;
   if (user) {
     const raw = await store.createReset(user.id);
-    await sendMail(user.email, "Reset your Vitalix password", `${config.appBaseUrl}/reset?token=${raw}`);
+    const link = `${config.appBaseUrl}/reset?token=${raw}`;
+    await sendMail(user.email, "Reset your Vitalix password", resetEmail({ link }));
   }
   show(res, "forgot", { sent: true });
 });
