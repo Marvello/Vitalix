@@ -48,6 +48,9 @@ authRouter.post("/api/auth/login", async (req, res) => {
   if (!user || !ok) {
     return res.status(401).json({ error: "invalid credentials" });
   }
+  if (user.disabled_at) {
+    return res.status(403).json({ error: "Account disabled" });
+  }
   const tokens = await issueSession(res, { id: user.id, role: user.role });
   res.json({ ...tokens, user: { id: user.id, email: user.email, role: user.role } });
 });

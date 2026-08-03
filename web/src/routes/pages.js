@@ -31,6 +31,7 @@ pagesRouter.post("/login", async (req, res) => {
   const user = email ? await store.findUserByEmail(email) : null;
   const ok = await verify(String(password || ""), user?.password_hash ?? DUMMY_HASH);
   if (!user || !ok) return show(res, "login", { error: "Invalid email or password." });
+  if (user.disabled_at) return show(res, "login", { error: "Account disabled." });
   setAuthCookies(res, signAccess({ id: user.id, role: user.role }), await store.issueRefresh(user.id));
   res.redirect("/dashboard");
 });

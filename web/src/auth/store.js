@@ -34,8 +34,9 @@ export async function rotateRefresh(raw) {
     );
     if (revoked.rows.length === 0) return null;
     const userId = revoked.rows[0].user_id;
-    const u = await client.query("SELECT id, role, email FROM users WHERE id = $1", [userId]);
+    const u = await client.query("SELECT id, role, email, disabled_at FROM users WHERE id = $1", [userId]);
     if (u.rows.length === 0) return null;
+    if (u.rows[0].disabled_at) return null;
     const rawNew = randomToken();
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await client.query(
