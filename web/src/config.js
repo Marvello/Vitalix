@@ -23,6 +23,9 @@ export const config = {
         pass: process.env.SMTP_PASS,
       }
     : null,
+  zealotEndpoint: process.env.ZEALOT_ENDPOINT || null,
+  zealotToken: process.env.ZEALOT_TOKEN || null,
+  zealotChannelKey: process.env.ZEALOT_CHANNEL_KEY || null,
 };
 
 config.buildVersion = git.hash;
