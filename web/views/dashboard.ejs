@@ -63,6 +63,8 @@ td.num,th.num{text-align:right}
 .card-header h2{flex:1;margin:0}
 .card-btn{background:none;border:1px solid var(--line);color:var(--muted);width:28px;height:28px;padding:0;border-radius:6px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0}
 .card-btn:hover{border-color:var(--teal);color:var(--teal)}
+.edit-controls{display:none}
+body.editing .edit-controls{display:inline}
 .card-btn.remove:hover{border-color:#b91c1c;color:#b91c1c}
 .add-chart-bar{margin-top:16px;text-align:center}
 .add-chart-bar button{width:auto;padding:10px 24px}
@@ -158,6 +160,7 @@ td.num,th.num{text-align:right}
       <div class="card-header">
         <h2><%= card.label %><% if (card.type === 'line' || card.type === 'bar') { var dm = cd; if (dm && dm.unit) { %> <span class="unit">(<%= dm.unit %>)</span><% } } %><% if (card.key === 'hr_split') { %> <span class="unit">(bpm)</span><% } %></h2>
         <% if (layoutMode === 'custom') { %>
+          <span class="edit-controls">
           <% if (idx > 0) { %>
             <form method="post" action="/dashboard/layout/reorder" style="display:inline">
               <input type="hidden" name="card" value="<%= card.key %>">
@@ -179,6 +182,7 @@ td.num,th.num{text-align:right}
             <input type="hidden" name="range" value="<%= range %>">
             <button type="submit" class="card-btn remove" title="Remove">&times;</button>
           </form>
+          </span>
         <% } %>
       </div>
 
@@ -306,9 +310,14 @@ td.num,th.num{text-align:right}
         <button type="submit">Customize layout</button>
       </form>
     <% } %>
-    <button onclick="document.getElementById('chart-picker').classList.toggle('open')">+ Add Chart</button>
     <% if (layoutMode === 'custom') { %>
-      <br><a href="#" class="reset-link" onclick="fetch('/dashboard/layout',{method:'DELETE'}).then(()=>location.reload());return false">Reset to default</a>
+      <button id="toggle-edit-btn" onclick="toggleEditMode()">Edit layout</button>
+      <span class="edit-controls">
+        <button onclick="document.getElementById('chart-picker').classList.toggle('open')">+ Add Chart</button>
+        <br><a href="#" class="reset-link" onclick="fetch('/dashboard/layout',{method:'DELETE'}).then(()=>location.reload());return false">Reset to default</a>
+      </span>
+    <% } else { %>
+      <button onclick="document.getElementById('chart-picker').classList.toggle('open')">+ Add Chart</button>
     <% } %>
   </div>
 
@@ -347,6 +356,11 @@ td.num,th.num{text-align:right}
 </div>
 
 <script>
+function toggleEditMode() {
+  var btn = document.getElementById('toggle-edit-btn');
+  document.body.classList.toggle('editing');
+  btn.textContent = document.body.classList.contains('editing') ? 'Done editing' : 'Edit layout';
+}
 const CHART_DATA = <%- JSON.stringify(chartData).replace(/</g, '\\u003c') %>;
 const CARD_LIST = <%- JSON.stringify(cardList).replace(/</g, '\\u003c') %>;
 const SOURCE_NAMES = <%- JSON.stringify(sourceNames || {}).replace(/</g, '\\u003c') %>;

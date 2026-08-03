@@ -100,8 +100,8 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
       stats.getLayout(req.user.id),
-      stats.bmiSeries(req.user.id, fromKey, toKeyStr),
-      stats.userBmiScale(req.user.id),
+      stats.bmiSeries(req.user.id, fromKey, toKeyStr).catch(() => []),
+      stats.userBmiScale(req.user.id).catch(() => "standard"),
     ]);
 
     // Source filter: absent param = "All" (show combined); "none"/empty = nothing;

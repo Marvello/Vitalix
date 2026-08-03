@@ -236,17 +236,20 @@ export async function bmiSeries(userId, from, to) {
       FROM date_series ds
       LEFT JOIN health_days hd ON hd.day = ds.day AND hd.user_id = $1
     ),
+    groups AS (
+      SELECT day, weight, height,
+        COUNT(weight) OVER (ORDER BY day) AS wgrp,
+        COUNT(height) OVER (ORDER BY day) AS hgrp
+      FROM raw
+    ),
     filled AS (
-      SELECT
-        day,
-        LAST_VALUE(weight) FILTER (WHERE weight IS NOT NULL)
-          OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS weight,
+      SELECT day,
+        MAX(weight) OVER (PARTITION BY wgrp) AS weight,
         COALESCE(
-          LAST_VALUE(height) FILTER (WHERE height IS NOT NULL)
-            OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+          MAX(height) OVER (PARTITION BY hgrp),
           (SELECT profile_height_m FROM users WHERE id = $1)
         ) AS height
-      FROM raw
+      FROM groups
     )
     SELECT day, weight, height,
            CASE WHEN height > 0 THEN ROUND((weight / (height * height))::numeric, 1) END AS bmi
