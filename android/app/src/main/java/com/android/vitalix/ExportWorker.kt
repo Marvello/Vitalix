@@ -35,7 +35,13 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         return try {
             val manager = HealthConnectManager(applicationContext)
             val days = manager.readHealthDataByDay(cfg)
-            val meta = PayloadMeta(appVersion(), Build.MODEL, cfg.daysBack)
+            val meta = PayloadMeta(
+                appVersion = appVersion(),
+                device = Build.MODEL,
+                rangeDays = cfg.daysBack,
+                profileHeightM = settings.userHeightCm?.let { it / 100.0 },
+                bmiScale = settings.resolvedBmiScale(),
+            )
             val json = ServerForwarder.buildPayload(days, meta)
             ServerForwarder.forward(applicationContext, url, json).fold(
                 onSuccess = {

@@ -654,7 +654,13 @@ class MainActivity : AppCompatActivity() {
                     daysSent = days.size
                     val json = ServerForwarder.buildPayload(
                         days,
-                        PayloadMeta(appVersion, Build.MODEL, cfg.daysBack)
+                        PayloadMeta(
+                            appVersion = appVersion,
+                            device = Build.MODEL,
+                            rangeDays = cfg.daysBack,
+                            profileHeightM = settings.userHeightCm?.let { it / 100.0 },
+                            bmiScale = settings.resolvedBmiScale(),
+                        )
                     )
                     ServerForwarder.forward(this@MainActivity, url, json)
                 }

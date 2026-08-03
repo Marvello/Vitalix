@@ -14,7 +14,13 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class PayloadMeta(val appVersion: String, val device: String, val rangeDays: Int)
+data class PayloadMeta(
+    val appVersion: String,
+    val device: String,
+    val rangeDays: Int,
+    val profileHeightM: Double? = null,
+    val bmiScale: String? = null,
+)
 
 object ServerForwarder {
     private val JSON = "application/json; charset=utf-8".toMediaType()
@@ -54,6 +60,8 @@ object ServerForwarder {
         root.put("device", meta.device)
         root.put("exportedAt", java.time.Instant.now().toString())
         root.put("rangeDays", meta.rangeDays)
+        meta.profileHeightM?.let { root.put("profileHeightM", it) }
+        meta.bmiScale?.let { root.put("bmiScale", it) }
         val arr = JSONArray()
         for (d in days) {
             val o = JSONObject().put("date", d.date)
