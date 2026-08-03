@@ -95,6 +95,10 @@ If `ZEALOT_ENDPOINT` is not configured or API fails, the invite email omits the 
 Current email (plain text, via `sendMail`):
 
 ```
+{Logo}
+
+Dear Friends,
+
 Your Vitalix invite code is:
 
     XXXX-XXXX-XXXX
