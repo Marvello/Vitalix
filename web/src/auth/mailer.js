@@ -5,6 +5,7 @@ const transport = config.smtp
   ? nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
+      secure: config.smtp.port === 465,
       auth: config.smtp.user ? { user: config.smtp.user, pass: config.smtp.pass } : undefined,
     })
   : null;
@@ -14,5 +15,11 @@ export async function sendMail(to, subject, body) {
     console.log(`[mail:log] to=${to} subject=${subject}\n${body}`);
     return;
   }
-  await transport.sendMail({ from: config.mailFrom, to, subject, text: body });
+  try {
+    const info = await transport.sendMail({ from: config.mailFrom, to, subject, text: body });
+    console.log(`[mail:sent] to=${to} messageId=${info.messageId}`);
+  } catch (err) {
+    console.error(`[mail:error] to=${to} subject=${subject}`, err.message);
+    throw err;
+  }
 }
