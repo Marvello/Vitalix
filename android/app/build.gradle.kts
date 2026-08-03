@@ -47,6 +47,21 @@ android {
         version = release(37)
     }
 
+    signingConfigs {
+        create("beta") {
+            storeFile = file(project.findProperty("VITALIX_BETA_STORE_FILE") as String? ?: "")
+            storePassword = project.findProperty("VITALIX_BETA_STORE_PASSWORD") as String? ?: ""
+            keyAlias = project.findProperty("VITALIX_BETA_KEY_ALIAS") as String? ?: ""
+            keyPassword = project.findProperty("VITALIX_BETA_KEY_PASSWORD") as String? ?: ""
+        }
+        create("production") {
+            storeFile = file(project.findProperty("VITALIX_PROD_STORE_FILE") as String? ?: "")
+            storePassword = project.findProperty("VITALIX_PROD_STORE_PASSWORD") as String? ?: ""
+            keyAlias = project.findProperty("VITALIX_PROD_KEY_ALIAS") as String? ?: ""
+            keyPassword = project.findProperty("VITALIX_PROD_KEY_PASSWORD") as String? ?: ""
+        }
+    }
+
     defaultConfig {
         applicationId = "com.android.vitalix"
         minSdk = 30
@@ -61,6 +76,11 @@ android {
             .format(Instant.now())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
 
+        val clarityId = (project.findProperty("clarityProjectId") as String?)
+            ?: System.getenv("CLARITY_PROJECT_ID")
+            ?: ""
+        buildConfigField("String", "CLARITY_PROJECT_ID", "\"$clarityId\"")
+
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -68,8 +88,15 @@ android {
         debug {
             buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(defaultDebugServerUrl()))
         }
+        create("beta") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("beta")
+            buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(""))
+            applicationIdSuffix = ".beta"
+            versionNameSuffix = "-beta"
+        }
         release {
-            // Set at build time, e.g. -PvitalixServerUrl=https://vitalix.example.com/api/health
+            signingConfig = signingConfigs.getByName("production")
             buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(""))
             optimization {
                 enable = false
@@ -99,6 +126,7 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.kotlin.reflect)
+    implementation(libs.clarity)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.json)

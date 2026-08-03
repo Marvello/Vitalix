@@ -91,7 +91,8 @@ class HealthConnectManager(
      * parent record, so every sample inside inherits it. Blank collapses to null so
      * the field is simply omitted downstream rather than sent empty.
      */
-    private val Record.origin: String? get() = metadata.dataOrigin.packageName.ifBlank { null }
+    private val Record.origin: String? get() =
+        metadata.dataOrigin.packageName.substringBefore('#').ifBlank { null }
     /** Health Connect record UID — stable per record; blank collapses to null. */
     private val Record.uid: String? get() = metadata.id.ifBlank { null }
     /**

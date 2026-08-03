@@ -18,6 +18,7 @@ coroutines = "1.8.1"
 kotlinReflect = "2.3.20"
 json = "20240303"
 mockitoCore = "5.12.0"
+clarity = "3.3.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -40,6 +41,7 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", vers
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlinReflect" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
+clarity = { group = "com.microsoft.clarity", name = "clarity", version.ref = "clarity" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
