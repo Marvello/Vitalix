@@ -68,6 +68,26 @@ class SyncSettings(context: Context) {
         get() = plain.getBoolean("never_sleeping_ack", false)
         set(v) { plain.edit().putBoolean("never_sleeping_ack", v).apply() }
 
+    var userName: String?
+        get() = plain.getString("user_name", null)
+        set(v) { plain.edit().putString("user_name", v).apply() }
+
+    var userHeightCm: Double?
+        get() = if (plain.contains("user_height_cm")) plain.getFloat("user_height_cm", 0f).toDouble() else null
+        set(v) { if (v != null) plain.edit().putFloat("user_height_cm", v.toFloat()).apply() else plain.edit().remove("user_height_cm").apply() }
+
+    var userWeightKg: Double?
+        get() = if (plain.contains("user_weight_kg")) plain.getFloat("user_weight_kg", 0f).toDouble() else null
+        set(v) { if (v != null) plain.edit().putFloat("user_weight_kg", v.toFloat()).apply() else plain.edit().remove("user_weight_kg").apply() }
+
+    var onboardingComplete: Boolean
+        get() = plain.getBoolean("onboarding_complete", false)
+        set(v) { plain.edit().putBoolean("onboarding_complete", v).apply() }
+
+    var bmiScale: String?
+        get() = plain.getString("bmi_scale", null)
+        set(v) { plain.edit().putString("bmi_scale", v).apply() }
+
     /**
      * Health Connect permissions we have already shown a prompt for. Health
      * Connect won't re-prompt for a declined permission, so this is what tells a
@@ -77,6 +97,16 @@ class SyncSettings(context: Context) {
     var requestedPermissions: Set<String>
         get() = plain.getStringSet("requested_permissions", emptySet()) ?: emptySet()
         set(v) { plain.edit().putStringSet("requested_permissions", v).apply() }
+
+    fun resolvedBmiScale(): String {
+        bmiScale?.let { return it }
+        val country = java.util.Locale.getDefault().country
+        val asianCountries = setOf(
+            "CN", "JP", "KR", "IN", "TW", "HK", "SG", "MY", "TH", "PH",
+            "ID", "VN", "BD", "LK", "PK", "MM", "KH", "LA", "NP", "BN"
+        )
+        return if (country in asianCountries) "asian" else "standard"
+    }
 
     fun writeConfig(cfg: ExportConfig) {
         val e = plain.edit()
