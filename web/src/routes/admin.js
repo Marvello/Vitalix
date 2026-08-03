@@ -21,3 +21,42 @@ adminRouter.post("/api/admin/invites", requireAuth, requireAdmin, async (req, re
   );
   res.status(201).json({ ok: true });
 });
+
+adminRouter.get("/api/admin/users", requireAuth, requireAdmin, async (req, res) => {
+  const users = await store.listUsers();
+  res.json(users);
+});
+
+adminRouter.patch("/api/admin/users/:id", requireAuth, requireAdmin, async (req, res) => {
+  const targetId = Number(req.params.id);
+  const { role, disabled } = req.body || {};
+
+  if (role !== undefined) {
+    if (role !== "admin" && role !== "user") return res.status(400).json({ error: "role must be admin or user" });
+    if (targetId === req.user.id && role !== "admin") return res.status(400).json({ error: "Cannot demote yourself" });
+    if (role === "user") {
+      const count = await store.countAdmins();
+      const target = (await store.listUsers()).find((u) => u.id === targetId);
+      if (target?.role === "admin" && count <= 1) return res.status(400).json({ error: "Cannot remove last admin" });
+    }
+    await store.updateUserRole(targetId, role);
+  }
+
+  if (disabled !== undefined) {
+    if (targetId === req.user.id) return res.status(400).json({ error: "Cannot disable yourself" });
+    await store.setUserDisabled(targetId, !!disabled);
+    if (disabled) await store.revokeAllRefresh(targetId);
+  }
+
+  res.json({ ok: true });
+});
+
+adminRouter.get("/api/admin/invites", requireAuth, requireAdmin, async (req, res) => {
+  const invites = await store.listInvites();
+  const now = new Date();
+  const result = invites.map((inv) => ({
+    ...inv,
+    status: inv.used_at ? "used" : new Date(inv.expires_at) < now ? "expired" : "pending",
+  }));
+  res.json(result);
+});
