@@ -296,6 +296,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       chartData: {}, cardList: [], layoutMode: "default", availableCards: [],
       workouts: [], recent: [], toKey,
       allActive: true, availableSources: [], selectedSources: [], sourceColors: {}, sourceNames: {}, sourceCounts: {},
+      bmiScale: "standard",
       buildInfo,
     });
   }
