@@ -18,12 +18,12 @@ export async function getInstallUrl() {
       return cache.url || null;
     }
     const data = await res.json();
-    const url = data.install_url || null;
+    const url = data.install_url || data.release?.install_url || data.release_url || null;
     if (url) {
       cache = { url, ts: Date.now() };
       console.log(`[zealot:ok] install_url=${url}`);
     } else {
-      console.warn("[zealot:warn] response ok but no install_url", JSON.stringify(data).slice(0, 200));
+      console.warn("[zealot:warn] response ok but no install_url. keys:", JSON.stringify(Object.keys(data)), "full:", JSON.stringify(data).slice(0, 500));
     }
     return url;
   } catch (err) {
