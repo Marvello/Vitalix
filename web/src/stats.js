@@ -221,6 +221,51 @@ export async function sourceRows(userId, from, to, metrics, sources) {
   return rows;
 }
 
+/**
+ * BMI series with weight and height forward-filled to handle gaps.
+ * Returns only days where weight is not null, but height is coalesced
+ * with profile height if a daily height is missing.
+ */
+export async function bmiSeries(userId, from, to) {
+  const sql = `
+    WITH date_series AS (
+      SELECT generate_series($2::date, $3::date, '1 day')::date AS day
+    ),
+    raw AS (
+      SELECT ds.day, hd.weight, hd.height
+      FROM date_series ds
+      LEFT JOIN health_days hd ON hd.day = ds.day AND hd.user_id = $1
+    ),
+    filled AS (
+      SELECT
+        day,
+        LAST_VALUE(weight) FILTER (WHERE weight IS NOT NULL)
+          OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS weight,
+        COALESCE(
+          LAST_VALUE(height) FILTER (WHERE height IS NOT NULL)
+            OVER (ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW),
+          (SELECT profile_height_m FROM users WHERE id = $1)
+        ) AS height
+      FROM raw
+    )
+    SELECT day, weight, height,
+           CASE WHEN height > 0 THEN ROUND((weight / (height * height))::numeric, 1) END AS bmi
+    FROM filled
+    WHERE weight IS NOT NULL
+    ORDER BY day`;
+  const { rows } = await query(sql, [userId, from, to]);
+  return rows;
+}
+
+/**
+ * Fetches the user's BMI scale preference (standard or asian).
+ * Returns 'standard' as the default if not set.
+ */
+export async function userBmiScale(userId) {
+  const { rows } = await query("SELECT bmi_scale FROM users WHERE id = $1", [userId]);
+  return rows[0]?.bmi_scale ?? "standard";
+}
+
 export const CARD_CATALOG = [
   // Activity
   { key: "steps",             label: "Steps",              category: "Activity",        type: "bar"  },

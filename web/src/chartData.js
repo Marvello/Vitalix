@@ -261,3 +261,48 @@ export function sourceLines(rows, from, to, metricKey, colors) {
   }
   return out;
 }
+
+/**
+ * Carries the last known value forward across gaps in the data.
+ * Returns null before the first data point exists.
+ */
+export function fillForward(rows, from, to, column) {
+  const byDay = new Map(rows.map((r) => [toKey(r.day), r]));
+  let last = null;
+  return dateRange(from, to).map((date) => {
+    const row = byDay.get(date);
+    const value = row ? row[column] : null;
+    if (value != null) last = Number(value);
+    return { date, value: last };
+  });
+}
+
+/**
+ * Computes BMI from weight (kg) and height (m).
+ * Returns null if either input is null or height is 0 or negative.
+ * Result is rounded to 1 decimal place.
+ */
+export function bmiFromWeightHeight(weightKg, heightM) {
+  if (weightKg == null || heightM == null || heightM <= 0) return null;
+  return Math.round((weightKg / (heightM * heightM)) * 10) / 10;
+}
+
+/**
+ * Categorizes BMI based on the given scale ("standard" or "asian").
+ * Standard uses WHO boundaries: <18.5 (Underweight), 18.5-24.9 (Normal), 25-29.9 (Overweight), >=30 (Obese).
+ * Asian uses adjusted boundaries: <18.5 (Underweight), 18.5-22.9 (Normal), 23-27.4 (Overweight), >=27.5 (Obese).
+ * Returns null if bmi is null.
+ */
+export function bmiCategory(bmi, scale) {
+  if (bmi == null) return null;
+  if (scale === "asian") {
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 23) return "Normal";
+    if (bmi < 27.5) return "Overweight";
+    return "Obese";
+  }
+  if (bmi < 18.5) return "Underweight";
+  if (bmi < 25) return "Normal";
+  if (bmi < 30) return "Overweight";
+  return "Obese";
+}
