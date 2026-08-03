@@ -288,6 +288,7 @@ export const CARD_CATALOG = [
   { key: "lean_body_mass",   label: "Lean body mass",  category: "Body", type: "line" },
   { key: "bone_mass",        label: "Bone mass",       category: "Body", type: "line" },
   { key: "height",           label: "Height",          category: "Body", type: "line" },
+  { key: "bmi",              label: "BMI",             category: "Body", type: "bmi"  },
   { key: "body_temperature", label: "Body temperature",category: "Body", type: "line" },
   // Nutrition
   { key: "hydration_ml",  label: "Hydration",  category: "Nutrition", type: "bar"  },

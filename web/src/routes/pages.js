@@ -9,6 +9,7 @@ import * as stats from "../stats.js";
 import {
   bandSeries, fillDays, metricLabel, rollingAverage, sleepStages, summaryTiles, toKey,
   splitSeries, visibleMetrics, visibleTiles, assignSourceColors, sourceLines, sourceDisplayName,
+  bmiFromWeightHeight, bmiCategory, fillForward,
 } from "../chartData.js";
 import { sendMail } from "../auth/mailer.js";
 import { config } from "../config.js";
@@ -88,7 +89,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const fromKey = toKey(from);
     const toKeyStr = toKey(to);
 
-    const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user, savedLayout] = await Promise.all([
+    const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user, savedLayout, bmiRows, bmiScale] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
       stats.aggregateRows(req.user.id, fromKey, toKeyStr),
       stats.summary(req.user.id, fromKey, toKeyStr),
@@ -99,6 +100,8 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
       stats.getLayout(req.user.id),
+      stats.bmiSeries(req.user.id, fromKey, toKeyStr),
+      stats.userBmiScale(req.user.id),
     ]);
 
     // Source filter: absent param = "All" (show combined); "none"/empty = nothing;
@@ -120,6 +123,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const hasSleep = !filterActive && rows.some((r) => r.sleep_duration_minutes != null);
     const hasHrSplit = !filterActive && hrRows.some((r) => r.scope === "active");
     const hasWorkouts = !filterActive && workouts.length > 0;
+    const hasBmi = bmiRows.length > 0;
 
     // Map of card key → whether it has data in this range
     const shownDayMetrics = visibleMetrics(stats.DAY_METRICS, cover);
@@ -134,6 +138,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       if (key === "hr_split") return hasHrSplit;
       if (key === "workouts") return hasWorkouts;
       if (key === "recent") return recent.length > 0;
+      if (key === "bmi") return hasBmi;
       return false;
     }
 
@@ -149,6 +154,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         ...(hasSleep ? ["sleep"] : []),
         ...(hasHrSplit ? ["hr_split"] : []),
         ...bandKeys.map((k) => `band:${k}`),
+        ...(hasBmi ? ["bmi"] : []),
         ...(hasWorkouts ? ["workouts"] : []),
         ...((recent.length > 0) ? ["recent"] : []),
       ];
@@ -220,6 +226,47 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     }
     chartData.recent = { rows: recent };
 
+    if (hasBmi) {
+      const latestBmi = Number(bmiRows[bmiRows.length - 1].bmi);
+      const latestWeight = Number(bmiRows[bmiRows.length - 1].weight);
+      const latestHeight = Number(bmiRows[bmiRows.length - 1].height);
+      const category = bmiCategory(latestBmi, bmiScale);
+
+      // Trend: compare latest BMI to the value at start of range
+      const firstBmi = Number(bmiRows[0].bmi);
+      const trendDelta = Math.round((latestBmi - firstBmi) * 10) / 10;
+      const trendDir = trendDelta > 0 ? "up" : trendDelta < 0 ? "down" : "stable";
+
+      const bmiPoints = fillForward(bmiRows, fromKey, toKeyStr, "bmi");
+
+      chartData.bmi = {
+        key: "bmi",
+        label: "BMI",
+        current: latestBmi,
+        category,
+        scale: bmiScale,
+        trendDelta,
+        trendDir,
+        weight: latestWeight,
+        height: latestHeight,
+        points: bmiPoints,
+        hasData: true,
+      };
+    }
+    if (!hasBmi) {
+      // Check if there's weight data but no height — show a helpful message
+      const hasWeight = (cover.weight ?? 0) > 0;
+      const hasHeight = (cover.height ?? 0) > 0;
+      const { rows: userRows } = await query("SELECT profile_height_m FROM users WHERE id = $1", [req.user.id]);
+      const hasProfileHeight = userRows[0]?.profile_height_m != null;
+      if (hasWeight && !hasHeight && !hasProfileHeight) {
+        chartData.bmi = {
+          key: "bmi", label: "BMI", hasData: false,
+          message: "Set your height in the app to see BMI",
+        };
+      }
+    }
+
     res.render("dashboard", {
       email: user?.email,
       range: days,
@@ -239,6 +286,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       sourceColors,
       sourceNames,
       sourceCounts,
+      bmiScale,
       buildInfo,
     });
   } catch (err) {

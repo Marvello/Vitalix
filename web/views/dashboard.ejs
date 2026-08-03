@@ -74,6 +74,12 @@ td.num,th.num{text-align:right}
 .picker-item{padding:6px 14px;border:1px solid var(--line);border-radius:8px;font-size:13px;cursor:pointer;text-decoration:none;color:var(--ink);background:var(--card)}
 .picker-item:hover{border-color:var(--teal);color:var(--teal)}
 .reset-link{font-size:13px;color:var(--muted);margin-top:8px;display:inline-block}
+.bmi-tile{padding:8px 0}
+.bmi-value{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.bmi-number{font-size:32px;font-weight:700;letter-spacing:-0.5px}
+.bmi-category{font-size:14px;font-weight:600}
+.bmi-trend{font-size:13px;color:var(--muted)}
+.bmi-gauge{position:relative;margin-top:12px}
 </style>
 </head>
 <body>
@@ -210,6 +216,49 @@ td.num,th.num{text-align:right}
           <span><i style="background:rgba(15,169,160,.25)"></i>Outside workouts</span>
           <span>Bands show the day's range; lines show the average.</span>
         </div>
+      <% } else if (card.type === 'bmi') { %>
+        <% if (cd.hasData) { %>
+          <div class="bmi-tile">
+            <div class="bmi-value">
+              <span class="bmi-number"><%= cd.current %></span>
+              <span class="bmi-category" style="color: <%= cd.category === 'Normal' ? '#34D399' : cd.category === 'Underweight' ? '#60A5FA' : cd.category === 'Overweight' ? '#FBBF24' : '#F87171' %>"><%= cd.category %></span>
+              <span class="bmi-trend"><%= cd.trendDir === 'up' ? '↑' : cd.trendDir === 'down' ? '↓' : '→' %> <%= Math.abs(cd.trendDelta) %></span>
+            </div>
+            <div class="bmi-gauge">
+              <% var gaugeScale = cd.scale === 'asian'
+                   ? [{max:18.5,color:'#60A5FA'},{max:23,color:'#34D399'},{max:27.5,color:'#FBBF24'},{max:40,color:'#F87171'}]
+                   : [{max:18.5,color:'#60A5FA'},{max:25,color:'#34D399'},{max:30,color:'#FBBF24'},{max:40,color:'#F87171'}];
+                 var gaugeMin = 15, gaugeMax = 40, gaugeRange = gaugeMax - gaugeMin;
+                 var markerPos = Math.max(0, Math.min(100, ((Math.min(Math.max(cd.current, gaugeMin), gaugeMax) - gaugeMin) / gaugeRange) * 100));
+              %>
+              <div class="gauge-bar" style="position:relative;height:12px;border-radius:6px;overflow:hidden;display:flex">
+                <% gaugeScale.forEach(function(seg, i) {
+                     var prevMax = i === 0 ? gaugeMin : gaugeScale[i-1].max;
+                     var width = ((seg.max - prevMax) / gaugeRange) * 100;
+                %>
+                  <div style="width:<%= width %>%;background:<%= seg.color %>;height:100%"></div>
+                <% }); %>
+              </div>
+              <div class="gauge-marker" style="position:absolute;left:<%= markerPos %>%;top:-2px;width:8px;height:16px;background:#fff;border:2px solid #333;border-radius:4px;transform:translateX(-50%)"></div>
+              <div class="gauge-labels" style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);margin-top:4px">
+                <span><%= gaugeMin %></span>
+                <% gaugeScale.slice(0, -1).forEach(function(seg) { %><span><%= seg.max %></span><% }); %>
+                <span><%= gaugeMax %></span>
+              </div>
+            </div>
+            <div class="bmi-meta" style="font-size:12px;color:var(--muted);margin-top:8px">
+              <%= cd.weight.toFixed(1) %> kg · <%= (cd.height * 100).toFixed(0) %> cm · <%= cd.scale === 'asian' ? 'Asian' : 'Standard' %> WHO
+            </div>
+          </div>
+          <div class="chart" id="chart-bmi"></div>
+          <div class="legend">
+            <span><i style="background:#0FA9A0"></i>BMI</span>
+          </div>
+        <% } else if (cd.message) { %>
+          <p class="empty"><%= cd.message %></p>
+        <% } else { %>
+          <p class="empty">No weight data</p>
+        <% } %>
       <% } else if (card.key === 'workouts') { %>
         <div class="table-scroll">
           <table>
@@ -696,6 +745,8 @@ function drawAll() {
         ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
     } else if (card.key === "hr_split") {
       splitBandChart("chart-hr-split", cd.points);
+    } else if (card.type === "bmi") {
+      if (cd.hasData && cd.points) lineChart(id, cd.points, null, 1);
     }
   });
 }
