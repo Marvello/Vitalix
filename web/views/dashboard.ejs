@@ -93,7 +93,10 @@ body.editing .edit-controls{display:inline}
       <h1>Vitalix</h1>
       <p class="sub"><%= email || "Signed in" %></p>
     </div>
-    <form method="post" action="/logout"><button type="submit">Log out</button></form>
+    <div style="display:flex;gap:12px;align-items:center">
+      <% if (userRole === "admin") { %><a href="/admin" style="color:#0FA9A0;font-size:14px">Admin</a><% } %>
+      <form method="post" action="/logout"><button type="submit">Log out</button></form>
+    </div>
   </div>
 
   <%
