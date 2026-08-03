@@ -124,6 +124,20 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const hasHrSplit = !filterActive && hrRows.some((r) => r.scope === "active");
     const hasWorkouts = !filterActive && workouts.length > 0;
     const hasBmi = bmiRows.length > 0;
+    let hasBmiCard = hasBmi;
+    if (!hasBmi) {
+      const hasWeight = (cover.weight ?? 0) > 0;
+      const hasHeight = (cover.height ?? 0) > 0;
+      const { rows: userRows } = await query("SELECT profile_height_m FROM users WHERE id = $1", [req.user.id]);
+      const hasProfileHeight = userRows[0]?.profile_height_m != null;
+      if (hasWeight && !hasHeight && !hasProfileHeight) {
+        chartData.bmi = {
+          key: "bmi", label: "BMI", hasData: false,
+          message: "Set your height in the app to see BMI",
+        };
+        hasBmiCard = true;
+      }
+    }
 
     // Map of card key → whether it has data in this range
     const shownDayMetrics = visibleMetrics(stats.DAY_METRICS, cover);
@@ -138,7 +152,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       if (key === "hr_split") return hasHrSplit;
       if (key === "workouts") return hasWorkouts;
       if (key === "recent") return recent.length > 0;
-      if (key === "bmi") return hasBmi;
+      if (key === "bmi") return hasBmiCard;
       return false;
     }
 
@@ -154,7 +168,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         ...(hasSleep ? ["sleep"] : []),
         ...(hasHrSplit ? ["hr_split"] : []),
         ...bandKeys.map((k) => `band:${k}`),
-        ...(hasBmi ? ["bmi"] : []),
+        ...(hasBmiCard ? ["bmi"] : []),
         ...(hasWorkouts ? ["workouts"] : []),
         ...((recent.length > 0) ? ["recent"] : []),
       ];
@@ -253,20 +267,6 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
         hasData: true,
       };
     }
-    if (!hasBmi) {
-      // Check if there's weight data but no height — show a helpful message
-      const hasWeight = (cover.weight ?? 0) > 0;
-      const hasHeight = (cover.height ?? 0) > 0;
-      const { rows: userRows } = await query("SELECT profile_height_m FROM users WHERE id = $1", [req.user.id]);
-      const hasProfileHeight = userRows[0]?.profile_height_m != null;
-      if (hasWeight && !hasHeight && !hasProfileHeight) {
-        chartData.bmi = {
-          key: "bmi", label: "BMI", hasData: false,
-          message: "Set your height in the app to see BMI",
-        };
-      }
-    }
-
     res.render("dashboard", {
       email: user?.email,
       range: days,
