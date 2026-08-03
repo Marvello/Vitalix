@@ -7,12 +7,14 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
+import kotlinx.coroutines.launch
 
 /**
  * Server destination and auto-sync schedule, kept off the sync screen so they
@@ -34,6 +36,12 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var txtBatteryHint: TextView
     private lateinit var btnAllowBackground: Button
     private lateinit var btnOpenDeviceSettings: Button
+    private lateinit var editProfileName: TextInputEditText
+    private lateinit var editProfileHeight: TextInputEditText
+    private lateinit var editProfileWeight: TextInputEditText
+    private lateinit var toggleBmiScale: com.google.android.material.button.MaterialButtonToggleGroup
+    private lateinit var btnSaveProfile: Button
+    private lateinit var btnManualWeight: Button
 
     /** Suppresses the switch listener while the form is being populated. */
     private var loading = false
@@ -51,6 +59,24 @@ class SettingsActivity : AppCompatActivity() {
         txtBatteryHint = findViewById(R.id.txtBatteryHint)
         btnAllowBackground = findViewById(R.id.btnAllowBackground)
         btnOpenDeviceSettings = findViewById(R.id.btnOpenDeviceSettings)
+        editProfileName = findViewById(R.id.editProfileName)
+        editProfileHeight = findViewById(R.id.editProfileHeight)
+        editProfileWeight = findViewById(R.id.editProfileWeight)
+        toggleBmiScale = findViewById(R.id.toggleBmiScale)
+        btnSaveProfile = findViewById(R.id.btnSaveProfile)
+        btnManualWeight = findViewById(R.id.btnManualWeight)
+
+        btnSaveProfile.setOnClickListener { saveProfile() }
+        btnManualWeight.setOnClickListener { showManualWeightDialog() }
+
+        toggleBmiScale.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked || loading) return@addOnButtonCheckedListener
+            settings.bmiScale = when (checkedId) {
+                R.id.btnScaleStandard -> "standard"
+                R.id.btnScaleAsian -> "asian"
+                else -> null
+            }
+        }
 
         findViewById<TextView>(R.id.txtVersion).text =
             "Vitalix v${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\nbuilt ${BuildConfig.BUILD_TIME}"
@@ -142,6 +168,14 @@ class SettingsActivity : AppCompatActivity() {
         showServerUrl()
         switchAutoSync.isChecked = settings.autoSyncEnabled
         editSyncInterval.setText(settings.syncIntervalHours.toString())
+        editProfileName.setText(settings.userName ?: "")
+        editProfileHeight.setText(settings.userHeightCm?.let { "%.1f".format(it) } ?: "")
+        editProfileWeight.setText(settings.userWeightKg?.let { "%.1f".format(it) } ?: "")
+        toggleBmiScale.check(when (settings.bmiScale) {
+            "standard" -> R.id.btnScaleStandard
+            "asian" -> R.id.btnScaleAsian
+            else -> R.id.btnScaleAuto
+        })
         loading = false
         // Re-assert the schedule: the stored flag and WorkManager can drift apart
         // if work was cancelled behind our back (force stop, cleared data).
@@ -219,5 +253,87 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    /**
+     * Persists name/height/weight/BMI-scale and, when height or weight changed,
+     * mirrors them into Health Connect so other apps (and future exports) see them too.
+     */
+    private fun saveProfile() {
+        val name = editProfileName.text?.toString()?.trim()
+        val heightCm = editProfileHeight.text?.toString()?.trim()?.toDoubleOrNull()
+        val weightKg = editProfileWeight.text?.toString()?.trim()?.toDoubleOrNull()
+
+        settings.userName = name
+        settings.userHeightCm = heightCm
+        settings.userWeightKg = weightKg
+
+        if ((heightCm != null && heightCm > 0) || (weightKg != null && weightKg > 0)) {
+            lifecycleScope.launch {
+                try {
+                    val hcm = HealthConnectManager(this@SettingsActivity)
+                    val today = java.time.LocalDate.now()
+                    if (heightCm != null && heightCm > 0) hcm.insertHeightRecord(heightCm, today)
+                    if (weightKg != null && weightKg > 0) hcm.insertWeightRecord(weightKg, today)
+                } catch (_: Exception) {
+                }
+            }
+        }
+        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
+    }
+
+    /** Lets the user log a weight for an arbitrary past date without editing the profile field. */
+    private fun showManualWeightDialog() {
+        val input = TextInputEditText(this).apply {
+            hint = "Weight (kg)"
+            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
+            settings.userWeightKg?.let { setText("%.1f".format(it)) }
+        }
+
+        var selectedDate = java.time.LocalDate.now()
+
+        lateinit var dateButton: Button
+        val layout = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(64, 32, 64, 0)
+            addView(input)
+            dateButton = Button(this@SettingsActivity).apply {
+                text = "Date: $selectedDate"
+                setOnClickListener {
+                    android.app.DatePickerDialog(
+                        this@SettingsActivity,
+                        { _, year, month, day ->
+                            selectedDate = java.time.LocalDate.of(year, month + 1, day)
+                            text = "Date: $selectedDate"
+                        },
+                        selectedDate.year, selectedDate.monthValue - 1, selectedDate.dayOfMonth
+                    ).show()
+                }
+            }
+            addView(dateButton)
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle("Log weight")
+            .setView(layout)
+            .setPositiveButton("Save") { _, _ ->
+                val kg = input.text?.toString()?.trim()?.toDoubleOrNull()
+                if (kg == null || kg <= 0) {
+                    Toast.makeText(this, "Enter a valid weight", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                settings.userWeightKg = kg
+                editProfileWeight.setText("%.1f".format(kg))
+                lifecycleScope.launch {
+                    try {
+                        HealthConnectManager(this@SettingsActivity).insertWeightRecord(kg, selectedDate)
+                        Toast.makeText(this@SettingsActivity, "Weight logged", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this@SettingsActivity, "HC write failed: ${e.message}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 }
