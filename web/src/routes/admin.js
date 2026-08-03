@@ -60,3 +60,27 @@ adminRouter.get("/api/admin/invites", requireAuth, requireAdmin, async (req, res
   }));
   res.json(result);
 });
+
+adminRouter.delete("/api/admin/invites/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const deleted = await store.deleteInvite(id);
+  if (!deleted) return res.status(404).json({ error: "Invite not found or already used" });
+  res.json({ ok: true });
+});
+
+adminRouter.post("/api/admin/invites/:id/resend", requireAuth, requireAdmin, async (req, res) => {
+  const invite = await store.findInviteById(Number(req.params.id));
+  if (!invite) return res.status(404).json({ error: "Invite not found" });
+  if (invite.used_at) return res.status(400).json({ error: "Invite already used" });
+  await store.deleteInvite(invite.id);
+  const raw = await store.createInvite(invite.email, invite.role, req.user.id);
+  const link = `${config.appBaseUrl}/signup?token=${raw}`;
+  const installUrl = await getInstallUrl();
+  const downloadLine = installUrl ? `\nDownload the Vitalix app: ${installUrl}\n` : "";
+  await sendMail(
+    invite.email,
+    "You're invited to Vitalix",
+    `Dear Friend,\n\nYour Vitalix invite code is:\n\n    ${raw}\n\nSign up on the web: ${link}\n${downloadLine}\nExpires in 7 days.`
+  );
+  res.json({ ok: true });
+});

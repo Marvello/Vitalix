@@ -69,7 +69,7 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9}
   <h2 style="margin-top:0">Invites</h2>
   <div style="overflow-x:auto">
   <table>
-    <thead><tr><th>Email</th><th>Role</th><th>Invited by</th><th>Sent</th><th>Expires</th><th>Status</th></tr></thead>
+    <thead><tr><th>Email</th><th>Role</th><th>Invited by</th><th>Sent</th><th>Expires</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody id="invites-body">
     <% invites.forEach(function(inv) { %>
       <tr>
@@ -79,6 +79,12 @@ td{padding:8px 12px;border-bottom:1px solid #f1f5f9}
         <td><%= new Date(inv.created_at).toLocaleDateString() %></td>
         <td><%= new Date(inv.expires_at).toLocaleDateString() %></td>
         <td><span class="badge badge-<%= inv.status %>"><%= inv.status %></span></td>
+        <td>
+          <% if (inv.status !== 'used') { %>
+            <button class="btn-sm" onclick="resendInvite(<%= inv.id %>)">Resend</button>
+            <button class="btn-sm btn-danger" onclick="revokeInvite(<%= inv.id %>)">Revoke</button>
+          <% } %>
+        </td>
       </tr>
     <% }); %>
     </tbody>
@@ -160,6 +166,32 @@ async function toggleRole(id, currentRole) {
     if (!res.ok) return showMsg(data.error || "Failed to update role", false);
     showMsg("Role updated", true);
     setTimeout(function() { location.reload(); }, 1000);
+  } catch (err) {
+    showMsg("Network error", false);
+  }
+}
+
+async function revokeInvite(id) {
+  if (!confirm("Revoke this invite?")) return;
+  try {
+    var res = await fetch("/api/admin/invites/" + id, { method: "DELETE" });
+    var data = await res.json();
+    if (!res.ok) return showMsg(data.error || "Failed to revoke invite", false);
+    showMsg("Invite revoked", true);
+    setTimeout(function() { location.reload(); }, 1000);
+  } catch (err) {
+    showMsg("Network error", false);
+  }
+}
+
+async function resendInvite(id) {
+  if (!confirm("Resend invite email?")) return;
+  try {
+    var res = await fetch("/api/admin/invites/" + id + "/resend", { method: "POST" });
+    var data = await res.json();
+    if (!res.ok) return showMsg(data.error || "Failed to resend invite", false);
+    showMsg("Invite resent", true);
+    setTimeout(function() { location.reload(); }, 1500);
   } catch (err) {
     showMsg("Network error", false);
   }

@@ -116,7 +116,7 @@ export async function countAdmins() {
 
 export async function listInvites() {
   const { rows } = await query(
-    `SELECT i.email, i.role, i.created_at, i.expires_at, i.used_at,
+    `SELECT i.id, i.email, i.role, i.created_at, i.expires_at, i.used_at,
             u.email AS created_by_email
        FROM invites i
        LEFT JOIN users u ON u.id = i.created_by
@@ -124,3 +124,14 @@ export async function listInvites() {
   );
   return rows;
 }
+
+export async function deleteInvite(id) {
+  const { rowCount } = await query("DELETE FROM invites WHERE id = $1 AND used_at IS NULL", [id]);
+  return rowCount > 0;
+}
+
+export async function findInviteById(id) {
+  const { rows } = await query("SELECT id, email, role, used_at FROM invites WHERE id = $1", [id]);
+  return rows[0] ?? null;
+}
+
