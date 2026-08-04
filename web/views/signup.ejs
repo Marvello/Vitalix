@@ -1,6 +1,7 @@
 <!doctype html><html><head><title>Vitalix — Sign up</title>
 <%- include('partials/style') %>
 </head><body>
+<div class="wrap-narrow">
 <h1>Vitalix</h1><h2>Sign up</h2>
 <% if (error) { %><p class="err"><%= error %></p><% } %>
 <form method="post" action="/signup">
@@ -10,4 +11,5 @@
   <button type="submit">Create account</button>
 </form>
 <p>Already have an account? <a href="/login">Log in</a></p>
+</div>
 </body></html>

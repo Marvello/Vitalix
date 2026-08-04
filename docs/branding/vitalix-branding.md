@@ -24,27 +24,51 @@ A bridge that exports Google Fit data and forwards it to your own server. Privac
 
 ## Color
 
+### Brand palette
+
 | Role | Hex | Use |
 |------|-----|-----|
 | Vital Teal (primary) | `#0FA9A0` | gradient start, primary buttons, links |
 | Pulse Green (accent) | `#34D399` | gradient end, success/sync states |
 | Heart Coral | `#FF6B81` | logo heart only; use sparingly as a health accent |
-| Deep Ink | `#0E1B2B` | headings, body on light, dark bg |
-| Slate | `#475569` | secondary text, borders |
-| Cloud | `#F5F8FA` | app background |
-| White | `#FFFFFF` | surfaces, pulse mark |
+| Deep Ink | `#0E1B2B` | headings, body text on light backgrounds |
+| Slate | `#64748B` | secondary/muted text, borders |
+| Cloud | `#F5F8FA` | page background |
+| White | `#FFFFFF` | card surfaces, pulse mark |
 
 **Primary gradient:** linear 135°, `#0FA9A0 → #34D399`. Use sparingly — logo, hero, one key accent per screen.
+
+### Semantic colors
+
+| Role | Hex | Use |
+|------|-----|-----|
+| Error Red | `#B91C1C` | error text, failed sync status, destructive actions |
+| Warning Amber | `#B45309` | partial/warning status |
+| Success Green | `#166534` | success messages, active/sent status |
+| Error Background | `#FEF2F2` | error message backgrounds |
+| Success Background | `#DCFCE7` | success message backgrounds |
+
+### Dark mode overrides (web)
+
+| Token | Light | Dark |
+|-------|-------|------|
+| `--ink` | `#0E1B2B` | `#E2E8F0` |
+| `--muted` | `#64748B` | `#94A3B8` |
+| `--line` | `#E2E8F0` | `#1E293B` |
+| `--card` | `#FFFFFF` | `#0F172A` |
+| `--bg` | `#F8FAFC` | `#020617` |
 
 ---
 
 ## Typography
 
 - **Display / logotype:** Space Grotesk, Bold — headings, wordmark.
-- **UI / body:** Inter — all interface text.
-- **Data / mono:** JetBrains Mono — timestamps, sync logs, payload/JSON views.
+- **UI / body:** Inter — all interface text. Web: loaded via `Inter, system-ui, sans-serif` fallback stack.
+- **Data / mono:** JetBrains Mono — timestamps, sync logs, payload/JSON views. Web: `ui-monospace, SFMono-Regular, monospace` fallback stack.
 
 Scale (UI): 12 / 14 / 16 / 20 / 24 / 32 px. Body 16 px, line-height 1.5.
+
+> **Android status:** Custom fonts are not yet bundled in the Android app. The app uses the system default (Roboto via Material3 theme). Inter, Space Grotesk, and JetBrains Mono should be added to `res/font/` when the UI is mature enough to warrant the APK size increase.
 
 ---
 

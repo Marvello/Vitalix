@@ -4,23 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Vitalix — Dashboard</title>
+<link rel="stylesheet" href="/style.css">
 <style>
-:root{
-  --teal:#0FA9A0; --green:#34D399; --ink:#0E1B2B; --muted:#64748b;
-  --line:#e2e8f0; --card:#ffffff; --bg:#f8fafc;
-}
-@media (prefers-color-scheme: dark){
-  :root{ --ink:#e2e8f0; --muted:#94a3b8; --line:#1e293b; --card:#0f172a; --bg:#020617; }
-}
-*{box-sizing:border-box}
-body{font-family:Inter,system-ui,sans-serif;margin:0;background:var(--bg);color:var(--ink)}
-.wrap{max-width:1080px;margin:0 auto;padding:24px 20px 64px}
-.topbar{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-h1{color:var(--teal);margin:0;font-size:26px;letter-spacing:-0.02em}
-h2{font-size:15px;margin:0 0 12px;font-weight:600}
+h1{font-size:26px;letter-spacing:-0.02em}
+h2{font-size:15px;margin:0 0 12px}
 .sub{color:var(--muted);font-size:14px;margin:4px 0 0}
-button{background:var(--teal);color:#fff;border:0;padding:8px 14px;border-radius:8px;font-size:14px;cursor:pointer}
-a{color:var(--teal)}
 .ranges{display:flex;gap:6px;margin:20px 0 16px;flex-wrap:wrap}
 .ranges a{padding:6px 12px;border:1px solid var(--line);border-radius:999px;text-decoration:none;font-size:13px;color:var(--muted);background:var(--card)}
 .ranges a.on{background:var(--teal);border-color:var(--teal);color:#fff}
@@ -35,17 +23,13 @@ a{color:var(--teal)}
 .tile .value{font-size:24px;font-weight:650;margin-top:6px;letter-spacing:-0.02em}
 .tile .unit{font-size:13px;color:var(--muted);font-weight:500;margin-left:3px}
 h2 .unit{color:var(--muted);font-weight:500}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:16px}
-.chart{width:100%;overflow-x:auto}
+.card{padding:16px;margin-top:16px}
+.chart{width:100%;overflow-x:auto;touch-action:pan-y}
 svg{display:block;max-width:100%}
 .legend{display:flex;gap:14px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin-top:8px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
-table{width:100%;border-collapse:collapse;margin-top:4px;font-size:14px}
-th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
-th{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.03em;font-weight:600}
-td.num,th.num{text-align:right}
-.empty{color:var(--muted);padding:24px 0}
-.table-scroll{overflow-x:auto}
+table{margin-top:4px}
+th,td{white-space:nowrap}
 #tooltip{
   position:fixed;display:none;z-index:20;pointer-events:none;
   background:var(--card);color:var(--ink);border:1px solid var(--line);
@@ -56,16 +40,13 @@ td.num,th.num{text-align:right}
 #tooltip b{grid-column:1/-1;margin-bottom:3px}
 #tooltip .k{color:var(--muted)}
 #tooltip .v{text-align:right;font-weight:600;font-variant-numeric:tabular-nums}
-.chart{touch-action:pan-y}
-.build-footer{text-align:center;color:var(--muted);font-size:11px;padding:32px 0 8px;letter-spacing:.02em}
-.build-hash{font-family:ui-monospace,SFMono-Regular,monospace;background:rgba(100,116,139,.1);padding:1px 5px;border-radius:4px}
 .card-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
 .card-header h2{flex:1;margin:0}
 .card-btn{background:none;border:1px solid var(--line);color:var(--muted);width:28px;height:28px;padding:0;border-radius:6px;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;margin:0}
 .card-btn:hover{border-color:var(--teal);color:var(--teal)}
 .edit-controls{display:none}
 body.editing .edit-controls{display:inline}
-.card-btn.remove:hover{border-color:#b91c1c;color:#b91c1c}
+.card-btn.remove:hover{border-color:var(--error);color:var(--error)}
 .add-chart-bar{margin-top:16px;text-align:center}
 .add-chart-bar button{width:auto;padding:10px 24px}
 .picker{display:none;margin-top:12px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
@@ -94,7 +75,7 @@ body.editing .edit-controls{display:inline}
       <p class="sub"><%= email || "Signed in" %></p>
     </div>
     <div style="display:flex;gap:12px;align-items:center">
-      <% if (userRole === "admin") { %><a href="/admin" style="color:#0FA9A0;font-size:14px">Admin</a><% } %>
+      <% if (userRole === "admin") { %><a href="/admin" style="font-size:14px">Admin</a><% } %>
       <form method="post" action="/logout"><button type="submit">Log out</button></form>
     </div>
   </div>

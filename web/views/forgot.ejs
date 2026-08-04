@@ -1,6 +1,7 @@
 <!doctype html><html><head><title>Vitalix — Forgot password</title>
 <%- include('partials/style') %>
 </head><body>
+<div class="wrap-narrow">
 <h1>Vitalix</h1><h2>Forgot password</h2>
 <% if (error) { %><p class="err"><%= error %></p><% } %>
 <% if (sent) { %>
@@ -12,4 +13,5 @@
   </form>
 <% } %>
 <p><a href="/login">Back to log in</a></p>
+</div>
 </body></html>

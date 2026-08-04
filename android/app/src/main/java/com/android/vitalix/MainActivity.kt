@@ -207,14 +207,14 @@ class MainActivity : AppCompatActivity() {
         manager.checkForUpdate(
             endpoint = BuildConfig.ZEALOT_ENDPOINT,
             channelKey = BuildConfig.ZEALOT_CHANNEL_KEY,
-            currentVersionName = BuildConfig.VERSION_NAME
-        ) { version, downloadUrl ->
+            currentVersionCode = BuildConfig.VERSION_CODE
+        ) { downloadUrl ->
             runOnUiThread {
                 AlertDialog.Builder(this)
                     .setTitle("Update Available")
-                    .setMessage("Version $version is ready. Download now?")
+                    .setMessage("A new version of Vitalix is ready. Download now?")
                     .setPositiveButton("Update") { _, _ ->
-                        manager.downloadAndInstall(downloadUrl, version)
+                        manager.downloadAndInstall(downloadUrl, "update")
                     }
                     .setNegativeButton("Later", null)
                     .show()

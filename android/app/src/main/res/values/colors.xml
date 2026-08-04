@@ -2,6 +2,17 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Brand -->
     <color name="vital_teal">#0FA9A0</color>
     <color name="pulse_green">#34D399</color>
+    <color name="heart_coral">#FF6B81</color>
+
+    <!-- Semantic -->
+    <color name="deep_ink">#0E1B2B</color>
+    <color name="slate">#64748B</color>
+    <color name="cloud">#F5F8FA</color>
+    <color name="error_red">#B91C1C</color>
+    <color name="warning_amber">#B45309</color>
+    <color name="success_green">#166534</color>
 </resources>

@@ -42,8 +42,8 @@ class UpdateManager(private val context: Context) {
     fun checkForUpdate(
         endpoint: String,
         channelKey: String,
-        currentVersionName: String,
-        onUpdateAvailable: (version: String, downloadUrl: String) -> Unit
+        currentVersionCode: Int,
+        onUpdateAvailable: (downloadUrl: String) -> Unit
     ) {
         if (endpoint.isBlank() || channelKey.isBlank()) return
 
@@ -70,14 +70,15 @@ class UpdateManager(private val context: Context) {
                                 ?.optString("install_url")
                                 .orEmpty()
                         }
-                        val version = json.optString("version").ifBlank {
+                        val remoteBuildVersion = json.optString("build_version").ifBlank {
                             json.optJSONArray("releases")
                                 ?.optJSONObject(0)
-                                ?.optString("version")
+                                ?.optString("build_version")
                                 .orEmpty()
                         }
-                        if (downloadUrl.isNotBlank() && version.isNotBlank() && version != currentVersionName) {
-                            onUpdateAvailable(version, downloadUrl)
+                        val remoteCode = remoteBuildVersion.toIntOrNull() ?: 0
+                        if (downloadUrl.isNotBlank() && remoteCode > currentVersionCode) {
+                            onUpdateAvailable(downloadUrl)
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "Update check parse failed: ${e.message}")

@@ -103,7 +103,7 @@
             android:layout_marginTop="8dp"
             android:layout_marginBottom="16dp"
             android:textAlignment="center"
-            android:textColor="#D0342C" />
+            android:textColor="@color/error_red" />
 
         <TextView
             android:id="@+id/linkLogin"

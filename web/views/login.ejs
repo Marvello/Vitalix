@@ -1,6 +1,7 @@
 <!doctype html><html><head><title>Vitalix — Log in</title>
 <%- include('partials/style') %>
 </head><body>
+<div class="wrap-narrow">
 <h1>Vitalix</h1><h2>Log in</h2>
 <% if (error) { %><p class="err"><%= error %></p><% } %>
 <form method="post" action="/login">
@@ -10,4 +11,5 @@
 </form>
 <p><a href="/forgot">Forgot password?</a></p>
 <p>Have an invite? <a href="/signup">Sign up</a></p>
+</div>
 </body></html>

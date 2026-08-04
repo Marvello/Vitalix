@@ -30,6 +30,7 @@ class SignupActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_signup)
+        applyStatusBarTopPadding()
 
         editInviteCode = findViewById(R.id.editInviteCode)
         editEmail = findViewById(R.id.editEmail)

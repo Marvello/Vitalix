@@ -1,6 +1,5 @@
 package com.android.vitalix
 
-import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -28,6 +27,7 @@ class SyncLogActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sync_log)
+        applyStatusBarTopPadding()
         list = findViewById(R.id.listEntries)
         empty = findViewById(R.id.txtEmpty)
         findViewById<Button>(R.id.btnClearLog).setOnClickListener {
@@ -139,10 +139,10 @@ class SyncLogActivity : AppCompatActivity() {
         return "Period: $range$days"
     }
 
-    private fun colorFor(status: SyncLog.Status) = when (status) {
-        SyncLog.Status.SENT -> Color.parseColor("#0FA9A0")
-        SyncLog.Status.PARTIAL -> Color.parseColor("#B45309")
-        SyncLog.Status.FAILED -> Color.parseColor("#B91C1C")
-        SyncLog.Status.RUNNING -> Color.parseColor("#64748B")
-    }
+    private fun colorFor(status: SyncLog.Status) = ContextCompat.getColor(this, when (status) {
+        SyncLog.Status.SENT -> R.color.vital_teal
+        SyncLog.Status.PARTIAL -> R.color.warning_amber
+        SyncLog.Status.FAILED -> R.color.error_red
+        SyncLog.Status.RUNNING -> R.color.slate
+    })
 }

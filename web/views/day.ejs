@@ -1,12 +1,7 @@
-<!doctype html><html><head><title>Vitalix — <%= date %></title><style>
-body{font-family:Inter,system-ui,sans-serif;max-width:900px;margin:6vh auto;padding:0 20px;color:#0E1B2B}
-h1{color:#0FA9A0} h2{color:#0E1B2B;margin-top:32px} a{color:#0FA9A0}
-table{width:100%;border-collapse:collapse;margin-top:10px}
-th,td{text-align:left;padding:6px 10px;border-bottom:1px solid #e2e8f0;font-size:14px}
-th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
-.empty{color:#64748b;margin-top:24px}
-.scroll{max-height:420px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px}
-.scroll table{margin-top:0}</style></head><body>
+<!doctype html><html><head><title>Vitalix — <%= date %></title>
+<link rel="stylesheet" href="/style.css">
+</head><body>
+<div class="wrap">
 <p><a href="/dashboard">&larr; Back to dashboard</a></p>
 <h1>Vitalix</h1>
 <h2><%= date %></h2>
@@ -86,4 +81,5 @@ th{color:#34D399;font-size:12px;text-transform:uppercase;letter-spacing:.03em}
   <% } %>
 
 <% } %>
+</div>
 </body></html>
