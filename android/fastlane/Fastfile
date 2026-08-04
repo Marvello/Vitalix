@@ -1,7 +1,7 @@
 default_platform(:android)
 
 VERSION_FILE = File.expand_path("../version.properties", Dir.pwd)
-VERSION_FILE_REL = "android/version.properties"
+VERSION_FILE_REL = "version.properties"
 
 def read_versions(flavor)
   props = {}
