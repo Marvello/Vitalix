@@ -25,6 +25,14 @@ data class PayloadMeta(
 object ServerForwarder {
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
+    const val DEFAULT_CHUNK_DAYS = 7
+    const val MAX_PAYLOAD_BYTES = 512 * 1024 // 512 KB
+
+    fun splitIntoChunks(days: List<DailyHealthData>, chunkSize: Int): List<List<DailyHealthData>> {
+        if (days.isEmpty()) return emptyList()
+        return days.chunked(chunkSize.coerceAtLeast(1))
+    }
+
     private fun toJsonValue(v: Any?): Any? = when (v) {
         is MinMaxAvg -> JSONObject().apply {
             v.min?.let { put("min", it) }; v.max?.let { put("max", it) }; v.avg?.let { put("avg", it) }
@@ -53,13 +61,24 @@ object ServerForwarder {
         s.meta?.takeIf { it.isNotEmpty() }?.let { put("meta", JSONObject(it as Map<*, *>)) }
     }
 
-    fun buildPayload(days: List<DailyHealthData>, meta: PayloadMeta): String {
+    fun buildPayload(
+        days: List<DailyHealthData>,
+        meta: PayloadMeta,
+        chunkIndex: Int? = null,
+        chunkTotal: Int? = null,
+    ): String {
         val root = JSONObject()
         root.put("source", "vitalix")
         root.put("appVersion", meta.appVersion)
         root.put("device", meta.device)
         root.put("exportedAt", java.time.Instant.now().toString())
         root.put("rangeDays", meta.rangeDays)
+        if (chunkIndex != null && chunkTotal != null) {
+            root.put("chunk", JSONObject().apply {
+                put("index", chunkIndex)
+                put("total", chunkTotal)
+            })
+        }
         meta.profileHeightM?.let { root.put("profileHeightM", it) }
         meta.bmiScale?.let { root.put("bmiScale", it) }
         val arr = JSONArray()
@@ -111,5 +130,45 @@ object ServerForwarder {
         } catch (e: Exception) { Result.failure(e) }
     }
 
+    suspend fun forwardChunked(
+        context: Context,
+        url: String,
+        days: List<DailyHealthData>,
+        meta: PayloadMeta,
+        chunkDays: Int = DEFAULT_CHUNK_DAYS,
+    ): Result<Unit> {
+        val chunks = splitIntoChunks(days, chunkDays)
+        if (chunks.isEmpty()) return Result.success(Unit)
+
+        val total = chunks.size
+        for ((i, chunk) in chunks.withIndex()) {
+            val json = buildPayload(chunk, meta, chunkIndex = i + 1, chunkTotal = total)
+            val bytes = json.toByteArray()
+
+            // Tier 2: if a chunk exceeds MAX_PAYLOAD_BYTES, sub-split it
+            if (bytes.size > MAX_PAYLOAD_BYTES && chunk.size > 1) {
+                val subResult = forwardChunked(context, url, chunk, meta, (chunk.size / 2).coerceAtLeast(1))
+                if (subResult.isFailure) return subResult
+                continue
+            }
+
+            // Single-day escape hatch: send even if over size limit
+            if (bytes.size > MAX_PAYLOAD_BYTES) {
+                android.util.Log.w("ServerForwarder", "Single day exceeds ${MAX_PAYLOAD_BYTES}B (${bytes.size}B), sending anyway")
+            }
+
+            val result = forward(context, url, json)
+            if (result.isFailure) {
+                val err = result.exceptionOrNull()
+                if (err is HttpException && err.code == 413) {
+                    throw PayloadTooLargeException(err.code)
+                }
+                return Result.failure(err ?: Exception("Unknown error"))
+            }
+        }
+        return Result.success(Unit)
+    }
+
     class HttpException(val code: Int) : Exception("HTTP $code")
+    class PayloadTooLargeException(val code: Int = 413) : Exception("Server rejected payload: HTTP $code")
 }

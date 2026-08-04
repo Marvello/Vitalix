@@ -113,11 +113,16 @@ class BackfillWorker(
                     emptyRun++
                 } else {
                     emptyRun = 0
-                    val json = ServerForwarder.buildPayload(
-                        days,
-                        PayloadMeta(appVersion(), Build.MODEL, WINDOW_DAYS.toInt())
-                    )
-                    val result = ServerForwarder.forward(ctx, url, json)
+                    val result = try {
+                        ServerForwarder.forwardChunked(
+                            ctx, url, days,
+                            PayloadMeta(appVersion(), Build.MODEL, WINDOW_DAYS.toInt())
+                        )
+                    } catch (e: ServerForwarder.PayloadTooLargeException) {
+                        val detail = "Payload too large for server even after chunking"
+                        log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = detail)
+                        return Result.failure(message("Stopped after $daysSent days: $detail"))
+                    }
                     if (result.isFailure) {
                         val err = result.exceptionOrNull()
                         val detail = when {

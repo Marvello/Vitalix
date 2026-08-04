@@ -652,8 +652,8 @@ class MainActivity : AppCompatActivity() {
                 val result = withContext(Dispatchers.IO) {
                     val days = healthConnectManager.readHealthDataByDay(cfg)
                     daysSent = days.size
-                    val json = ServerForwarder.buildPayload(
-                        days,
+                    ServerForwarder.forwardChunked(
+                        this@MainActivity, url, days,
                         PayloadMeta(
                             appVersion = appVersion,
                             device = Build.MODEL,
@@ -662,7 +662,6 @@ class MainActivity : AppCompatActivity() {
                             bmiScale = settings.resolvedBmiScale(),
                         )
                     )
-                    ServerForwarder.forward(this@MainActivity, url, json)
                 }
                 if (result.isSuccess) {
                     settings.lastSync = System.currentTimeMillis()
@@ -677,7 +676,7 @@ class MainActivity : AppCompatActivity() {
                         message = if (missed.isEmpty()) null else "Could not read ${missed.joinToString(", ")}",
                     )
                     showStatus(
-                        if (missed.isEmpty()) "Sent (HTTP ${result.getOrNull()})"
+                        if (missed.isEmpty()) "Sent"
                         else "Sent, but ${missed.joinToString(", ")} could not be read — sync again shortly"
                     )
                 } else {
@@ -697,6 +696,9 @@ class MainActivity : AppCompatActivity() {
                     syncLog.finish(runId, SyncLog.Status.FAILED, message = detail)
                     showStatus("Failed: $detail")
                 }
+            } catch (e: ServerForwarder.PayloadTooLargeException) {
+                syncLog.finish(runId, SyncLog.Status.FAILED, message = "Payload too large for server")
+                showStatus("Failed: payload too large even after chunking")
             } catch (e: Exception) {
                 syncLog.finish(runId, SyncLog.Status.FAILED, message = e.message)
                 showStatus("Failed: ${e.message}")

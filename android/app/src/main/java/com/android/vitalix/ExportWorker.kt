@@ -42,8 +42,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 profileHeightM = settings.userHeightCm?.let { it / 100.0 },
                 bmiScale = settings.resolvedBmiScale(),
             )
-            val json = ServerForwarder.buildPayload(days, meta)
-            ServerForwarder.forward(applicationContext, url, json).fold(
+            ServerForwarder.forwardChunked(applicationContext, url, days, meta).fold(
                 onSuccess = {
                     settings.lastSync = System.currentTimeMillis()
                     val missed = manager.lastFailedMetrics
@@ -57,17 +56,24 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 },
                 onFailure = { e ->
                     log.finish(runId, SyncLog.Status.FAILED, message = e.message)
-                    if (e is ServerForwarder.HttpException && e.code == 401) {
-                        // AuthedHttp's authenticator already tried to refresh and failed
-                        // (clearing AuthStore). Don't infinite-retry a dead session.
-                        Result.failure()
-                    } else if (e is ServerForwarder.HttpException && e.code in 400..499) {
-                        Result.failure()
-                    } else {
-                        Result.retry()
+                    when {
+                        e is ServerForwarder.PayloadTooLargeException -> {
+                            // Payload too large even after chunking — unrecoverable for this data range
+                            Result.failure()
+                        }
+                        e is ServerForwarder.HttpException && e.code == 401 -> {
+                            // AuthedHttp's authenticator already tried to refresh and failed
+                            // (clearing AuthStore). Don't infinite-retry a dead session.
+                            Result.failure()
+                        }
+                        e is ServerForwarder.HttpException && e.code in 400..499 -> Result.failure()
+                        else -> Result.retry()
                     }
                 }
             )
+        } catch (e: ServerForwarder.PayloadTooLargeException) {
+            log.finish(runId, SyncLog.Status.FAILED, message = e.message)
+            Result.failure()
         } catch (e: Exception) {
             log.finish(runId, SyncLog.Status.FAILED, message = e.message)
             Result.retry()
