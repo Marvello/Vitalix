@@ -12,6 +12,11 @@ val localProps = Properties().apply {
 fun localProp(key: String): String? =
     localProps.getProperty(key) ?: project.findProperty(key) as String? ?: System.getenv(key)
 
+val versionProps = Properties().apply {
+    val f = rootProject.file("version.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.google.services)
@@ -76,6 +81,8 @@ android {
         create("production") {
             dimension = "environment"
             applicationId = "com.android.vitalix"
+            versionCode = (versionProps.getProperty("production.versionCode") ?: "1").toInt()
+            versionName = versionProps.getProperty("production.versionName") ?: "1.0.0"
             resValue("string", "app_name", "Vitalix")
             buildConfigField("String", "ZEALOT_ENDPOINT",
                 "\"${localProp("ZEALOT_ENDPOINT") ?: ""}\"")
@@ -85,6 +92,8 @@ android {
         create("beta") {
             dimension = "environment"
             applicationId = "com.android.vitalix.beta"
+            versionCode = (versionProps.getProperty("beta.versionCode") ?: "1").toInt()
+            versionName = versionProps.getProperty("beta.versionName") ?: "1.0.0"
             resValue("string", "app_name", "Vitalix Beta")
             buildConfigField("String", "ZEALOT_ENDPOINT",
                 "\"${localProp("ZEALOT_ENDPOINT") ?: ""}\"")
@@ -97,8 +106,6 @@ android {
         applicationId = "com.android.vitalix"
         minSdk = 30
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
 
         // Stamp the build time so the Settings footer can show which build is
         // installed. Local time, minute precision — enough to tell two builds apart.

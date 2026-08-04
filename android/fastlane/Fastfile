@@ -1,5 +1,51 @@
 default_platform(:android)
 
+VERSION_FILE = File.expand_path("../version.properties", Dir.pwd)
+VERSION_FILE_REL = "android/version.properties"
+
+def read_versions(flavor)
+  props = {}
+  File.readlines(VERSION_FILE).each do |line|
+    key, value = line.strip.split("=", 2)
+    props[key] = value if key && value
+  end
+  {
+    code: props["#{flavor}.versionCode"].to_i,
+    name: props["#{flavor}.versionName"]
+  }
+end
+
+def bump_version(flavor, type: :patch)
+  lines = File.readlines(VERSION_FILE)
+  v = read_versions(flavor)
+  new_code = v[:code] + 1
+
+  parts = v[:name].split(".").map(&:to_i)
+  case type
+  when :major
+    parts = [parts[0] + 1, 0, 0]
+  when :minor
+    parts = [parts[0], parts[1] + 1, 0]
+  when :patch
+    parts = [parts[0], parts[1], parts[2] + 1]
+  end
+  new_name = parts.join(".")
+
+  updated = lines.map do |line|
+    if line.start_with?("#{flavor}.versionCode=")
+      "#{flavor}.versionCode=#{new_code}\n"
+    elsif line.start_with?("#{flavor}.versionName=")
+      "#{flavor}.versionName=#{new_name}\n"
+    else
+      line
+    end
+  end
+  File.write(VERSION_FILE, updated.join)
+
+  UI.success "#{flavor}: #{v[:name]} (#{v[:code]}) → #{new_name} (#{new_code})"
+  { code: new_code, name: new_name }
+end
+
 platform :android do
   desc "Runs all the tests"
   lane :test do
@@ -7,7 +53,10 @@ platform :android do
   end
 
   desc "Submit a new Beta Build to Zealot"
-  lane :beta do
+  lane :beta do |options|
+    bump_type = (options[:bump] || "patch").to_sym
+    v = bump_version("beta", type: bump_type)
+
     gradle(task: "clean assembleBetaRelease")
 
     zealot(
@@ -19,10 +68,18 @@ platform :android do
       branch: git_branch,
       git_commit: last_git_commit[:commit_hash]
     )
+
+    git_commit(
+      path: VERSION_FILE_REL,
+      message: "bump beta to #{v[:name]} (#{v[:code]})"
+    )
   end
 
   desc "Deploy a new production version to Zealot"
-  lane :production do
+  lane :production do |options|
+    bump_type = (options[:bump] || "patch").to_sym
+    v = bump_version("production", type: bump_type)
+
     gradle(task: "clean assembleProductionRelease")
 
     zealot(
@@ -33,6 +90,11 @@ platform :android do
       release_type: "release",
       branch: git_branch,
       git_commit: last_git_commit[:commit_hash]
+    )
+
+    git_commit(
+      path: VERSION_FILE_REL,
+      message: "bump production to #{v[:name]} (#{v[:code]})"
     )
   end
 end
