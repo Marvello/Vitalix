@@ -18,10 +18,6 @@ webhookRouter.post("/api/webhooks/zealot", async (req, res) => {
       try {
         await admin.messaging().send({
           topic,
-          notification: {
-            title: "Vitalix Update Available",
-            body: `Version ${release_version || "new"} is ready to install`,
-          },
           data: {
             type: "app_update",
             version: release_version || "",

@@ -104,12 +104,12 @@ class UpdateManager(private val context: Context) {
             override fun onReceive(ctx: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (id != downloadId) return
-                context.unregisterReceiver(this)
+                context.applicationContext.unregisterReceiver(this)
                 onDownloadComplete(dm, id)
             }
         }
         ContextCompat.registerReceiver(
-            context, receiver,
+            context.applicationContext, receiver,
             IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
             ContextCompat.RECEIVER_NOT_EXPORTED
         )
