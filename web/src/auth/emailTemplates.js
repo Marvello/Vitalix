@@ -1,4 +1,5 @@
 import { config } from "../config.js";
+import QRCode from "qrcode";
 
 function logoUrl() {
   return `${config.appBaseUrl}/logo.png`;
@@ -50,12 +51,21 @@ function divider() {
   return `<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin:28px 0;"><tr><td style="border-top:1px solid #e8ecf0;"></td></tr></table>`;
 }
 
-export function inviteEmail({ code, link, downloadUrl }) {
-  const downloadBlock = downloadUrl
-    ? `<p style="margin:16px 0 0;font-size:14px;color:#5a6570;">
+export async function inviteEmail({ code, link, downloadUrl }) {
+  let downloadBlock = "";
+  if (downloadUrl) {
+    let qrImg = "";
+    try {
+      const qrDataUri = await QRCode.toDataURL(downloadUrl, { width: 150, margin: 1 });
+      qrImg = `<div style="text-align:center;margin:16px 0 0;">
+        <img src="${qrDataUri}" alt="Scan to download Vitalix" width="150" height="150" style="border:1px solid #e0e0e0;border-radius:4px;" />
+        <p style="font-size:12px;color:#8e99a4;margin:4px 0 0;">Scan to download</p>
+      </div>`;
+    } catch (_) { /* QR generation failed — text link is the fallback */ }
+    downloadBlock = `<p style="margin:16px 0 0;font-size:14px;color:#5a6570;">
         <a href="${downloadUrl}" style="color:#0FA9A0;font-weight:600;text-decoration:none;">Download the Vitalix app &darr;</a>
-      </p>`
-    : "";
+      </p>${qrImg}`;
+  }
   return {
     html: layout(`
       <h1 style="margin:0 0 6px;font-size:22px;font-weight:700;color:#0E1B2B;letter-spacing:-0.3px;">You're invited</h1>

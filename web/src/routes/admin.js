@@ -14,7 +14,7 @@ adminRouter.post("/api/admin/invites", requireAuth, requireAdmin, async (req, re
   const raw = await store.createInvite(email, role === "admin" ? "admin" : "user", req.user.id);
   const link = `${config.appBaseUrl}/signup?token=${raw}`;
   const downloadUrl = await getInstallUrl();
-  await sendMail(email, "You're invited to Vitalix", inviteEmail({ code: raw, link, downloadUrl }));
+  await sendMail(email, "You're invited to Vitalix", await inviteEmail({ code: raw, link, downloadUrl }));
   res.status(201).json({ ok: true });
 });
 
@@ -72,6 +72,6 @@ adminRouter.post("/api/admin/invites/:id/resend", requireAuth, requireAdmin, asy
   const raw = await store.createInvite(invite.email, invite.role, req.user.id);
   const link = `${config.appBaseUrl}/signup?token=${raw}`;
   const downloadUrl = await getInstallUrl();
-  await sendMail(invite.email, "You're invited to Vitalix", inviteEmail({ code: raw, link, downloadUrl }));
+  await sendMail(invite.email, "You're invited to Vitalix", await inviteEmail({ code: raw, link, downloadUrl }));
   res.json({ ok: true });
 });
