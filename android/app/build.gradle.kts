@@ -3,6 +3,14 @@ import java.net.InetAddress
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Properties
+
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun localProp(key: String): String? =
+    localProps.getProperty(key) ?: project.findProperty(key) as String? ?: System.getenv(key)
 
 plugins {
     alias(libs.plugins.android.application)
@@ -36,8 +44,8 @@ fun defaultDebugServerUrl(): String {
  * default below. Quoted for buildConfigField, which takes a Java literal.
  */
 fun serverUrl(default: String): String {
-    val value = (project.findProperty("vitalixServerUrl") as String?)
-        ?: System.getenv("VITALIX_SERVER_URL")
+    val value = localProp("vitalixServerUrl")
+        ?: localProp("VITALIX_SERVER_URL")
         ?: default
     return "\"$value\""
 }
@@ -50,16 +58,16 @@ android {
 
     signingConfigs {
         create("beta") {
-            storeFile = file(project.findProperty("VITALIX_BETA_STORE_FILE") as String? ?: "")
-            storePassword = project.findProperty("VITALIX_BETA_STORE_PASSWORD") as String? ?: ""
-            keyAlias = project.findProperty("VITALIX_BETA_KEY_ALIAS") as String? ?: ""
-            keyPassword = project.findProperty("VITALIX_BETA_KEY_PASSWORD") as String? ?: ""
+            storeFile = file(localProp("VITALIX_BETA_STORE_FILE") ?: "")
+            storePassword = localProp("VITALIX_BETA_STORE_PASSWORD") ?: ""
+            keyAlias = localProp("VITALIX_BETA_KEY_ALIAS") ?: ""
+            keyPassword = localProp("VITALIX_BETA_KEY_PASSWORD") ?: ""
         }
         create("production") {
-            storeFile = file(project.findProperty("VITALIX_PROD_STORE_FILE") as String? ?: "")
-            storePassword = project.findProperty("VITALIX_PROD_STORE_PASSWORD") as String? ?: ""
-            keyAlias = project.findProperty("VITALIX_PROD_KEY_ALIAS") as String? ?: ""
-            keyPassword = project.findProperty("VITALIX_PROD_KEY_PASSWORD") as String? ?: ""
+            storeFile = file(localProp("VITALIX_PROD_STORE_FILE") ?: "")
+            storePassword = localProp("VITALIX_PROD_STORE_PASSWORD") ?: ""
+            keyAlias = localProp("VITALIX_PROD_KEY_ALIAS") ?: ""
+            keyPassword = localProp("VITALIX_PROD_KEY_PASSWORD") ?: ""
         }
     }
 
@@ -70,18 +78,18 @@ android {
             applicationId = "com.android.vitalix"
             resValue("string", "app_name", "Vitalix")
             buildConfigField("String", "ZEALOT_ENDPOINT",
-                "\"${project.findProperty("ZEALOT_ENDPOINT") ?: System.getenv("ZEALOT_ENDPOINT") ?: ""}\"")
+                "\"${localProp("ZEALOT_ENDPOINT") ?: ""}\"")
             buildConfigField("String", "ZEALOT_CHANNEL_KEY",
-                "\"${project.findProperty("ZEALOT_PROD_CHANNEL_KEY") ?: System.getenv("ZEALOT_PROD_CHANNEL_KEY") ?: ""}\"")
+                "\"${localProp("ZEALOT_PROD_CHANNEL_KEY") ?: ""}\"")
         }
         create("beta") {
             dimension = "environment"
             applicationId = "com.android.vitalix.beta"
             resValue("string", "app_name", "Vitalix Beta")
             buildConfigField("String", "ZEALOT_ENDPOINT",
-                "\"${project.findProperty("ZEALOT_ENDPOINT") ?: System.getenv("ZEALOT_ENDPOINT") ?: ""}\"")
+                "\"${localProp("ZEALOT_ENDPOINT") ?: ""}\"")
             buildConfigField("String", "ZEALOT_CHANNEL_KEY",
-                "\"${project.findProperty("ZEALOT_BETA_CHANNEL_KEY") ?: System.getenv("ZEALOT_BETA_CHANNEL_KEY") ?: ""}\"")
+                "\"${localProp("ZEALOT_BETA_CHANNEL_KEY") ?: ""}\"")
         }
     }
 
@@ -99,8 +107,8 @@ android {
             .format(Instant.now())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
 
-        val clarityId = (project.findProperty("clarityProjectId") as String?)
-            ?: System.getenv("CLARITY_PROJECT_ID")
+        val clarityId = localProp("clarityProjectId")
+            ?: localProp("CLARITY_PROJECT_ID")
             ?: ""
         buildConfigField("String", "CLARITY_PROJECT_ID", "\"$clarityId\"")
 
