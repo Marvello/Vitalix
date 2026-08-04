@@ -181,6 +181,36 @@ class MainActivity : AppCompatActivity() {
         uiReady = true
 
         btnSyncNow.setOnClickListener { onSyncClicked() }
+
+        handleUpdateIntent(intent)
+        checkForAppUpdate()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        val downloadUrl = intent?.getStringExtra(UpdateManager.EXTRA_DOWNLOAD_URL) ?: return
+        val version = intent.getStringExtra(UpdateManager.EXTRA_VERSION) ?: "update"
+        intent.removeExtra(UpdateManager.EXTRA_DOWNLOAD_URL)
+        UpdateManager(this).downloadAndInstall(downloadUrl, version)
+    }
+
+    /** Manual Zealot update check on app open — see VitalixApp.kt for why this
+     *  calls the Zealot HTTP API directly rather than through the SDK. */
+    private fun checkForAppUpdate() {
+        if (BuildConfig.ZEALOT_ENDPOINT.isBlank() || BuildConfig.ZEALOT_CHANNEL_KEY.isBlank()) return
+        UpdateManager(this).checkForUpdate(
+            endpoint = BuildConfig.ZEALOT_ENDPOINT,
+            channelKey = BuildConfig.ZEALOT_CHANNEL_KEY,
+            currentVersionName = BuildConfig.VERSION_NAME
+        ) { version, downloadUrl ->
+            runOnUiThread {
+                UpdateManager(this).downloadAndInstall(downloadUrl, version)
+            }
+        }
     }
 
     /**
