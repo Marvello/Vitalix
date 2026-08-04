@@ -19,6 +19,8 @@ kotlinReflect = "2.3.20"
 json = "20240303"
 mockitoCore = "5.12.0"
 clarity = "3.3.1"
+googleServices = "4.5.0"
+firebaseMessaging = "24.1.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -42,7 +44,9 @@ kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", vers
 json = { group = "org.json", name = "json", version.ref = "json" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
 clarity = { group = "com.microsoft.clarity", name = "clarity", version.ref = "clarity" }
+firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
+google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
 

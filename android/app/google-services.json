@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "750541345936",
+    "project_id": "vitalix-96fcb",
+    "storage_bucket": "vitalix-96fcb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750541345936:android:f4b5d815c545b9f78f7415",
+        "android_client_info": {
+          "package_name": "com.android.vitalix"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh-wy0AjM3pT7dbaKdhhE9L_vVeZ0ZGgA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:750541345936:android:4ed5e1e85392d36c8f7415",
+        "android_client_info": {
+          "package_name": "com.android.vitalix.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAh-wy0AjM3pT7dbaKdhhE9L_vVeZ0ZGgA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

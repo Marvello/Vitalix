@@ -6,6 +6,7 @@ import java.time.format.DateTimeFormatter
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.google.services)
 }
 
 /**
@@ -155,6 +156,7 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.kotlin.reflect)
     implementation(libs.clarity)
+    implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)
     testImplementation(libs.json)
