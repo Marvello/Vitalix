@@ -8,7 +8,7 @@ platform :android do
 
   desc "Submit a new Beta Build to Zealot"
   lane :beta do
-    gradle(task: "clean assembleBeta")
+    gradle(task: "clean assembleBetaRelease")
 
     zealot(
       endpoint: ENV["ZEALOT_ENDPOINT"],
@@ -23,7 +23,7 @@ platform :android do
 
   desc "Deploy a new production version to Zealot"
   lane :production do
-    gradle(task: "clean assembleRelease")
+    gradle(task: "clean assembleProductionRelease")
 
     zealot(
       endpoint: ENV["ZEALOT_ENDPOINT"],

@@ -62,6 +62,28 @@ android {
         }
     }
 
+    flavorDimensions += "environment"
+    productFlavors {
+        create("production") {
+            dimension = "environment"
+            applicationId = "com.android.vitalix"
+            resValue("string", "app_name", "Vitalix")
+            buildConfigField("String", "ZEALOT_ENDPOINT",
+                "\"${project.findProperty("ZEALOT_ENDPOINT") ?: System.getenv("ZEALOT_ENDPOINT") ?: ""}\"")
+            buildConfigField("String", "ZEALOT_CHANNEL_KEY",
+                "\"${project.findProperty("ZEALOT_PROD_CHANNEL_KEY") ?: System.getenv("ZEALOT_PROD_CHANNEL_KEY") ?: ""}\"")
+        }
+        create("beta") {
+            dimension = "environment"
+            applicationId = "com.android.vitalix.beta"
+            resValue("string", "app_name", "Vitalix Beta")
+            buildConfigField("String", "ZEALOT_ENDPOINT",
+                "\"${project.findProperty("ZEALOT_ENDPOINT") ?: System.getenv("ZEALOT_ENDPOINT") ?: ""}\"")
+            buildConfigField("String", "ZEALOT_CHANNEL_KEY",
+                "\"${project.findProperty("ZEALOT_BETA_CHANNEL_KEY") ?: System.getenv("ZEALOT_BETA_CHANNEL_KEY") ?: ""}\"")
+        }
+    }
+
     defaultConfig {
         applicationId = "com.android.vitalix"
         minSdk = 30
@@ -88,13 +110,6 @@ android {
         debug {
             buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(defaultDebugServerUrl()))
         }
-        create("beta") {
-            initWith(getByName("release"))
-            signingConfig = signingConfigs.getByName("beta")
-            buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(""))
-            applicationIdSuffix = ".beta"
-            versionNameSuffix = "-beta"
-        }
         release {
             signingConfig = signingConfigs.getByName("production")
             buildConfigField("String", "DEFAULT_SERVER_URL", serverUrl(""))
@@ -103,6 +118,7 @@ android {
             }
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -110,6 +126,18 @@ android {
     buildFeatures {
         buildConfig = true
         viewBinding = true
+        resValues = true
+    }
+}
+
+// The `release` build type defaults to the production signing config above.
+// Beta release builds must sign with the beta keystore instead — the new
+// Variant API is the only way to override a build-type-level signing config
+// per flavor on AGP 9 (there is no per-flavor `signingConfig` DSL property
+// for application modules).
+androidComponents {
+    onVariants(selector().withBuildType("release").withFlavor("environment" to "beta")) { variant ->
+        variant.signingConfig.setConfig(android.signingConfigs.getByName("beta"))
     }
 }
 
