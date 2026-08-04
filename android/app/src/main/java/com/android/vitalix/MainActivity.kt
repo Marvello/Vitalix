@@ -3,6 +3,7 @@ package com.android.vitalix
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import androidx.appcompat.app.AlertDialog
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -202,13 +203,21 @@ class MainActivity : AppCompatActivity() {
      *  calls the Zealot HTTP API directly rather than through the SDK. */
     private fun checkForAppUpdate() {
         if (BuildConfig.ZEALOT_ENDPOINT.isBlank() || BuildConfig.ZEALOT_CHANNEL_KEY.isBlank()) return
-        UpdateManager(this).checkForUpdate(
+        val manager = UpdateManager(this)
+        manager.checkForUpdate(
             endpoint = BuildConfig.ZEALOT_ENDPOINT,
             channelKey = BuildConfig.ZEALOT_CHANNEL_KEY,
             currentVersionName = BuildConfig.VERSION_NAME
         ) { version, downloadUrl ->
             runOnUiThread {
-                UpdateManager(this).downloadAndInstall(downloadUrl, version)
+                AlertDialog.Builder(this)
+                    .setTitle("Update Available")
+                    .setMessage("Version $version is ready. Download now?")
+                    .setPositiveButton("Update") { _, _ ->
+                        manager.downloadAndInstall(downloadUrl, version)
+                    }
+                    .setNegativeButton("Later", null)
+                    .show()
             }
         }
     }

@@ -136,7 +136,7 @@ class UpdateManager(private val context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(NotificationManager::class.java)
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL, "App updates", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL, "App updates", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
     }
