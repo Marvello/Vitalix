@@ -1,5 +1,6 @@
 import { readFileSync, statSync } from "fs";
-import admin from "firebase-admin";
+import { cert, initializeApp } from "firebase-admin";
+import { getMessaging } from "firebase-admin/messaging";
 
 const accountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 const accountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
@@ -20,9 +21,9 @@ if (accountPath && (() => { try { return statSync(accountPath).isFile(); } catch
 }
 
 if (serviceAccount) {
-  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+  initializeApp({ credential: cert(serviceAccount) });
 } else {
   console.warn("Firebase service account not configured — push notifications disabled");
 }
 
-export { admin };
+export const messaging = serviceAccount ? getMessaging() : null;
