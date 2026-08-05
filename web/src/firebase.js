@@ -1,11 +1,11 @@
-import { readFileSync, existsSync } from "fs";
+import { readFileSync, statSync } from "fs";
 import admin from "firebase-admin";
 
 const accountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
 const accountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
 
 let serviceAccount;
-if (accountPath && existsSync(accountPath)) {
+if (accountPath && (() => { try { return statSync(accountPath).isFile(); } catch { return false; } })()) {
   try {
     serviceAccount = JSON.parse(readFileSync(accountPath, "utf8"));
   } catch (e) {
