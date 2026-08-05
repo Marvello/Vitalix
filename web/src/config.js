@@ -27,7 +27,7 @@ export const config = {
   zealotToken: process.env.ZEALOT_TOKEN || null,
   zealotChannelKey: process.env.ZEALOT_CHANNEL_KEY || null,
   zealotWebhookSecret: process.env.ZEALOT_WEBHOOK_SECRET || null,
-  firebaseEnabled: !!process.env.FIREBASE_SERVICE_ACCOUNT,
+  firebaseEnabled: !!(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_SERVICE_ACCOUNT),
 };
 
 config.buildVersion = git.hash;

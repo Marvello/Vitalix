@@ -1,15 +1,28 @@
+import { readFileSync, existsSync } from "fs";
 import admin from "firebase-admin";
 
-const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-if (serviceAccountJson) {
+const accountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH;
+const accountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+let serviceAccount;
+if (accountPath && existsSync(accountPath)) {
   try {
-    const serviceAccount = JSON.parse(serviceAccountJson);
-    admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+    serviceAccount = JSON.parse(readFileSync(accountPath, "utf8"));
   } catch (e) {
-    console.warn("Firebase Admin init failed:", e.message);
+    console.warn("Firebase: failed to read service account file:", e.message);
   }
+} else if (accountJson) {
+  try {
+    serviceAccount = JSON.parse(accountJson);
+  } catch (e) {
+    console.warn("Firebase: failed to parse FIREBASE_SERVICE_ACCOUNT:", e.message);
+  }
+}
+
+if (serviceAccount) {
+  admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
 } else {
-  console.warn("FIREBASE_SERVICE_ACCOUNT not set — push notifications disabled");
+  console.warn("Firebase service account not configured — push notifications disabled");
 }
 
 export { admin };

@@ -112,7 +112,7 @@ class UpdateManager(private val context: Context) {
         ContextCompat.registerReceiver(
             context.applicationContext, receiver,
             IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_NOT_EXPORTED
+            ContextCompat.RECEIVER_EXPORTED
         )
     }
 

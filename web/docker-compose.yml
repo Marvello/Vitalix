@@ -35,8 +35,10 @@ services:
       ZEALOT_TOKEN: ${ZEALOT_TOKEN:-}
       ZEALOT_CHANNEL_KEY: ${ZEALOT_CHANNEL_KEY:-}
       ZEALOT_WEBHOOK_SECRET: ${ZEALOT_WEBHOOK_SECRET:-}
-      FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+      FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
     ports: ["${PORT:-3000}:${PORT:-3000}"]
+    volumes:
+      - ${FIREBASE_SERVICE_ACCOUNT_FILE:-./firebase-service-account.json}:/run/secrets/firebase-service-account.json:ro
     depends_on:
       vitalix-db:
         condition: service_healthy
