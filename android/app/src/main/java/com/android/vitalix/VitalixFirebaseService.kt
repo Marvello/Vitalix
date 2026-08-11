@@ -24,15 +24,23 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         if (data["type"] == "app_update") {
             val version = data["version"] ?: "new version"
             val downloadUrl = data["download_url"] ?: return
-            showUpdateNotification(version, downloadUrl)
+            val versionCode = data["version_code"]?.toIntOrNull() ?: 0
+            val changelog = data["changelog"] ?: ""
+            showUpdateNotification(
+                UpdateInfo(
+                    versionName = version,
+                    versionCode = versionCode,
+                    changelog = changelog,
+                    downloadUrl = downloadUrl,
+                )
+            )
         }
     }
 
-    private fun showUpdateNotification(version: String, downloadUrl: String) {
+    private fun showUpdateNotification(info: UpdateInfo) {
         ensureChannel()
         val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(UpdateManager.EXTRA_DOWNLOAD_URL, downloadUrl)
-            putExtra(UpdateManager.EXTRA_VERSION, version)
+            putExtra(UpdateManager.EXTRA_UPDATE_INFO, info)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pending = PendingIntent.getActivity(
@@ -42,7 +50,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         val notification = NotificationCompat.Builder(this, UpdateManager.CHANNEL)
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle("Vitalix Update Available")
-            .setContentText("Version $version is ready to install")
+            .setContentText("Version ${info.versionName} is ready to install")
             .setAutoCancel(true)
             .setContentIntent(pending)
             .build()

@@ -3,21 +3,58 @@ package com.android.vitalix
 import android.app.DownloadManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
-import android.os.Environment
+import android.os.Parcel
+import android.os.Parcelable
 import android.util.Log
-import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
+
+// Hand-written Parcelable: this build has no Kotlin Gradle plugin on the
+// classpath (AGP 9's built-in Kotlin support only), so the `kotlin-parcelize`
+// compiler plugin isn't available to generate this boilerplate.
+data class UpdateInfo(
+    val versionName: String,
+    val versionCode: Int,
+    val changelog: String,
+    val downloadUrl: String,
+) : Parcelable {
+
+    constructor(parcel: Parcel) : this(
+        versionName = parcel.readString().orEmpty(),
+        versionCode = parcel.readInt(),
+        changelog = parcel.readString().orEmpty(),
+        downloadUrl = parcel.readString().orEmpty(),
+    )
+
+    override fun writeToParcel(dest: Parcel, flags: Int) {
+        dest.writeString(versionName)
+        dest.writeInt(versionCode)
+        dest.writeString(changelog)
+        dest.writeString(downloadUrl)
+    }
+
+    override fun describeContents(): Int = 0
+
+    companion object CREATOR : Parcelable.Creator<UpdateInfo> {
+        override fun createFromParcel(parcel: Parcel): UpdateInfo = UpdateInfo(parcel)
+        override fun newArray(size: Int): Array<UpdateInfo?> = arrayOfNulls(size)
+    }
+}
+
+data class DownloadProgress(
+    val bytesDownloaded: Long,
+    val bytesTotal: Long,
+    val status: Int,
+)
 
 /**
  * Handles the two Zealot-driven update flows:
@@ -25,12 +62,12 @@ import java.io.IOException
  *    release for channel" API directly rather than depending on the Zealot
  *    Android SDK (published only as a JitPack SNAPSHOT — too fragile for a
  *    reproducible build; see task-5 brief note).
- *  - APK download + install prompt (downloadAndInstall), triggered either
- *    from that manual check or from tapping an FCM push notification.
+ *  - APK download with progress tracking (downloadApk / queryProgress /
+ *    getApkUri), triggered either from that manual check or from tapping an
+ *    FCM push notification.
  */
 class UpdateManager(private val context: Context) {
 
-    private var downloadId: Long = -1
     private val httpClient = OkHttpClient()
 
     /**
@@ -43,7 +80,7 @@ class UpdateManager(private val context: Context) {
         endpoint: String,
         channelKey: String,
         currentVersionCode: Int,
-        onUpdateAvailable: (downloadUrl: String) -> Unit
+        onUpdateAvailable: (UpdateInfo) -> Unit
     ) {
         if (endpoint.isBlank() || channelKey.isBlank()) return
 
@@ -64,22 +101,8 @@ class UpdateManager(private val context: Context) {
                     try {
                         val body = it.body?.string() ?: return
                         val json = JSONObject(body)
-                        val downloadUrl = json.optString("install_url").ifBlank {
-                            json.optJSONArray("releases")
-                                ?.optJSONObject(0)
-                                ?.optString("install_url")
-                                .orEmpty()
-                        }
-                        val remoteBuildVersion = json.optString("build_version").ifBlank {
-                            json.optJSONArray("releases")
-                                ?.optJSONObject(0)
-                                ?.optString("build_version")
-                                .orEmpty()
-                        }
-                        val remoteCode = remoteBuildVersion.toIntOrNull() ?: 0
-                        if (downloadUrl.isNotBlank() && remoteCode > currentVersionCode) {
-                            onUpdateAvailable(downloadUrl)
-                        }
+                        val info = parseUpdateInfo(json, currentVersionCode)
+                        if (info != null) onUpdateAvailable(info)
                     } catch (e: Exception) {
                         Log.w(TAG, "Update check parse failed: ${e.message}")
                     }
@@ -88,49 +111,59 @@ class UpdateManager(private val context: Context) {
         })
     }
 
-    fun downloadAndInstall(downloadUrl: String, version: String) {
+    fun downloadApk(downloadUrl: String, versionName: String): Long {
         ensureChannel()
+        val apkFile = apkFile(versionName)
+        if (apkFile.exists()) apkFile.delete()
 
         val request = DownloadManager.Request(Uri.parse(downloadUrl))
-            .setTitle("Vitalix $version")
+            .setTitle("Vitalix $versionName")
             .setDescription("Downloading update…")
             .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            .setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "vitalix-$version.apk")
+            .setDestinationUri(Uri.fromFile(apkFile))
 
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        downloadId = dm.enqueue(request)
-        Log.d(TAG, "Download enqueued: id=$downloadId url=$downloadUrl")
-
-        val receiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
-                if (id != downloadId) return
-                context.applicationContext.unregisterReceiver(this)
-                onDownloadComplete(dm, id)
-            }
-        }
-        ContextCompat.registerReceiver(
-            context.applicationContext, receiver,
-            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
-            ContextCompat.RECEIVER_EXPORTED
-        )
+        val id = dm.enqueue(request)
+        Log.d(TAG, "Download enqueued: id=$id url=$downloadUrl")
+        return id
     }
 
-    private fun onDownloadComplete(dm: DownloadManager, id: Long) {
-        val uri = dm.getUriForDownloadedFile(id) ?: run {
-            Log.e(TAG, "Download failed — no URI for id=$id")
-            return
+    fun queryProgress(downloadId: Long): DownloadProgress {
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = dm.query(query)
+        if (cursor == null || !cursor.moveToFirst()) {
+            cursor?.close()
+            return DownloadProgress(0, 0, DownloadManager.STATUS_FAILED)
         }
-        Log.d(TAG, "Download complete: $uri")
-        promptInstall(uri)
+        val downloaded = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+        val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+        val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+        cursor.close()
+        return DownloadProgress(downloaded, total, status)
     }
 
-    private fun promptInstall(apkUri: Uri) {
-        val install = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-        context.startActivity(install)
+    fun getApkUri(downloadId: Long): Uri? {
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        val query = DownloadManager.Query().setFilterById(downloadId)
+        val cursor = dm.query(query) ?: return null
+        if (!cursor.moveToFirst()) { cursor.close(); return null }
+        val localUri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
+        cursor.close()
+        val file = File(Uri.parse(localUri).path ?: return null)
+        if (!file.exists()) return null
+        return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+    }
+
+    fun cancelDownload(downloadId: Long) {
+        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        dm.remove(downloadId)
+    }
+
+    private fun apkFile(versionName: String): File {
+        val dir = File(context.cacheDir, "updates")
+        dir.mkdirs()
+        return File(dir, "vitalix-$versionName.apk")
     }
 
     private fun ensureChannel() {
@@ -145,7 +178,29 @@ class UpdateManager(private val context: Context) {
     companion object {
         private const val TAG = "UpdateManager"
         const val CHANNEL = "vitalix_updates"
-        const val EXTRA_DOWNLOAD_URL = "update_download_url"
-        const val EXTRA_VERSION = "update_version"
+        const val EXTRA_UPDATE_INFO = "update_info"
+
+        fun parseUpdateInfo(json: JSONObject, currentVersionCode: Int): UpdateInfo? {
+            val release = if (json.optString("install_url").isNotBlank()) json
+                else json.optJSONArray("releases")?.optJSONObject(0)
+                    ?: return null
+
+            val downloadUrl = release.optString("install_url")
+            if (downloadUrl.isBlank()) return null
+
+            val buildVersion = release.optString("build_version")
+            val remoteCode = buildVersion.toIntOrNull() ?: 0
+            if (remoteCode <= currentVersionCode) return null
+
+            val versionName = release.optString("version").ifBlank { buildVersion }
+            val changelog = release.optString("changelog", "")
+
+            return UpdateInfo(
+                versionName = versionName,
+                versionCode = remoteCode,
+                changelog = changelog,
+                downloadUrl = downloadUrl,
+            )
+        }
     }
 }

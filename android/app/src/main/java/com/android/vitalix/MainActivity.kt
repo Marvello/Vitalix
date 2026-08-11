@@ -12,6 +12,7 @@ import android.widget.CheckBox
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.IntentCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
@@ -193,10 +194,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpdateIntent(intent: Intent?) {
-        val downloadUrl = intent?.getStringExtra(UpdateManager.EXTRA_DOWNLOAD_URL) ?: return
-        val version = intent.getStringExtra(UpdateManager.EXTRA_VERSION) ?: "update"
-        intent.removeExtra(UpdateManager.EXTRA_DOWNLOAD_URL)
-        UpdateManager(this).downloadAndInstall(downloadUrl, version)
+        val info = intent?.let { IntentCompat.getParcelableExtra(it, UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java) } ?: return
+        intent.removeExtra(UpdateManager.EXTRA_UPDATE_INFO)
+        // TODO(task 2+): route through the in-app update/progress screen instead
+        // of firing the download directly here.
+        UpdateManager(this).downloadApk(info.downloadUrl, info.versionName)
     }
 
     /** Manual Zealot update check on app open — see VitalixApp.kt for why this
@@ -208,13 +210,14 @@ class MainActivity : AppCompatActivity() {
             endpoint = BuildConfig.ZEALOT_ENDPOINT,
             channelKey = BuildConfig.ZEALOT_CHANNEL_KEY,
             currentVersionCode = BuildConfig.VERSION_CODE
-        ) { downloadUrl ->
+        ) { info ->
             runOnUiThread {
+                // TODO(task 2+): replace with the in-app update/progress screen.
                 AlertDialog.Builder(this)
                     .setTitle("Update Available")
                     .setMessage("A new version of Vitalix is ready. Download now?")
                     .setPositiveButton("Update") { _, _ ->
-                        manager.downloadAndInstall(downloadUrl, "update")
+                        manager.downloadApk(info.downloadUrl, info.versionName)
                     }
                     .setNegativeButton("Later", null)
                     .show()
