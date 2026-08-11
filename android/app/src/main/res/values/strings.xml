@@ -42,4 +42,12 @@
         libero vel nunc consequat, quis tincidunt nisl eleifend. Cras bibendum enim a justo luctus
         vestibulum. Fusce dictum libero quis erat maximus, vitae volutpat diam dignissim.
     </string>
+
+    <string name="update_heading">New version available!</string>
+    <string name="update_download">Download</string>
+    <string name="update_install">Install</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_not_now">Not now</string>
+    <string name="update_downloading">Downloading…</string>
 </resources>

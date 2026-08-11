@@ -146,6 +146,11 @@
             android:theme="@style/Theme.Vitalix" />
 
         <activity
+            android:name=".UpdateActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix" />
+
+        <activity
             android:name=".ForgotActivity"
             android:exported="false"
             android:theme="@style/Theme.Vitalix"
