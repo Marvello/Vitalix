@@ -3,7 +3,6 @@ package com.android.vitalix
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import androidx.appcompat.app.AlertDialog
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -194,33 +193,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpdateIntent(intent: Intent?) {
-        val info = intent?.let { IntentCompat.getParcelableExtra(it, UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java) } ?: return
+        val info: UpdateInfo = intent?.getParcelableExtra(UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java)
+            ?: return
         intent.removeExtra(UpdateManager.EXTRA_UPDATE_INFO)
-        // TODO(task 2+): route through the in-app update/progress screen instead
-        // of firing the download directly here.
-        UpdateManager(this).downloadApk(info.downloadUrl, info.versionName)
+        startActivity(UpdateActivity.intent(this, info))
     }
 
     /** Manual Zealot update check on app open — see VitalixApp.kt for why this
      *  calls the Zealot HTTP API directly rather than through the SDK. */
     private fun checkForAppUpdate() {
         if (BuildConfig.ZEALOT_ENDPOINT.isBlank() || BuildConfig.ZEALOT_CHANNEL_KEY.isBlank()) return
-        val manager = UpdateManager(this)
-        manager.checkForUpdate(
+        UpdateManager(this).checkForUpdate(
             endpoint = BuildConfig.ZEALOT_ENDPOINT,
             channelKey = BuildConfig.ZEALOT_CHANNEL_KEY,
             currentVersionCode = BuildConfig.VERSION_CODE
         ) { info ->
             runOnUiThread {
-                // TODO(task 2+): replace with the in-app update/progress screen.
-                AlertDialog.Builder(this)
-                    .setTitle("Update Available")
-                    .setMessage("A new version of Vitalix is ready. Download now?")
-                    .setPositiveButton("Update") { _, _ ->
-                        manager.downloadApk(info.downloadUrl, info.versionName)
-                    }
-                    .setNegativeButton("Later", null)
-                    .show()
+                startActivity(UpdateActivity.intent(this, info))
             }
         }
     }

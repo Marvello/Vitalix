@@ -39,8 +39,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
 
     private fun showUpdateNotification(info: UpdateInfo) {
         ensureChannel()
-        val intent = Intent(this, MainActivity::class.java).apply {
-            putExtra(UpdateManager.EXTRA_UPDATE_INFO, info)
+        val intent = UpdateActivity.intent(this, info).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
         val pending = PendingIntent.getActivity(
