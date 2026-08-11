@@ -49,5 +49,4 @@
     <string name="update_cancel">Cancel</string>
     <string name="update_retry">Retry</string>
     <string name="update_not_now">Not now</string>
-    <string name="update_downloading">Downloading…</string>
 </resources>

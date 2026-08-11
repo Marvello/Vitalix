@@ -193,8 +193,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleUpdateIntent(intent: Intent?) {
-        val info: UpdateInfo = intent?.getParcelableExtra(UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java)
-            ?: return
+        val info: UpdateInfo = intent?.let {
+            IntentCompat.getParcelableExtra(it, UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java)
+        } ?: return
         intent.removeExtra(UpdateManager.EXTRA_UPDATE_INFO)
         startActivity(UpdateActivity.intent(this, info))
     }

@@ -124,16 +124,18 @@ class UpdateActivity : AppCompatActivity() {
     }
 
     private fun resumeProgressTracking() {
-        val progress = updateManager.queryProgress(downloadId)
-        when (progress.status) {
-            DownloadManager.STATUS_SUCCESSFUL -> setState(State.DOWNLOADED)
-            DownloadManager.STATUS_FAILED -> {
-                showError("Download failed. Tap Retry.")
-                setState(State.ERROR)
-            }
-            else -> {
-                setState(State.DOWNLOADING)
-                startProgressTracking()
+        lifecycleScope.launch {
+            val progress = withContext(Dispatchers.IO) { updateManager.queryProgress(downloadId) }
+            when (progress.status) {
+                DownloadManager.STATUS_SUCCESSFUL -> setState(State.DOWNLOADED)
+                DownloadManager.STATUS_FAILED -> {
+                    showError("Download failed. Tap Retry.")
+                    setState(State.ERROR)
+                }
+                else -> {
+                    setState(State.DOWNLOADING)
+                    startProgressTracking()
+                }
             }
         }
     }
