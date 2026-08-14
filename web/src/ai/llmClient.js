@@ -6,6 +6,7 @@ export function formatOpenAiPayload(model, systemPrompt, userPrompt) {
       { role: 'user', content: userPrompt },
     ],
     temperature: 0.7,
+    stream: false,
   };
 }
 
