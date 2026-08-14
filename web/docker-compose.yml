@@ -2,10 +2,7 @@ services:
   vitalix-db:
     container_name: vitalix-db
     image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-vitalix}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vitalix}
-      POSTGRES_DB: ${POSTGRES_DB:-vitalix}
+    env_file: .env
     ports: ["${DB_PORT:-5432}:5432"]
     volumes: ["vitalix_pgdata:/var/lib/postgresql/data"]
     healthcheck:
@@ -20,25 +17,9 @@ services:
       args:
         BUILD_VERSION: ${BUILD_VERSION:-dev}
         BUILD_DATE: ${BUILD_DATE:-}
+    env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-vitalix}:${POSTGRES_PASSWORD:-vitalix}@vitalix-db:5432/${POSTGRES_DB:-vitalix}
-      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
-      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
-      NODE_ENV: ${NODE_ENV:-development}
-      PORT: ${PORT:-3000}
-      SMTP_HOST: ${SMTP_HOST:-}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER:-}
-      SMTP_PASS: ${SMTP_PASS:-}
-      MAIL_FROM: ${MAIL_FROM:-}
-      ZEALOT_ENDPOINT: ${ZEALOT_ENDPOINT:-}
-      ZEALOT_TOKEN: ${ZEALOT_TOKEN:-}
-      ZEALOT_CHANNEL_KEY: ${ZEALOT_CHANNEL_KEY:-}
-      ZEALOT_WEBHOOK_SECRET: ${ZEALOT_WEBHOOK_SECRET:-}
-      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
-      AI_BASE_URL: ${AI_BASE_URL:-http://localhost:11434/v1}
-      AI_MODEL: ${AI_MODEL:-auto/best-reasoning}
-      AI_API_KEY: ${AI_API_KEY:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
     ports: ["${PORT:-3000}:${PORT:-3000}"]
     volumes:
