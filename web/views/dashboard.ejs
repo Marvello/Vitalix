@@ -74,10 +74,11 @@ body.editing .edit-controls{display:inline}
       <h1>Vitalix</h1>
       <p class="sub"><%= email || "Signed in" %></p>
     </div>
-    <div style="display:flex;gap:12px;align-items:center">
-      <% if (userRole === "admin") { %><a href="/admin" style="font-size:14px">Admin</a><% } %>
+    <nav>
+      <a href="/daily-review">Daily Review</a>
+      <% if (userRole === "admin") { %><a href="/admin">Admin</a><% } %>
       <form method="post" action="/logout"><button type="submit">Log out</button></form>
-    </div>
+    </nav>
   </div>
 
   <%

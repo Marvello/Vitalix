@@ -438,11 +438,12 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
     const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
 
-    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }] = await Promise.all([
+    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }, user] = await Promise.all([
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, date]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, yesterdayDate]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [req.user.id, from7d, date]),
       query("SELECT * FROM ai_recommendations WHERE user_id = $1 AND day = $2", [req.user.id, date]).catch(() => ({ rows: [] })),
+      store.findUserById(req.user.id),
     ]);
 
     const dayData = todayRows[0] || {};
@@ -467,6 +468,8 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
     }
 
     res.render("daily-review", {
+      email: user?.email,
+      userRole: user?.role,
       date,
       dayData,
       deltas,

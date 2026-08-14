@@ -18,9 +18,22 @@
 </style>
 </head><body>
 <div class="wrap">
-<p><a href="/dashboard">&larr; Back to dashboard</a></p>
-<div style="display:flex; justify-content:space-between; align-items:center;">
-  <h1>Daily Review</h1>
+
+<div class="topbar">
+  <div>
+    <h1>Vitalix</h1>
+    <p class="sub"><%= email || "Signed in" %></p>
+  </div>
+  <nav>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/daily-review">Daily Review</a>
+    <% if (userRole === "admin") { %><a href="/admin">Admin</a><% } %>
+    <form method="post" action="/logout"><button type="submit">Log out</button></form>
+  </nav>
+</div>
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+  <h2 style="margin:0; font-size:22px;">Daily Review</h2>
   <form method="GET" action="/daily-review" style="display:flex; gap:8px;">
     <input type="date" name="day" value="<%= date %>" style="background:#27272a; color:#fff; border:1px solid #3f3f46; padding:6px 10px; border-radius:6px;">
     <button type="submit" class="btn-gen">View Date</button>
