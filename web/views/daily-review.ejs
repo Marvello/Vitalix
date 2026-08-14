@@ -1,22 +1,32 @@
-<!doctype html><html><head><title>Vitalix — Daily Review</title>
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vitalix — Daily Review</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-.review-card { background: #18181b; border: 1px solid #27272a; border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-.review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin: 16px 0; }
-.metric-box { background: #27272a; padding: 12px 16px; border-radius: 6px; }
-.metric-title { color: #a1a1aa; font-size: 13px; text-transform: uppercase; margin-bottom: 4px; }
-.metric-val { font-size: 20px; font-weight: bold; color: #f4f4f5; }
-.delta-tag { font-size: 12px; margin-left: 6px; padding: 2px 6px; border-radius: 4px; }
-.delta-pos { background: rgba(52, 211, 153, 0.2); color: #34d399; }
-.delta-neg { background: rgba(248, 113, 113, 0.2); color: #f87171; }
-.ai-box { background: #0f172a; border: 1px solid #1e293b; border-radius: 8px; padding: 20px; margin-top: 24px; }
-.ai-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-.ai-badge { background: #0fa9a0; color: #fff; font-size: 12px; font-weight: 600; padding: 4px 8px; border-radius: 4px; }
-.btn-gen { background: #0fa9a0; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
-.btn-gen:hover { background: #0d948c; }
-.disclaimer { font-size: 11px; color: #71717a; margin-top: 12px; font-style: italic; }
+.review-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.review-header h2{margin:0;font-size:22px}
+.date-form{display:flex;gap:8px}
+.review-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0}
+.metric-box{background:var(--card);border:1px solid var(--line);padding:12px 16px;border-radius:8px}
+.metric-title{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.metric-val{font-size:20px;font-weight:650;letter-spacing:-0.02em}
+.metric-sub{font-size:12px;color:var(--muted);margin-top:4px}
+.delta-tag{font-size:12px;margin-left:6px;padding:2px 6px;border-radius:4px}
+.delta-pos{background:rgba(52,211,153,.15);color:var(--success)}
+.delta-neg{background:rgba(185,28,28,.10);color:var(--error)}
+.ai-card{margin-top:24px}
+.ai-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.ai-header-left{display:flex;align-items:center;gap:8px}
+.ai-badge{background:var(--teal);color:#fff;font-size:12px;font-weight:600;padding:4px 8px;border-radius:4px}
+.ai-header h3{margin:0}
+.ai-content{line-height:1.6;white-space:pre-wrap}
+.disclaimer{font-size:11px;color:var(--muted);margin-top:12px;font-style:italic}
 </style>
-</head><body>
+</head>
+<body>
 <div class="wrap">
 
 <div class="topbar">
@@ -32,16 +42,16 @@
   </nav>
 </div>
 
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-  <h2 style="margin:0; font-size:22px;">Daily Review</h2>
-  <form method="GET" action="/daily-review" style="display:flex; gap:8px;">
-    <input type="date" name="day" value="<%= date %>" style="background:#27272a; color:#fff; border:1px solid #3f3f46; padding:6px 10px; border-radius:6px;">
-    <button type="submit" class="btn-gen">View Date</button>
+<div class="review-header">
+  <h2>Daily Review</h2>
+  <form method="GET" action="/daily-review" class="date-form">
+    <input type="date" name="day" value="<%= date %>">
+    <button type="submit">View Date</button>
   </form>
 </div>
 
-<div class="review-card">
-  <h2>Summary & Trends (<%= date %>)</h2>
+<div class="card">
+  <h2 style="margin-top:0">Summary & Trends (<%= date %>)</h2>
   <div class="review-grid">
     <div class="metric-box">
       <div class="metric-title">Steps</div>
@@ -53,7 +63,7 @@
           </span>
         <% } %>
       </div>
-      <div style="font-size:12px; color:#a1a1aa; margin-top:4px;">7d avg: <%= baseline7d.steps || '—' %></div>
+      <div class="metric-sub">7d avg: <%= baseline7d.steps || '—' %></div>
     </div>
 
     <div class="metric-box">
@@ -61,7 +71,7 @@
       <div class="metric-val">
         <%= dayData.active_calories ? Math.round(dayData.active_calories) + ' kcal' : '—' %>
       </div>
-      <div style="font-size:12px; color:#a1a1aa; margin-top:4px;">7d avg: <%= baseline7d.active_calories ? Math.round(baseline7d.active_calories) + ' kcal' : '—' %></div>
+      <div class="metric-sub">7d avg: <%= baseline7d.active_calories ? Math.round(baseline7d.active_calories) + ' kcal' : '—' %></div>
     </div>
 
     <div class="metric-box">
@@ -69,7 +79,7 @@
       <div class="metric-val">
         <%= dayData.sleep_duration_minutes ? Math.round(dayData.sleep_duration_minutes / 60 * 10) / 10 + ' hrs' : '—' %>
       </div>
-      <div style="font-size:12px; color:#a1a1aa; margin-top:4px;">7d avg: <%= baseline7d.sleep_duration_minutes ? Math.round(baseline7d.sleep_duration_minutes / 60 * 10) / 10 + ' hrs' : '—' %></div>
+      <div class="metric-sub">7d avg: <%= baseline7d.sleep_duration_minutes ? Math.round(baseline7d.sleep_duration_minutes / 60 * 10) / 10 + ' hrs' : '—' %></div>
     </div>
 
     <div class="metric-box">
@@ -82,21 +92,21 @@
           </span>
         <% } %>
       </div>
-      <div style="font-size:12px; color:#a1a1aa; margin-top:4px;">7d avg: <%= baseline7d.resting_heart_rate ? Math.round(baseline7d.resting_heart_rate) + ' bpm' : '—' %></div>
+      <div class="metric-sub">7d avg: <%= baseline7d.resting_heart_rate ? Math.round(baseline7d.resting_heart_rate) + ' bpm' : '—' %></div>
     </div>
   </div>
 </div>
 
-<div class="ai-box">
+<div class="card ai-card">
   <div class="ai-header">
-    <div style="display:flex; align-items:center; gap:8px;">
+    <div class="ai-header-left">
       <span class="ai-badge">AI INSIGHTS</span>
-      <h3 style="margin:0; color:#f4f4f5;">Health & Habit Recommendations</h3>
+      <h3>Health & Habit Recommendations</h3>
     </div>
-    <button class="btn-gen" id="btn-generate" onclick="generateRecommendation()">Generate Insights</button>
+    <button id="btn-generate" onclick="generateRecommendation()">Generate Insights</button>
   </div>
 
-  <div id="ai-content" style="color:#e4e4e7; line-height:1.6; white-space: pre-wrap;">
+  <div id="ai-content" class="ai-content">
     <%= recommendation ? recommendation.recommendation_text : "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." %>
   </div>
 
@@ -107,19 +117,21 @@
 
 <script>
 async function generateRecommendation() {
-  const btn = document.getElementById('btn-generate');
-  const content = document.getElementById('ai-content');
+  var btn = document.getElementById('btn-generate');
+  var content = document.getElementById('ai-content');
   btn.disabled = true;
   btn.innerText = 'Generating...';
   try {
-    const res = await fetch('/api/ai/recommendations/generate', {
+    var res = await fetch('/api/ai/recommendations/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ day: '<%= date %>' })
     });
-    const data = await res.json();
+    var data = await res.json();
     if (data.text) {
       content.innerText = data.text;
+    } else if (data.error) {
+      content.innerText = data.error;
     } else {
       content.innerText = 'Unable to generate recommendation at this time.';
     }
@@ -132,5 +144,9 @@ async function generateRecommendation() {
 }
 </script>
 
+<footer class="build-footer">
+  Vitalix · Daily Review
+</footer>
 </div>
-</body></html>
+</body>
+</html>
