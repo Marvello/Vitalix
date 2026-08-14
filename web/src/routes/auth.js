@@ -9,7 +9,7 @@ export const authRouter = Router();
 
 export function setAuthCookies(res, access, refresh) {
   const base = { httpOnly: true, sameSite: "lax", secure: config.isProd };
-  res.cookie("access", access, { ...base, maxAge: 15 * 60 * 1000 });
+  res.cookie("access", access, { ...base, maxAge: 14 * 24 * 60 * 60 * 1000 });
   res.cookie("refresh", refresh, { ...base, maxAge: 30 * 24 * 60 * 60 * 1000, path: "/" });
 }
 export function clearAuthCookies(res) {

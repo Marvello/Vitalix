@@ -8,7 +8,7 @@ export const config = {
   port: Number(process.env.PORT || 3000),
   isProd: process.env.NODE_ENV === "production",
   jwtSecret: process.env.JWT_SECRET,
-  accessTtl: process.env.ACCESS_TTL || "15m",
+  accessTtl: process.env.ACCESS_TTL || "14d",
   refreshTtl: process.env.REFRESH_TTL || "30d",
   resetTtlMs: Number(process.env.RESET_TTL_MS || 60 * 60 * 1000),
   inviteTtlMs: Number(process.env.INVITE_TTL_MS || 7 * 24 * 60 * 60 * 1000),

@@ -1,4 +1,6 @@
-import { verifyAccess } from "./tokens.js";
+import { verifyAccess, signAccess } from "./tokens.js";
+import * as store from "./store.js";
+import { setAuthCookies } from "../routes/auth.js";
 
 function extractToken(req) {
   const h = req.get("authorization") || "";
@@ -7,12 +9,25 @@ function extractToken(req) {
   return null;
 }
 
-export function requireAuth(req, res, next) {
+async function tryRefresh(req, res) {
+  const raw = req.cookies?.refresh;
+  if (!raw) return null;
+  const rotated = await store.rotateRefresh(raw).catch(() => null);
+  if (!rotated) return null;
+  const access = signAccess(rotated.user);
+  setAuthCookies(res, access, rotated.rawToken);
+  return verifyAccess(access);
+}
+
+export async function requireAuth(req, res, next) {
   const token = extractToken(req);
-  const claims = token ? verifyAccess(token) : null;
+  let claims = token ? verifyAccess(token) : null;
+
   if (!claims) {
-    // API clients (incl. curl sending Accept: */*) get JSON 401; only browser
-    // page routes redirect to the login screen.
+    claims = await tryRefresh(req, res);
+  }
+
+  if (!claims) {
     if (!req.path.startsWith("/api/") && req.accepts(["html", "json"]) === "html") return res.redirect("/login");
     return res.status(401).json({ error: "unauthorized" });
   }
