@@ -35,6 +35,10 @@ services:
       ZEALOT_TOKEN: ${ZEALOT_TOKEN:-}
       ZEALOT_CHANNEL_KEY: ${ZEALOT_CHANNEL_KEY:-}
       ZEALOT_WEBHOOK_SECRET: ${ZEALOT_WEBHOOK_SECRET:-}
+      AI_PROVIDER: ${AI_PROVIDER:-openai-compatible}
+      AI_BASE_URL: ${AI_BASE_URL:-http://localhost:11434/v1}
+      AI_MODEL: ${AI_MODEL:-auto/best-reasoning}
+      AI_API_KEY: ${AI_API_KEY:-}
       FIREBASE_SERVICE_ACCOUNT_PATH: /run/secrets/firebase-service-account.json
     ports: ["${PORT:-3000}:${PORT:-3000}"]
     volumes:
