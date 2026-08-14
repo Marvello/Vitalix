@@ -107,7 +107,7 @@
   </div>
 
   <div id="ai-content" class="ai-content">
-    <%= recommendation ? recommendation.recommendation_text : "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." %>
+    <%- recommendation ? recommendation.recommendation_text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." %>
   </div>
 
   <div class="disclaimer">
@@ -116,6 +116,11 @@
 </div>
 
 <script>
+function renderMd(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+    .replace(/\n/g,'<br>');
+}
 async function generateRecommendation() {
   var btn = document.getElementById('btn-generate');
   var content = document.getElementById('ai-content');
@@ -129,14 +134,14 @@ async function generateRecommendation() {
     });
     var data = await res.json();
     if (data.text) {
-      content.innerText = data.text;
+      content.innerHTML = renderMd(data.text);
     } else if (data.error) {
-      content.innerText = data.error;
+      content.textContent = data.error;
     } else {
-      content.innerText = 'Unable to generate recommendation at this time.';
+      content.textContent = 'Unable to generate recommendation at this time.';
     }
   } catch (err) {
-    content.innerText = 'Error connecting to AI service.';
+    content.textContent = 'Error connecting to AI service.';
   } finally {
     btn.disabled = false;
     btn.innerText = 'Generate Insights';
