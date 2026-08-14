@@ -28,6 +28,12 @@ export const config = {
   zealotChannelKey: process.env.ZEALOT_CHANNEL_KEY || null,
   zealotWebhookSecret: process.env.ZEALOT_WEBHOOK_SECRET || null,
   firebaseEnabled: !!(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_SERVICE_ACCOUNT),
+  ai: {
+    provider: process.env.AI_PROVIDER || "openai-compatible",
+    baseUrl: process.env.AI_BASE_URL || "http://localhost:11434/v1",
+    model: process.env.AI_MODEL || "llama3:latest",
+    apiKey: process.env.AI_API_KEY || "",
+  },
 };
 
 config.buildVersion = git.hash;
