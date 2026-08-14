@@ -432,6 +432,53 @@ pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
   }
 });
 
+pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
+  try {
+    const date = req.query.day || toKey(new Date());
+    const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
+    const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
+
+    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }] = await Promise.all([
+      query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, date]),
+      query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, yesterdayDate]),
+      query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [req.user.id, from7d, date]),
+      query("SELECT * FROM ai_recommendations WHERE user_id = $1 AND day = $2", [req.user.id, date]).catch(() => ({ rows: [] })),
+    ]);
+
+    const dayData = todayRows[0] || {};
+    const yesterdayData = yesterdayRows[0] || {};
+    const recommendation = recRows[0] || null;
+
+    const deltas = {};
+    for (const key of ["steps", "active_calories", "resting_heart_rate", "sleep_duration_minutes"]) {
+      if (typeof dayData[key] === "number" && typeof yesterdayData[key] === "number") {
+        deltas[key] = dayData[key] - yesterdayData[key];
+      }
+    }
+
+    const baseline7d = {};
+    if (past7dRows.length > 0) {
+      for (const key of ["steps", "active_calories", "resting_heart_rate", "sleep_duration_minutes"]) {
+        const vals = past7dRows.map((r) => r[key]).filter((v) => typeof v === "number");
+        if (vals.length > 0) {
+          baseline7d[key] = Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+        }
+      }
+    }
+
+    res.render("daily-review", {
+      date,
+      dayData,
+      deltas,
+      baseline7d,
+      recommendation,
+    });
+  } catch (err) {
+    console.error("GET /daily-review failed", err);
+    res.status(500).redirect("/dashboard");
+  }
+});
+
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
   try {
     const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
