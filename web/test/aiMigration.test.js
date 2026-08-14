@@ -1,6 +1,10 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
-import { pool } from "../src/db.js";
+
+process.env.JWT_SECRET ||= "test-secret";
+process.env.DATABASE_URL ||= "postgres://x";
+
+const { pool } = await import("../src/db.js");
 
 test("ai_recommendations table and users.ai_config column exist", async () => {
   const resTable = await pool.query(
