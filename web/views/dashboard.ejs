@@ -75,6 +75,7 @@ body.editing .edit-controls{display:inline}
       <p class="sub"><%= email || "Signed in" %></p>
     </div>
     <nav>
+      <a href="/dashboard">Dashboard</a>
       <a href="/daily-review">Daily Review</a>
       <% if (userRole === "admin") { %><a href="/admin">Admin</a><% } %>
       <form method="post" action="/logout"><button type="submit">Log out</button></form>
