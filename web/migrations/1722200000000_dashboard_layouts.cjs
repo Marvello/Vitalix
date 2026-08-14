@@ -7,7 +7,7 @@ exports.up = (pgm) => {
       references: "users",
       onDelete: "CASCADE",
     },
-    cards: { type: "jsonb", notNull: true, default: "'[]'" },
+    cards: { type: "jsonb", notNull: true, default: "[]" },
   });
 };
 
