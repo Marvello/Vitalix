@@ -83,9 +83,13 @@ aiRouter.post("/api/ai/recommendations/generate", requireAuth, async (req, res) 
     res.json({ success: true, text: result.text });
   } catch (err) {
     console.error("AI recommendation generation failed", err);
-    const message = err.message?.includes("LLM provider error")
-      ? "AI service returned an error. Check your AI configuration."
-      : "Failed to generate recommendation.";
+    let message = "Failed to generate recommendation.";
+    const code = err.cause?.code || err.code;
+    if (code === "ECONNREFUSED" || code === "ENOTFOUND") {
+      message = `Cannot reach AI service at ${config.ai.baseUrl}. Is Ollama or your LLM provider running?`;
+    } else if (err.message?.includes("LLM provider error")) {
+      message = "AI service returned an error. Check your AI configuration.";
+    }
     res.status(500).json({ error: message });
   }
 });
