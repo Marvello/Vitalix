@@ -91,6 +91,6 @@ Deploy that image anywhere that runs containers, supplying the same env vars as 
 
 ## License
 
-[PolyForm Noncommercial License 1.0.0](LICENSE): free to use, modify, and share for any **noncommercial** purpose. **Commercial use requires a separate paid license** - contact marvello.oni@gmail.com to arrange one. See [`LICENSE`](LICENSE) for the full text.
+[PolyForm Noncommercial License 1.0.0](LICENSE): free to use, modify, and share for any **noncommercial** purpose. **Commercial use requires a separate paid license** - contact me@marvello.xyz to arrange one. See [`LICENSE`](LICENSE) for the full text.
 
 The upstream `android/healthexport/` clone is included for reference only and is not covered by this license.
