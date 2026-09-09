@@ -52,7 +52,7 @@ platform :android do
     gradle(task: "test")
   end
 
-  desc "Submit a new Beta Build to Zealot"
+  desc "Submit a new Beta Build to Zealot. Bumps the beta version in version.properties (versionCode +1, versionName per bump:major|minor|patch, default patch), builds assembleBetaRelease, uploads to Zealot, then commits the version bump. Example: fastlane android beta bump:minor"
   lane :beta do |options|
     bump_type = (options[:bump] || "patch").to_sym
     v = bump_version("beta", type: bump_type)
@@ -75,7 +75,7 @@ platform :android do
     )
   end
 
-  desc "Deploy a new production version to Zealot"
+  desc "Deploy a new production version to Zealot. Bumps the production version in version.properties (versionCode +1, versionName per bump:major|minor|patch, default patch), builds assembleProductionRelease, uploads to Zealot, then commits the version bump. Example: fastlane android production bump:major"
   lane :production do |options|
     bump_type = (options[:bump] || "patch").to_sym
     v = bump_version("production", type: bump_type)

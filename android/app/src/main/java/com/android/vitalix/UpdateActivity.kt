@@ -98,6 +98,11 @@ class UpdateActivity : AppCompatActivity() {
     private fun startDownload() {
         setState(State.DOWNLOADING)
         downloadId = updateManager.downloadApk(updateInfo.downloadUrl, updateInfo.versionName)
+        if (downloadId == -1L) {
+            showError("Couldn't start the download. Check your connection and try again.")
+            setState(State.ERROR)
+            return
+        }
         startProgressTracking()
     }
 
@@ -207,7 +212,8 @@ class UpdateActivity : AppCompatActivity() {
         binding.txtError.visibility = View.VISIBLE
     }
 
-    private fun renderChangelog(raw: String) {
+    private fun renderChangelog(rawInput: String) {
+        val raw = normalizeChangelog(rawInput)
         if (raw.isBlank()) {
             binding.scrollChangelog.visibility = View.GONE
             return
@@ -233,6 +239,26 @@ class UpdateActivity : AppCompatActivity() {
             }
         }
         binding.txtChangelog.text = ssb
+    }
+
+    /**
+     * Zealot (and the FCM push) deliver the changelog as a JSON array of commit
+     * objects, e.g. [{"message":"fix: ..."}, ...]. Flatten it to one "- message"
+     * per line so the markdown renderer above shows a clean bullet list instead
+     * of raw JSON. Anything that isn't such an array is passed through unchanged.
+     */
+    private fun normalizeChangelog(raw: String): String {
+        val t = raw.trim()
+        if (!t.startsWith("[")) return raw
+        return try {
+            val arr = org.json.JSONArray(t)
+            val lines = (0 until arr.length()).mapNotNull { i ->
+                val msg = arr.optJSONObject(i)?.optString("message")?.ifBlank { null }
+                    ?: (arr.opt(i) as? String)?.ifBlank { null }
+                msg?.let { "- $it" }
+            }
+            if (lines.isEmpty()) raw else lines.joinToString("\n")
+        } catch (_: Exception) { raw }
     }
 
     private fun applyNavBarInset() {

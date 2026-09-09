@@ -29,7 +29,7 @@ Runs all the tests
 [bundle exec] fastlane android beta
 ```
 
-Submit a new Beta Build to Zealot
+Submit a new Beta Build to Zealot. Bumps the beta version in version.properties (versionCode +1, versionName per bump:major|minor|patch, default patch), builds assembleBetaRelease, uploads to Zealot, then commits the version bump. Example: fastlane android beta bump:minor
 
 ### android production
 
@@ -37,7 +37,7 @@ Submit a new Beta Build to Zealot
 [bundle exec] fastlane android production
 ```
 
-Deploy a new production version to Zealot
+Deploy a new production version to Zealot. Bumps the production version in version.properties (versionCode +1, versionName per bump:major|minor|patch, default patch), builds assembleProductionRelease, uploads to Zealot, then commits the version bump. Example: fastlane android production bump:major
 
 ----
 

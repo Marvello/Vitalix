@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.os.Parcel
 import android.os.Parcelable
 import android.util.Log
@@ -111,21 +112,30 @@ class UpdateManager(private val context: Context) {
         })
     }
 
+    /** Enqueues the APK download. Returns the DownloadManager id, or -1 on failure. */
     fun downloadApk(downloadUrl: String, versionName: String): Long {
         ensureChannel()
-        val apkFile = apkFile(versionName)
-        if (apkFile.exists()) apkFile.delete()
-
-        val request = DownloadManager.Request(Uri.parse(downloadUrl))
-            .setTitle("Vitalix $versionName")
-            .setDescription("Downloading update…")
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
-            .setDestinationUri(Uri.fromFile(apkFile))
-
-        val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
-        val id = dm.enqueue(request)
-        Log.d(TAG, "Download enqueued: id=$id url=$downloadUrl")
-        return id
+        val fileName = "vitalix-$versionName.apk"
+        // DownloadManager runs in a separate system process and CANNOT write to
+        // app-internal storage (cacheDir). Use the app-specific external files
+        // dir — writable by DownloadManager, needs no runtime permission, and
+        // served back to the installer via the FileProvider external-files-path.
+        File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName).delete()
+        return try {
+            val request = DownloadManager.Request(Uri.parse(downloadUrl))
+                .setTitle("Vitalix $versionName")
+                .setDescription("Downloading update…")
+                .setMimeType("application/vnd.android.package-archive")
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
+                .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, fileName)
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            val id = dm.enqueue(request)
+            Log.d(TAG, "Download enqueued: id=$id url=$downloadUrl")
+            id
+        } catch (e: Exception) {
+            Log.e(TAG, "Download enqueue failed for url=$downloadUrl: ${e.message}")
+            -1L
+        }
     }
 
     fun queryProgress(downloadId: Long): DownloadProgress {
@@ -158,12 +168,6 @@ class UpdateManager(private val context: Context) {
     fun cancelDownload(downloadId: Long) {
         val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         dm.remove(downloadId)
-    }
-
-    private fun apkFile(versionName: String): File {
-        val dir = File(context.cacheDir, "updates")
-        dir.mkdirs()
-        return File(dir, "vitalix-$versionName.apk")
     }
 
     private fun ensureChannel() {
