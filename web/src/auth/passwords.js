@@ -1,4 +1,4 @@
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import { config } from "../config.js";
 
 export const DUMMY_HASH = bcrypt.hashSync("vitalix-dummy-password", config.bcryptRounds);

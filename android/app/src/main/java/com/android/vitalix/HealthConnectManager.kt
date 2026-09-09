@@ -79,10 +79,14 @@ import kotlin.reflect.KClass
  */
 class HealthConnectManager(
     private val context: Context,
-    private val client: HealthConnectClient = HealthConnectClient.getOrCreate(context),
-    private val reader: RecordReader =
-        HealthConnectRecordReader(client)
+    injectedReader: RecordReader? = null,
 ) {
+    // Lazy: constructing the platform client runs a version/profile check that
+    // throws off-device (HealthConnectClient.getOrCreate, connect-client alpha06+),
+    // so unit tests inject a reader and never touch it. Production reads/inserts
+    // trigger getOrCreate on first real use.
+    private val client: HealthConnectClient by lazy { HealthConnectClient.getOrCreate(context) }
+    private val reader: RecordReader = injectedReader ?: HealthConnectRecordReader(client)
     private val zone: ZoneId = ZoneId.systemDefault()
 
     /**

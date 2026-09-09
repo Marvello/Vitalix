@@ -68,7 +68,7 @@ class HealthConnectManagerTest {
     private fun manager(vararg records: Pair<KClass<out Record>, List<Record>>) =
         HealthConnectManager(
             context = mock(android.content.Context::class.java),
-            reader = FakeRecordReader(records.toMap()),
+            injectedReader = FakeRecordReader(records.toMap()),
         )
 
     private val t0: Instant = Instant.parse("2026-07-24T06:00:00Z")

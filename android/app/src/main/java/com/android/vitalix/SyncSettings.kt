@@ -2,33 +2,14 @@ package com.android.vitalix
 
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKey
 import com.android.vitalix.models.ExportConfig
+import com.android.vitalix.security.SecurePrefs
 import kotlin.reflect.full.memberProperties
 
 class SyncSettings(context: Context) {
-    private val secure: SharedPreferences = run {
-        val key = MasterKey.Builder(context).setKeyScheme(MasterKey.KeyScheme.AES256_GCM).build()
-        EncryptedSharedPreferences.create(
-            context, "vitalix_secure", key,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    }
+    // Server URL held in the Tink-backed encrypted store (see SecurePrefs).
+    private val secure = SecurePrefs(context, "vitalix_secure")
     private val plain: SharedPreferences = context.getSharedPreferences("vitalix", Context.MODE_PRIVATE)
-
-    init {
-        // Fold URLs saved by the short-lived per-environment build back into one.
-        val legacyEnv = secure.getString("server_url_development", null)
-            ?: secure.getString("server_url_production", null)
-        if (!legacyEnv.isNullOrBlank() && secure.getString(KEY_SERVER_URL, null) == null) {
-            secure.edit().putString(KEY_SERVER_URL, legacyEnv).apply()
-        }
-        if (legacyEnv != null) {
-            secure.edit().remove("server_url_development").remove("server_url_production").apply()
-        }
-    }
 
     /**
      * Receiver URL. Which server a build points at is a build-time decision
@@ -36,18 +17,18 @@ class SyncSettings(context: Context) {
      * clearing it falls back to the built-in default rather than to nothing.
      */
     var serverUrl: String?
-        get() = secure.getString(KEY_SERVER_URL, null)?.takeIf { it.isNotBlank() } ?: defaultServerUrl
-        set(v) { secure.edit().putString(KEY_SERVER_URL, v?.trim().orEmpty()).apply() }
+        get() = secure.getString(KEY_SERVER_URL)?.takeIf { it.isNotBlank() } ?: defaultServerUrl
+        set(v) { secure.putString(KEY_SERVER_URL, v?.trim().orEmpty()) }
 
     /** The URL this build ships with, or null if it was built without one. */
     val defaultServerUrl: String? = BuildConfig.DEFAULT_SERVER_URL.takeIf { it.isNotBlank() }
 
     /** True when [serverUrl] is a user override rather than the build default. */
     val serverUrlIsOverridden: Boolean
-        get() = !secure.getString(KEY_SERVER_URL, null).isNullOrBlank() &&
-            secure.getString(KEY_SERVER_URL, null) != defaultServerUrl
+        get() = !secure.getString(KEY_SERVER_URL).isNullOrBlank() &&
+            secure.getString(KEY_SERVER_URL) != defaultServerUrl
 
-    fun resetServerUrl() { secure.edit().remove(KEY_SERVER_URL).apply() }
+    fun resetServerUrl() { secure.remove(KEY_SERVER_URL) }
 
     var lastSync: Long
         get() = plain.getLong("last_sync", 0)

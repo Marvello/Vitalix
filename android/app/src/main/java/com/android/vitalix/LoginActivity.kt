@@ -1,6 +1,9 @@
 package com.android.vitalix
 
+import android.content.Context
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -8,6 +11,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
@@ -24,6 +28,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var editPassword: TextInputEditText
     private lateinit var btnLogin: Button
     private lateinit var txtStatus: TextView
+    private lateinit var progressLogin: CircularProgressIndicator
 
     private val settings by lazy { SyncSettings(this) }
     private val store by lazy { AuthStore(this) }
@@ -39,6 +44,7 @@ class LoginActivity : AppCompatActivity() {
         editPassword = findViewById(R.id.editPassword)
         btnLogin = findViewById(R.id.btnLogin)
         txtStatus = findViewById(R.id.txtStatus)
+        progressLogin = findViewById(R.id.progressLogin)
 
         showServerUrl()
         btnChangeServerUrl.setOnClickListener {
@@ -73,8 +79,13 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
+        if (!isOnline()) {
+            showStatus("No internet connection.")
+            return
+        }
+
         setBusy(true)
-        showStatus("")
+        showStatus("Signing in\u2026")
 
         lifecycleScope.launch {
             AuthClient(url).login(email, password).fold(
@@ -82,12 +93,20 @@ class LoginActivity : AppCompatActivity() {
                     store.save(tokens.access, tokens.refresh, email)
                     goMain()
                 },
-                onFailure = {
+                onFailure = { e ->
                     setBusy(false)
-                    showStatus("Invalid email or password.")
+                    showStatus(loginErrorMessage(e))
                 }
             )
         }
+    }
+
+    /** Turns a login failure into a message that says what actually went wrong. */
+    private fun loginErrorMessage(e: Throwable): String = when (e) {
+        is AuthClient.AuthException ->
+            if (e.code == 401) "Invalid email or password."
+            else e.message?.takeIf { it.isNotBlank() } ?: "Server error (${e.code})."
+        else -> "Can't reach the server. Check it's deployed and the URL is correct."
     }
 
     private fun goMain() {
@@ -97,6 +116,13 @@ class LoginActivity : AppCompatActivity() {
 
     private fun setBusy(busy: Boolean) {
         btnLogin.isEnabled = !busy
+        progressLogin.visibility = if (busy) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    private fun isOnline(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
     private fun showStatus(message: String) {

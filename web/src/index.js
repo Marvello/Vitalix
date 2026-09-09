@@ -9,6 +9,7 @@ import { adminRouter } from "./routes/admin.js";
 import { pagesRouter } from "./routes/pages.js";
 import { webhookRouter } from "./routes/webhooks.js";
 import { aiRouter } from "./routes/ai.js";
+import { runPendingMigrations } from "./migrate.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -25,6 +26,15 @@ app.use(pagesRouter);
 app.use(webhookRouter);
 app.use(aiRouter);
 
-app.listen(config.port, () => console.log(`vitalix receiver listening on :${config.port}`));
+// Apply pending migrations before serving — the DB must match the code that
+// starts. A migration failure aborts startup rather than serving a bad schema.
+async function start() {
+  await runPendingMigrations();
+  app.listen(config.port, () => console.log(`vitalix receiver listening on :${config.port}`));
+}
+start().catch((err) => {
+  console.error("[startup] migration failed:", err.message);
+  process.exit(1);
+});
 
 export { app };

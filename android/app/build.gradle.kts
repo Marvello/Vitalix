@@ -166,7 +166,7 @@ dependencies {
     implementation(libs.health.connect.client)
     implementation(libs.okhttp)
     implementation(libs.json)
-    implementation(libs.security.crypto)
+    implementation(libs.tink.android)
     implementation(libs.work.runtime.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.kotlin.reflect)

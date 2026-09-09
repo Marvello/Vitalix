@@ -13,6 +13,7 @@ import android.text.style.RelativeSizeSpan
 import android.text.style.StyleSpan
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.addCallback
 import androidx.core.content.IntentCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -57,6 +58,9 @@ class UpdateActivity : AppCompatActivity() {
 
         binding.btnPrimary.setOnClickListener { onPrimaryClicked() }
         binding.btnNotNow.setOnClickListener { onNotNowClicked() }
+        // Back press = "Not now" (predictive-back ready; replaces the deprecated
+        // Activity.onBackPressed override).
+        onBackPressedDispatcher.addCallback(this) { onNotNowClicked() }
 
         if (downloadId != -1L) {
             resumeProgressTracking()
@@ -89,11 +93,6 @@ class UpdateActivity : AppCompatActivity() {
             updateManager.cancelDownload(downloadId)
         }
         finish()
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onBackPressed() {
-        onNotNowClicked()
     }
 
     private fun startDownload() {

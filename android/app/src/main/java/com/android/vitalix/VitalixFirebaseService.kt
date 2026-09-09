@@ -12,10 +12,9 @@ import com.google.firebase.messaging.RemoteMessage
 
 class VitalixFirebaseService : FirebaseMessagingService() {
 
-    override fun onNewToken(token: String) {
-        Log.d(TAG, "FCM token refreshed")
-        // Token registration with server (fcm_tokens table) is a future task.
-    }
+    // Note: FCM 25 deprecated onNewToken/onMessageSent/onSendError. Server token
+    // registration (fcm_tokens table) is a future task — implement it with FCM 25's
+    // current token API rather than re-adding the deprecated onNewToken override.
 
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data

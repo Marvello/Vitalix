@@ -1,10 +1,10 @@
 services:
   vitalix-db:
     container_name: vitalix-db
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     env_file: .env
     ports: ["${DB_PORT:-5432}:5432"]
-    volumes: ["vitalix_pgdata:/var/lib/postgresql/data"]
+    volumes: ["vitalix_pgdata:/var/lib/postgresql"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vitalix}"]
       interval: 3s
