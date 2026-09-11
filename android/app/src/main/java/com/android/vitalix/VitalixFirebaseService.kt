@@ -25,6 +25,11 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             return
         }
 
+        if (data["type"] == "insight_ready") {
+            showInsightNotification(data["day"])
+            return
+        }
+
         if (data["type"] == "app_update") {
             val version = data["version"] ?: "new version"
             val downloadUrl = data["download_url"] ?: return
@@ -92,10 +97,35 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         getSystemService(NotificationManager::class.java).notify(NO_SYNC_NOTIFICATION_ID, notification)
     }
 
+    private fun showInsightNotification(day: String?) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        val pending = PendingIntent.getActivity(
+            this, 0,
+            InsightActivity.intent(this, day).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, INSIGHTS_CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setContentTitle("Your health insight is ready")
+            .setContentText("Tap to see today's personalized recommendations.")
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(INSIGHT_NOTIFICATION_ID, notification)
+    }
+
     companion object {
         private const val TAG = "VitalixFCM"
         private const val NOTIFICATION_ID = 4300
         private const val NO_SYNC_NOTIFICATION_ID = 4301
+        private const val INSIGHT_NOTIFICATION_ID = 4302
         private const val SYNC_CHANNEL = "sync_alerts"
+        private const val INSIGHTS_CHANNEL = "insights"
     }
 }

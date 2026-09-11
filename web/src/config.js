@@ -28,6 +28,7 @@ export const config = {
   zealotChannelKey: process.env.ZEALOT_CHANNEL_KEY || null,
   zealotWebhookSecret: process.env.ZEALOT_WEBHOOK_SECRET || null,
   syncCronSecret: process.env.SYNC_CRON_SECRET || null,
+  cronSecret: process.env.CRON_SECRET || process.env.SYNC_CRON_SECRET || null,
   firebaseEnabled: !!(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_SERVICE_ACCOUNT),
   ai: {
     provider: process.env.AI_PROVIDER || "openai-compatible",

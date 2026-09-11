@@ -6,8 +6,23 @@ import { inviteEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 import { getInstallUrl } from "../zealot.js";
 import { runSyncCheck } from "../syncCheck.js";
+import { runDailyInsights } from "../dailyInsights.js";
 
 export const adminRouter = Router();
+
+// Triggered daily by external cron (no JWT) — shared-secret guarded. Generates
+// yesterday's AI insight per user and pushes an "insight_ready" nudge.
+adminRouter.post("/api/admin/run-daily-insights", async (req, res) => {
+  if (!config.cronSecret || req.headers["x-cron-token"] !== config.cronSecret) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  try {
+    res.json(await runDailyInsights());
+  } catch (e) {
+    console.error("daily insights failed", e.message);
+    res.status(500).json({ error: "daily insights failed" });
+  }
+});
 
 // Triggered hourly by external cron (no JWT) — guarded by a shared secret,
 // same pattern as the Zealot webhook. Pushes "device stopped syncing" nudges.

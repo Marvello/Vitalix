@@ -263,6 +263,9 @@ class MainActivity : AppCompatActivity() {
         R.id.menu_sync_log -> {
             startActivity(Intent(this, SyncLogActivity::class.java)); true
         }
+        R.id.menu_insight -> {
+            startActivity(InsightActivity.intent(this)); true
+        }
         R.id.menu_logout -> {
             onLogoutClicked(); true
         }
