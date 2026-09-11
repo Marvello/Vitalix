@@ -12,11 +12,10 @@ services:
       retries: 10
   vitalix-app:
     container_name: vitalix-app
-    build:
-      context: .
-      args:
-        BUILD_VERSION: ${BUILD_VERSION:-dev}
-        BUILD_DATE: ${BUILD_DATE:-}
+    # Prebuilt by CI (.github/workflows/web.yml) and published to GHCR.
+    # Override the tag/registry with VITALIX_IMAGE if needed.
+    image: ${VITALIX_IMAGE:-ghcr.io/marvello/vitalix-web:latest}
+    pull_policy: always
     env_file: .env
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-vitalix}:${POSTGRES_PASSWORD:-vitalix}@vitalix-db:5432/${POSTGRES_DB:-vitalix}
