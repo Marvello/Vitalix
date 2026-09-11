@@ -20,6 +20,11 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         val data = message.data
         Log.d(TAG, "FCM message received: type=${data["type"]}")
 
+        if (data["type"] == "no_sync") {
+            showNoSyncNotification()
+            return
+        }
+
         if (data["type"] == "app_update") {
             val version = data["version"] ?: "new version"
             val downloadUrl = data["download_url"] ?: return
@@ -65,8 +70,32 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         }
     }
 
+    private fun showNoSyncNotification() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(SYNC_CHANNEL, "Sync alerts", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        val intent = Intent(this, MainActivity::class.java)
+            .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
+        val pending = PendingIntent.getActivity(
+            this, 0, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, SYNC_CHANNEL)
+            .setSmallIcon(android.R.drawable.stat_notify_sync_noanim)
+            .setContentTitle("Vitalix — sync stalled")
+            .setContentText("No health data sent recently. Open to check Health Connect and connection.")
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        getSystemService(NotificationManager::class.java).notify(NO_SYNC_NOTIFICATION_ID, notification)
+    }
+
     companion object {
         private const val TAG = "VitalixFCM"
         private const val NOTIFICATION_ID = 4300
+        private const val NO_SYNC_NOTIFICATION_ID = 4301
+        private const val SYNC_CHANNEL = "sync_alerts"
     }
 }

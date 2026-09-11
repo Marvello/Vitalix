@@ -185,6 +185,7 @@ class MainActivity : AppCompatActivity() {
 
         handleUpdateIntent(intent)
         checkForAppUpdate()
+        FcmRegistrar.register(this)
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -5,8 +5,24 @@ import { sendMail } from "../auth/mailer.js";
 import { inviteEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 import { getInstallUrl } from "../zealot.js";
+import { runSyncCheck } from "../syncCheck.js";
 
 export const adminRouter = Router();
+
+// Triggered hourly by external cron (no JWT) — guarded by a shared secret,
+// same pattern as the Zealot webhook. Pushes "device stopped syncing" nudges.
+adminRouter.post("/api/admin/run-sync-check", async (req, res) => {
+  const token = req.headers["x-sync-token"];
+  if (!config.syncCronSecret || token !== config.syncCronSecret) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  try {
+    res.json(await runSyncCheck());
+  } catch (e) {
+    console.error("sync check failed", e.message);
+    res.status(500).json({ error: "sync check failed" });
+  }
+});
 
 adminRouter.post("/api/admin/invites", requireAuth, requireAdmin, async (req, res) => {
   const { email, role } = req.body || {};

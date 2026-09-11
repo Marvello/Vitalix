@@ -9,6 +9,7 @@ import { adminRouter } from "./routes/admin.js";
 import { pagesRouter } from "./routes/pages.js";
 import { webhookRouter } from "./routes/webhooks.js";
 import { aiRouter } from "./routes/ai.js";
+import { fcmRouter } from "./routes/fcm.js";
 import { runPendingMigrations } from "./migrate.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -25,6 +26,7 @@ app.use(adminRouter);
 app.use(pagesRouter);
 app.use(webhookRouter);
 app.use(aiRouter);
+app.use(fcmRouter);
 
 // Apply pending migrations before serving — the DB must match the code that
 // starts. A migration failure aborts startup rather than serving a bad schema.
