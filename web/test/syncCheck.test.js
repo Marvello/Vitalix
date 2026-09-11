@@ -21,6 +21,7 @@ describe("014_no_sync_notify migration", () => {
 describe("STALE_USERS_SQL", () => {
   test("requires a token, a prior sync, staleness, and renotify gap", () => {
     assert.match(STALE_USERS_SQL, /JOIN fcm_tokens/);            // must have a device token
+    assert.match(STALE_USERS_SQL, /array_agg\(DISTINCT/);        // no dup tokens from syncs fan-out
     assert.match(STALE_USERS_SQL, /MAX\(s\.received_at\) IS NOT NULL/); // synced before (not never)
     assert.match(STALE_USERS_SQL, /MAX\(s\.received_at\) < now\(\)/);   // now stale
     assert.match(STALE_USERS_SQL, /no_sync_notified_at IS NULL/);       // dedup

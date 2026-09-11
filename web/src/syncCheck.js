@@ -8,7 +8,7 @@ export const RENOTIFY_HOURS = 24; // re-nudge at most once per this window
 // *stopped* syncing, not *never started*), are now stale, and weren't nudged
 // within the re-notify window. $1 = stale hours, $2 = renotify hours.
 export const STALE_USERS_SQL = `
-  SELECT u.id, array_agg(f.token) AS tokens
+  SELECT u.id, array_agg(DISTINCT f.token) AS tokens
   FROM users u
   JOIN fcm_tokens f ON f.user_id = u.id
   LEFT JOIN syncs s ON s.user_id = u.id
