@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { deadTokens, runSyncCheck, STALE_USERS_SQL } from "../src/syncCheck.js";
+
+// config.js throws without these; set before the (dynamic) import that loads it.
+process.env.DATABASE_URL ??= "postgres://x";
+process.env.JWT_SECRET ??= "test-secret";
+const { deadTokens, runSyncCheck, STALE_USERS_SQL } = await import("../src/syncCheck.js");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
