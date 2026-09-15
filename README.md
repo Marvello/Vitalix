@@ -1,6 +1,6 @@
 # Vitalix
 
-**Own your health data.** Vitalix reads your [Health Connect](https://health.google/health-connect-android/) records on-device and forwards them as JSON to a server **you** control — no Google Sheets, no CSV, no third-party data path. It ships with a self-hosted receiver that stores the data in your own Postgres and shows it back to you on a private dashboard.
+**Own your health data.** Vitalix reads your [Health Connect](https://health.google/health-connect-android/) records on-device and forwards them as JSON to a server **you** control. It ships with a self-hosted receiver that stores your health data in your own Postgres and shows it back to you on a private dashboard — no Google Sheets, no CSV; your records live on infrastructure you own.
 
 List of data that we export and store can be check on [Data Coverage](./docs/health-connect-data-coverage.md)
 
