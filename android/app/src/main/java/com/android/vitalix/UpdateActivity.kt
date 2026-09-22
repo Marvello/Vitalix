@@ -43,6 +43,7 @@ class UpdateActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityUpdateBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        applySystemBarsPadding()
 
         updateInfo = IntentCompat.getParcelableExtra(
             intent, UpdateManager.EXTRA_UPDATE_INFO, UpdateInfo::class.java
