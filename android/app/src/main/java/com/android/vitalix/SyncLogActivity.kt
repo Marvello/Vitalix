@@ -20,6 +20,7 @@ class SyncLogActivity : AppCompatActivity() {
 
     private val log by lazy { SyncLog(this) }
     private val stamp = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
+    private val clock = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     private lateinit var list: LinearLayout
     private lateinit var empty: TextView
@@ -135,8 +136,14 @@ class SyncLogActivity : AppCompatActivity() {
         }
         // Days sent is only meaningful once a run has finished.
         // A running backfill reports days as it goes; other runs only at the end.
-        val days = if (e.status == SyncLog.Status.RUNNING && e.days == 0) "" else " · ${e.days} days"
-        return "Period: $range$days"
+        val detail = when {
+            e.status == SyncLog.Status.RUNNING && e.days == 0 -> ""
+            // Intraday auto-syncs cover a single day, so a day count reads "0 days".
+            // Show the run's clock time instead — the useful signal at hourly cadence.
+            e.from != null && e.from == e.to -> " · ${clock.format(Date(e.startedAt))}"
+            else -> " · ${e.days} days"
+        }
+        return "Period: $range$detail"
     }
 
     private fun colorFor(status: SyncLog.Status) = ContextCompat.getColor(this, when (status) {

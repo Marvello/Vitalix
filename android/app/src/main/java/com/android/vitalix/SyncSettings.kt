@@ -37,7 +37,7 @@ class SyncSettings(context: Context) {
         get() = plain.getBoolean("auto_sync", false)
         set(v) { plain.edit().putBoolean("auto_sync", v).apply() }
     var syncIntervalHours: Int
-        get() = plain.getInt("sync_interval_hours", 12)
+        get() = plain.getInt("sync_interval_hours", 4)
         set(v) { plain.edit().putInt("sync_interval_hours", v).apply() }
 
     /**

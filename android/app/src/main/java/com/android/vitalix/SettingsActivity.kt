@@ -213,7 +213,7 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun persistInterval() {
-        val hours = editSyncInterval.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 12
+        val hours = editSyncInterval.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 4
         if (hours == settings.syncIntervalHours) return
         settings.syncIntervalHours = hours
         if (settings.autoSyncEnabled) applySchedule(true)
