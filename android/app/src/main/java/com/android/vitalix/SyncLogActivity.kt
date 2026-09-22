@@ -27,7 +27,7 @@ class SyncLogActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_sync_log)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
         list = findViewById(R.id.listEntries)
         empty = findViewById(R.id.txtEmpty)
         findViewById<Button>(R.id.btnClearLog).setOnClickListener {

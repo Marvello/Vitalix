@@ -26,7 +26,7 @@ class OnboardingActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_onboarding)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
 
         editName = findViewById(R.id.editName)
         editHeight = findViewById(R.id.editHeight)

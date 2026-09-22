@@ -17,7 +17,7 @@
             android:layout_marginTop="24dp"
             android:layout_marginBottom="4dp"
             android:text="Vitalix"
-            android:textColor="@color/vital_teal"
+            android:textColor="@color/vital_teal_text"
             android:textSize="28sp"
             android:textStyle="bold" />
 
@@ -96,6 +96,15 @@
             android:text="Sign up"
             android:textColor="@color/white" />
 
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/progressSignup"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="8dp"
+            android:indeterminate="true"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"
@@ -111,7 +120,7 @@
             android:layout_height="wrap_content"
             android:text="Already have an account? Log in"
             android:textAlignment="center"
-            android:textColor="@color/vital_teal" />
+            android:textColor="@color/vital_teal_text" />
 
     </LinearLayout>
 </ScrollView>

@@ -9,7 +9,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Your health insight"
-        android:textColor="@color/vital_teal"
+        android:textColor="@color/vital_teal_text"
         android:textSize="22sp"
         android:textStyle="bold" />
 

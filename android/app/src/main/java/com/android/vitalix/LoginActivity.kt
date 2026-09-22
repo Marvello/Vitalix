@@ -36,7 +36,7 @@ class LoginActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
 
         txtServerUrl = findViewById(R.id.txtServerUrl)
         btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)

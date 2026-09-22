@@ -5,6 +5,8 @@
 
     <!-- Brand -->
     <color name="vital_teal">#0FA9A0</color>
+    <!-- Darker teal for TEXT/links only (~4.6:1 on white). vital_teal is for fills. -->
+    <color name="vital_teal_text">#0B7A73</color>
     <color name="pulse_green">#34D399</color>
     <color name="heart_coral">#FF6B81</color>
 

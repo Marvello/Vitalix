@@ -7,6 +7,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.vitalix.auth.AuthClient
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
@@ -19,6 +20,7 @@ class ForgotActivity : AppCompatActivity() {
 
     private lateinit var editEmail: TextInputEditText
     private lateinit var btnSubmit: Button
+    private lateinit var progressForgot: CircularProgressIndicator
     private lateinit var txtStatus: TextView
 
     private val settings by lazy { SyncSettings(this) }
@@ -28,10 +30,11 @@ class ForgotActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_forgot)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
 
         editEmail = findViewById(R.id.editEmail)
         btnSubmit = findViewById(R.id.btnSubmit)
+        progressForgot = findViewById(R.id.progressForgot)
         txtStatus = findViewById(R.id.txtStatus)
 
         btnSubmit.setOnClickListener { onSubmitClicked() }
@@ -65,5 +68,6 @@ class ForgotActivity : AppCompatActivity() {
 
     private fun setBusy(busy: Boolean) {
         btnSubmit.isEnabled = !busy
+        progressForgot.visibility = if (busy) android.view.View.VISIBLE else android.view.View.GONE
     }
 }

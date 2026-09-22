@@ -49,7 +49,7 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
 
         txtServerUrl = findViewById(R.id.txtServerUrl)
         btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)
@@ -270,6 +270,9 @@ class SettingsActivity : AppCompatActivity() {
         settings.userWeightKg = weightKg
 
         if ((heightCm != null && heightCm > 0) || (weightKg != null && weightKg > 0)) {
+            // Disable while the Health Connect write runs so a double-tap can't
+            // insert duplicate height/weight records; confirm once it settles.
+            btnSaveProfile.isEnabled = false
             lifecycleScope.launch {
                 try {
                     val hcm = HealthConnectManager(this@SettingsActivity)
@@ -277,10 +280,14 @@ class SettingsActivity : AppCompatActivity() {
                     if (heightCm != null && heightCm > 0) hcm.insertHeightRecord(heightCm, today)
                     if (weightKg != null && weightKg > 0) hcm.insertWeightRecord(weightKg, today)
                 } catch (_: Exception) {
+                } finally {
+                    btnSaveProfile.isEnabled = true
+                    Toast.makeText(this@SettingsActivity, "Profile saved", Toast.LENGTH_SHORT).show()
                 }
             }
+        } else {
+            Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
         }
-        Toast.makeText(this, "Profile saved", Toast.LENGTH_SHORT).show()
     }
 
     /** Lets the user log a weight for an arbitrary past date without editing the profile field. */

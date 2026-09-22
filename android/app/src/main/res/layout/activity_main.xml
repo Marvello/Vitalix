@@ -38,7 +38,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="4dp"
             android:text="Vitalix"
-            android:textColor="@color/vital_teal"
+            android:textColor="@color/vital_teal_text"
             android:textSize="28sp"
             android:textStyle="bold" />
 

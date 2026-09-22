@@ -8,6 +8,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
+import com.google.android.material.progressindicator.CircularProgressIndicator
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
@@ -22,6 +23,7 @@ class SignupActivity : AppCompatActivity() {
     private lateinit var editEmail: TextInputEditText
     private lateinit var editPassword: TextInputEditText
     private lateinit var btnSignup: Button
+    private lateinit var progressSignup: CircularProgressIndicator
     private lateinit var txtStatus: TextView
 
     private val settings by lazy { SyncSettings(this) }
@@ -30,12 +32,13 @@ class SignupActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_signup)
-        applyStatusBarTopPadding()
+        applySystemBarsPadding()
 
         editInviteCode = findViewById(R.id.editInviteCode)
         editEmail = findViewById(R.id.editEmail)
         editPassword = findViewById(R.id.editPassword)
         btnSignup = findViewById(R.id.btnSignup)
+        progressSignup = findViewById(R.id.progressSignup)
         txtStatus = findViewById(R.id.txtStatus)
 
         intent?.getStringExtra("token")?.let { editInviteCode.setText(it) }
@@ -86,6 +89,7 @@ class SignupActivity : AppCompatActivity() {
 
     private fun setBusy(busy: Boolean) {
         btnSignup.isEnabled = !busy
+        progressSignup.visibility = if (busy) android.view.View.VISIBLE else android.view.View.GONE
     }
 
     private fun showStatus(message: String) {
