@@ -30,7 +30,6 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var txtServerUrl: TextView
     private lateinit var btnChangeServerUrl: Button
     private lateinit var switchAutoSync: SwitchMaterial
-    private lateinit var editSyncInterval: TextInputEditText
     private lateinit var txtAutoSyncState: TextView
     private lateinit var cardBattery: MaterialCardView
     private lateinit var txtBatteryHint: TextView
@@ -54,7 +53,6 @@ class SettingsActivity : AppCompatActivity() {
         txtServerUrl = findViewById(R.id.txtServerUrl)
         btnChangeServerUrl = findViewById(R.id.btnChangeServerUrl)
         switchAutoSync = findViewById(R.id.switchAutoSync)
-        editSyncInterval = findViewById(R.id.editSyncInterval)
         txtAutoSyncState = findViewById(R.id.txtAutoSyncState)
         cardBattery = findViewById(R.id.cardBattery)
         txtBatteryHint = findViewById(R.id.txtBatteryHint)
@@ -159,16 +157,10 @@ class SettingsActivity : AppCompatActivity() {
         load()
     }
 
-    override fun onPause() {
-        super.onPause()
-        persistInterval()
-    }
-
     private fun load() {
         loading = true
         showServerUrl()
         switchAutoSync.isChecked = settings.autoSyncEnabled
-        editSyncInterval.setText(settings.syncIntervalHours.toString())
         editProfileName.setText(settings.userName ?: "")
         editProfileHeight.setText(settings.userHeightCm?.let { "%.1f".format(it) } ?: "")
         editProfileWeight.setText(settings.userWeightKg?.let { "%.1f".format(it) } ?: "")
@@ -212,15 +204,8 @@ class SettingsActivity : AppCompatActivity() {
         btnOpenDeviceSettings.visibility = if (oemHint != null) View.VISIBLE else View.GONE
     }
 
-    private fun persistInterval() {
-        val hours = editSyncInterval.text?.toString()?.trim()?.toIntOrNull()?.coerceAtLeast(1) ?: 4
-        if (hours == settings.syncIntervalHours) return
-        settings.syncIntervalHours = hours
-        if (settings.autoSyncEnabled) applySchedule(true)
-    }
-
     private fun applySchedule(enabled: Boolean) {
-        if (enabled) ExportWorker.schedule(this, settings.syncIntervalHours)
+        if (enabled) ExportWorker.schedule(this)
         else ExportWorker.cancel(this)
     }
 
@@ -248,7 +233,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             runOnUiThread {
                 txtAutoSyncState.text = if (scheduled) {
-                    "Scheduled every ${settings.syncIntervalHours}h. Runs when the device has a network."
+                    "Syncs every ${ExportWorker.INTERVAL_HOURS}h — ${24 / ExportWorker.INTERVAL_HOURS} times a day, when the device has a network."
                 } else {
                     "Enabled, but no run is queued yet."
                 }

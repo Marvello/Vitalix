@@ -219,19 +219,6 @@
                     android:layout_marginBottom="8dp"
                     android:text="Enable auto-sync" />
 
-                <com.google.android.material.textfield.TextInputLayout
-                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="Sync interval (hours)">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/editSyncInterval"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:inputType="number" />
-                </com.google.android.material.textfield.TextInputLayout>
-
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
         <TextView

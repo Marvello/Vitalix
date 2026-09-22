@@ -96,8 +96,11 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
     companion object {
         const val NAME = "vitalix_auto_export"
 
-        fun schedule(context: Context, hours: Int) {
-            val req = PeriodicWorkRequestBuilder<ExportWorker>(hours.toLong(), TimeUnit.HOURS)
+        /** Fixed auto-sync cadence: every 4h = 6 runs/day. */
+        const val INTERVAL_HOURS = 4
+
+        fun schedule(context: Context) {
+            val req = PeriodicWorkRequestBuilder<ExportWorker>(INTERVAL_HOURS.toLong(), TimeUnit.HOURS)
                 .setConstraints(
                     Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
                 )

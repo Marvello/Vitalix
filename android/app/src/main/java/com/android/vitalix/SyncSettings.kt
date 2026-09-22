@@ -36,9 +36,6 @@ class SyncSettings(context: Context) {
     var autoSyncEnabled: Boolean
         get() = plain.getBoolean("auto_sync", false)
         set(v) { plain.edit().putBoolean("auto_sync", v).apply() }
-    var syncIntervalHours: Int
-        get() = plain.getInt("sync_interval_hours", 4)
-        set(v) { plain.edit().putInt("sync_interval_hours", v).apply() }
 
     /**
      * Whether the user has confirmed they added Vitalix to their OEM's background
