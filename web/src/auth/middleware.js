@@ -1,5 +1,6 @@
 import { verifyAccess, signAccess } from "./tokens.js";
 import * as store from "./store.js";
+import { query } from "../db.js";
 import { setAuthCookies } from "../routes/auth.js";
 
 function extractToken(req) {
@@ -27,11 +28,25 @@ export async function requireAuth(req, res, next) {
     claims = await tryRefresh(req, res);
   }
 
-  if (!claims) {
+  // Access tokens live for days; check the account on every request so disabling
+  // or demoting a user takes effect now, not when the token expires. Role comes
+  // from the DB, not the token, for the same reason.
+  let user = null;
+  if (claims) {
+    try {
+      const { rows } = await query("SELECT role, disabled_at FROM users WHERE id = $1", [Number(claims.sub)]);
+      user = rows[0] && !rows[0].disabled_at ? rows[0] : null;
+    } catch (err) {
+      console.error("[auth] user lookup failed:", err.message);
+      return res.status(500).json({ error: "internal error" });
+    }
+  }
+
+  if (!user) {
     if (!req.path.startsWith("/api/") && req.accepts(["html", "json"]) === "html") return res.redirect("/login");
     return res.status(401).json({ error: "unauthorized" });
   }
-  req.user = { id: Number(claims.sub), role: claims.role };
+  req.user = { id: Number(claims.sub), role: user.role };
   next();
 }
 

@@ -3,13 +3,17 @@ import { requireAuth } from "../auth/middleware.js";
 import { query } from "../db.js";
 import { config } from "../config.js";
 import { generateRecommendation, buildPrompts, toKey } from "../ai/recommendations.js";
+import { rateLimit } from "../rateLimit.js";
 
 export const aiRouter = Router();
 
 // re-exported for existing tests that import buildPrompts from this module
 export { buildPrompts };
 
-aiRouter.post("/api/ai/recommendations/generate", requireAuth, async (req, res) => {
+// Each call is a paid/slow LLM completion: cap per user.
+const generateLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, key: (req) => req.user.id });
+
+aiRouter.post("/api/ai/recommendations/generate", requireAuth, generateLimit, async (req, res) => {
   const day = req.body.day || toKey(new Date());
   try {
     const { text } = await generateRecommendation(req.user.id, day);

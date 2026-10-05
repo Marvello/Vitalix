@@ -9,6 +9,9 @@ pg.types.setTypeParser(1114, (v) => v); // timestamp
 pg.types.setTypeParser(1184, (v) => v); // timestamptz
 
 export const pool = new pg.Pool({ connectionString: config.databaseUrl });
+// An idle client erroring (Postgres restart, network blip) emits on the pool;
+// unhandled, Node exits. The pool drops that client and reconnects on demand.
+pool.on("error", (err) => console.error("[db] idle client error:", err.message));
 
 export function query(text, params) {
   return pool.query(text, params);
@@ -16,16 +19,19 @@ export function query(text, params) {
 
 export async function withTransaction(fn) {
   const client = await pool.connect();
+  let broken;
   try {
     await client.query("BEGIN");
     const result = await fn(client);
     await client.query("COMMIT");
     return result;
   } catch (err) {
-    await client.query("ROLLBACK");
+    // A failed ROLLBACK means the connection itself is bad: destroy it rather
+    // than hand a half-open transaction to the next caller.
+    await client.query("ROLLBACK").catch((e) => { broken = e; });
     throw err;
   } finally {
-    client.release();
+    client.release(broken);
   }
 }
 

@@ -19,6 +19,9 @@ export async function generateCompletion(aiConfig, systemPrompt, userPrompt) {
       ...(aiConfig.apiKey ? { Authorization: `Bearer ${aiConfig.apiKey}` } : {}),
     },
     body: JSON.stringify(payload),
+    // A hung provider would otherwise stall the request (and runDailyInsights,
+    // which walks users one at a time) indefinitely.
+    signal: AbortSignal.timeout(aiConfig.timeoutMs ?? 120_000),
   });
 
   if (!response.ok) {

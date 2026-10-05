@@ -136,13 +136,14 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const hasWorkouts = !filterActive && workouts.length > 0;
     const hasBmi = bmiRows.length > 0;
     let hasBmiCard = hasBmi;
+    let bmiPlaceholder = null;
     if (!hasBmi) {
       const hasWeight = (cover.weight ?? 0) > 0;
       const hasHeight = (cover.height ?? 0) > 0;
       const { rows: userRows } = await query("SELECT profile_height_m FROM users WHERE id = $1", [req.user.id]);
       const hasProfileHeight = userRows[0]?.profile_height_m != null;
       if (hasWeight && !hasHeight && !hasProfileHeight) {
-        chartData.bmi = {
+        bmiPlaceholder = {
           key: "bmi", label: "BMI", hasData: false,
           message: "Set your height in the app to see BMI",
         };
@@ -207,7 +208,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     const nullBand = (pts) => pts.map((p) => ({ ...p, min: null, max: null, avg: null }));
 
     // Build per-key chart data
-    const chartData = {};
+    const chartData = bmiPlaceholder ? { bmi: bmiPlaceholder } : {};
 
     // DAY_METRICS
     for (const m of shownDayMetrics) {

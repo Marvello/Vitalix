@@ -132,8 +132,8 @@ erDiagram
     records {
         bigserial id PK
         bigint user_id FK "CASCADE"
-        text type "idx(user_id, type, start_at)"
-        text hc_id "UK(user_id, hc_id, start_at)"
+        text type "UK(user_id, type, start_at, hc_id)"
+        text hc_id "UK(user_id, type, start_at, hc_id)"
         timestamptz start_at
         timestamptz end_at
         double value_num
@@ -210,9 +210,10 @@ Workout sessions per day. `day_id` FK (CASCADE), `name`, `start_at`,
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern
 source of truth, parallel to `samples`. Keyed on the Health Connect record UID:
-unique `(user_id, hc_id, start_at)` (`records_identity`) so overlapping backfill
-windows and re-syncs upsert rather than duplicate. `type` distinguishes record
-kinds; indexed on `(user_id, type, start_at)`. Not linked to `health_days` —
+unique `(user_id, type, start_at, hc_id)` (`records_identity`, migration 015) so
+overlapping backfill windows and re-syncs upsert rather than duplicate. `type` is
+part of the key because one NutritionRecord fans out into several rows (one per
+nutrient) sharing `hc_id` + `start_at`; the same index serves range queries. Not linked to `health_days` —
 owned directly by `user`.
 
 `meta` (jsonb, nullable) — per-reading Health Connect context enums

@@ -180,7 +180,7 @@ The receiver (`web/`) writes three things (see `web/src/persist.js`):
 - **`day_aggregates`** — min/max/avg per aggregated metric for that day.
 - **`samples`** — every raw reading, scoped to its day; carries `source`, `meta`, and `hc_id`.
 - **`records`** — the **granular, day-independent source of truth**, keyed on the
-  Health Connect record UID (`hc_id`) so re-syncs are idempotent (`UNIQUE(user_id, hc_id, start_at)`).
+  Health Connect record UID (`hc_id`) so re-syncs are idempotent (`UNIQUE(user_id, type, start_at, hc_id)` — `type` keeps a NutritionRecord's per-nutrient rows apart).
   `GET /api/records` re-aggregates these to any bucket (raw/minute/hour/day/week) via SQL `date_trunc`.
 
 A `records` row for the heart-rate sample above:

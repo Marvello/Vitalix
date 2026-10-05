@@ -31,8 +31,11 @@ async function upsertDay(client, syncId, userId, day) {
   return rows[0].id;
 }
 
+// Replace per metric, not per day: a metric absent from this payload (throttled
+// by Health Connect, or outside an older app's partial window) keeps its rows.
 async function replaceAggregates(client, dayId, aggregates) {
-  await client.query("DELETE FROM day_aggregates WHERE day_id = $1", [dayId]);
+  const metrics = [...new Set(aggregates.map((a) => a.metric))];
+  await client.query("DELETE FROM day_aggregates WHERE day_id = $1 AND metric = ANY($2)", [dayId, metrics]);
   for (const a of aggregates) {
     await client.query(
       "INSERT INTO day_aggregates (day_id, metric, min, max, avg) VALUES ($1,$2,$3,$4,$5)",
@@ -42,7 +45,8 @@ async function replaceAggregates(client, dayId, aggregates) {
 }
 
 async function replaceSamples(client, dayId, samples) {
-  await client.query("DELETE FROM samples WHERE day_id = $1", [dayId]);
+  const metrics = [...new Set(samples.map((s) => s.metric))];
+  await client.query("DELETE FROM samples WHERE day_id = $1 AND metric = ANY($2)", [dayId, metrics]);
   for (const s of samples) {
     await client.query(
       "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text, source, meta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
@@ -83,8 +87,8 @@ async function upsertRecords(client, userId, samples) {
     await client.query(
       `INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_num, value_secondary, value_text, source, meta)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (user_id, hc_id, start_at) DO UPDATE SET
-         type = EXCLUDED.type, end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
+       ON CONFLICT (user_id, type, start_at, hc_id) DO UPDATE SET
+         end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
          value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source, meta = EXCLUDED.meta`,
       [userId, s.metric, s.hc_id, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source, s.meta ?? null]
     );

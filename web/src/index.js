@@ -11,15 +11,29 @@ import { webhookRouter } from "./routes/webhooks.js";
 import { aiRouter } from "./routes/ai.js";
 import { fcmRouter } from "./routes/fcm.js";
 import { runPendingMigrations } from "./migrate.js";
+import { rateLimit } from "./rateLimit.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+// Deployed behind a proxy on the private network (cloudflared on k3s). Trusting
+// only private/loopback hops makes req.ip the real client without letting an
+// internet client spoof it through X-Forwarded-For.
+app.set("trust proxy", process.env.TRUST_PROXY || "loopback, linklocal, uniquelocal");
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+
+const MIN = 60 * 1000;
+const email = (req) => (typeof req.body?.email === "string" ? req.body.email.toLowerCase() : "");
+// Per IP, plus per target account for login so a botnet can't spread guesses.
+app.post(["/api/auth/login", "/login"], rateLimit({ windowMs: 15 * MIN, max: 20 }));
+app.post(["/api/auth/login", "/login"], rateLimit({ windowMs: 15 * MIN, max: 10, key: (req) => email(req) }));
+app.post(["/api/auth/forgot", "/forgot"], rateLimit({ windowMs: 60 * MIN, max: 5 }));
+app.post(["/api/auth/reset", "/reset"], rateLimit({ windowMs: 60 * MIN, max: 10 }));
+app.post(["/api/auth/signup", "/signup"], rateLimit({ windowMs: 60 * MIN, max: 10 }));
 app.use(healthRouter);
 app.use(authRouter);
 app.use(adminRouter);
