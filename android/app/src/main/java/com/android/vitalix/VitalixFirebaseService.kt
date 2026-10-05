@@ -13,8 +13,7 @@ import com.google.firebase.messaging.RemoteMessage
 class VitalixFirebaseService : FirebaseMessagingService() {
 
     // Note: FCM 25 deprecated onNewToken/onMessageSent/onSendError. Server token
-    // registration (fcm_tokens table) is a future task — implement it with FCM 25's
-    // current token API rather than re-adding the deprecated onNewToken override.
+    // registration is done by FcmRegistrar on app open instead.
 
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
@@ -34,6 +33,8 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             val version = data["version"] ?: "new version"
             val downloadUrl = data["download_url"] ?: return
             val versionCode = data["version_code"]?.toIntOrNull() ?: 0
+            // Same rule as UpdateManager.parseUpdateInfo: never offer a downgrade.
+            if (versionCode <= BuildConfig.VERSION_CODE) return
             val changelog = data["changelog"] ?: ""
             showUpdateNotification(
                 UpdateInfo(

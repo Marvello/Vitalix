@@ -84,4 +84,15 @@ class UpdateManagerTest {
         val info = UpdateManager.parseUpdateInfo(json, currentVersionCode = 3)
         assertEquals("5", info!!.versionName)
     }
+
+    @Test
+    fun `download url must match the Zealot origin`() {
+        val ep = "https://zealot.example"
+        kotlin.test.assertTrue(UpdateManager.isTrustedDownloadUrl("https://zealot.example/download/42", ep))
+        kotlin.test.assertFalse(UpdateManager.isTrustedDownloadUrl("http://zealot.example/download/42", ep))
+        kotlin.test.assertFalse(UpdateManager.isTrustedDownloadUrl("https://evil.example/x.apk", ep))
+        kotlin.test.assertFalse(UpdateManager.isTrustedDownloadUrl("https://zealot.example.evil.io/x", ep))
+        kotlin.test.assertFalse(UpdateManager.isTrustedDownloadUrl("https://zealot.example:8443/x", ep))
+        kotlin.test.assertFalse(UpdateManager.isTrustedDownloadUrl("https://zealot.example/x", ""))
+    }
 }

@@ -622,7 +622,7 @@ class MainActivity : AppCompatActivity() {
                 setSyncing(false)
                 return@launch
             }
-            val wanted = healthConnectManager.permissions
+            val wanted = healthConnectManager.requestablePermissions()
             val held = granted.intersect(wanted)
             // Missing *and* never prompted for — a first run, or a permission the
             // app started asking for after the user last granted. Health Connect
@@ -634,7 +634,7 @@ class MainActivity : AppCompatActivity() {
                 // The prompt is a separate activity; re-enable so the button isn't
                 // stuck disabled if the user dismisses it. The result callback
                 // re-runs the sync itself.
-                neverAsked.isNotEmpty() -> { setSyncing(false); requestHealthPermissions() }
+                neverAsked.isNotEmpty() -> { setSyncing(false); requestHealthPermissions(wanted) }
                 held.isNotEmpty() -> runSync() // partial grant is fine; read what we can
                 else -> {
                     showStatus(
@@ -647,20 +647,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * READ_HEALTH_DATA_HISTORY only exists on newer Health Connect versions; asking
-     * an older one for it rejects the whole request. Fall back to the rest so the
-     * user still gets a prompt, just capped at Health Connect's 30-day window.
+     * [wanted] comes from [HealthConnectManager.requestablePermissions], which drops
+     * feature permissions (history, background) this Health Connect version doesn't
+     * support — asking for one of those rejects the whole request.
      */
-    private fun requestHealthPermissions() {
-        val all = healthConnectManager.permissions
-        settings.requestedPermissions = all
-        try {
-            requestPermissions.launch(all)
-        } catch (_: Exception) {
-            requestPermissions.launch(
-                all - HealthConnectManager.PERMISSION_READ_HEALTH_DATA_HISTORY
-            )
-        }
+    private fun requestHealthPermissions(wanted: Set<String>) {
+        settings.requestedPermissions = wanted
+        requestPermissions.launch(wanted)
     }
 
     private fun runSync() {
@@ -700,11 +693,15 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
                 if (result.isSuccess) {
-                    settings.lastSync = System.currentTimeMillis()
-                    updateLastSyncLabel()
                     // Surface partial reads: a throttled metric is absent from the
                     // payload and would otherwise look like a clean sync.
                     val missed = healthConnectManager.lastFailedMetrics
+                    // Auto-sync reads from lastSync's day: don't move it past data
+                    // that wasn't actually read.
+                    if (missed.isEmpty() && daysSent > 0) {
+                        settings.lastSync = System.currentTimeMillis()
+                        updateLastSyncLabel()
+                    }
                     syncLog.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,

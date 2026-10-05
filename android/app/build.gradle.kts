@@ -114,11 +114,6 @@ android {
             .format(Instant.now())
         buildConfigField("String", "BUILD_TIME", "\"$buildTime\"")
 
-        val clarityId = localProp("clarityProjectId")
-            ?: localProp("CLARITY_PROJECT_ID")
-            ?: ""
-        buildConfigField("String", "CLARITY_PROJECT_ID", "\"$clarityId\"")
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -170,7 +165,6 @@ dependencies {
     implementation(libs.work.runtime.ktx)
     implementation(libs.coroutines.android)
     implementation(libs.kotlin.reflect)
-    implementation(libs.clarity)
     implementation(libs.firebase.messaging)
     testImplementation(libs.junit)
     testImplementation(libs.kotlin.test)

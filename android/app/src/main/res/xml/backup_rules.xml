@@ -1,13 +1,11 @@
-<?xml version="1.0" encoding="utf-8"?><!--
-   Sample backup rules file; uncomment and customize as necessary.
-   See https://developer.android.com/guide/topics/data/autobackup
-   for details.
-   Note: This file is ignored for devices older than API 31
-   See https://developer.android.com/about/versions/12/backup-restore
--->
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Auto Backup for API 30 (API 31+ reads data_extraction_rules.xml).
+     The SecurePrefs stores hold ciphertext plus a Tink keyset wrapped by an
+     Android Keystore key. Keystore keys are never backed up, so restored copies
+     can't be decrypted: keep them out and sign in again on the new device. -->
 <full-backup-content>
-    <!--
-   <include domain="sharedpref" path="."/>
-   <exclude domain="sharedpref" path="device.xml"/>
--->
+    <exclude domain="sharedpref" path="vitalix_auth.xml"/>
+    <exclude domain="sharedpref" path="vitalix_auth__keyset_prefs.xml"/>
+    <exclude domain="sharedpref" path="vitalix_secure.xml"/>
+    <exclude domain="sharedpref" path="vitalix_secure__keyset_prefs.xml"/>
 </full-backup-content>

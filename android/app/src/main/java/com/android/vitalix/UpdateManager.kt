@@ -121,6 +121,12 @@ class UpdateManager(private val context: Context) {
         // dir — writable by DownloadManager, needs no runtime permission, and
         // served back to the installer via the FileProvider external-files-path.
         File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName).delete()
+        // Both flows (Zealot check, FCM push) land here: only fetch APKs from the
+        // configured Zealot origin, whatever URL a push or response carried.
+        if (!isTrustedDownloadUrl(downloadUrl, BuildConfig.ZEALOT_ENDPOINT)) {
+            Log.e(TAG, "Refusing APK download from untrusted url=$downloadUrl")
+            return -1L
+        }
         return try {
             val request = DownloadManager.Request(Uri.parse(downloadUrl))
                 .setTitle("Vitalix $versionName")
@@ -183,6 +189,18 @@ class UpdateManager(private val context: Context) {
         private const val TAG = "UpdateManager"
         const val CHANNEL = "vitalix_updates"
         const val EXTRA_UPDATE_INFO = "update_info"
+
+        /** True when [url] has the same scheme, host and port as the Zealot [endpoint]. */
+        fun isTrustedDownloadUrl(url: String, endpoint: String): Boolean = try {
+            val u = java.net.URI(url)
+            val e = java.net.URI(endpoint)
+            endpoint.isNotBlank() && u.scheme != null &&
+                u.scheme.equals(e.scheme, ignoreCase = true) &&
+                u.host != null && u.host.equals(e.host, ignoreCase = true) &&
+                u.port == e.port
+        } catch (_: Exception) {
+            false
+        }
 
         fun parseUpdateInfo(json: JSONObject, currentVersionCode: Int): UpdateInfo? {
             val release = if (json.optString("install_url").isNotBlank()) json

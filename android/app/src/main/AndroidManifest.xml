@@ -46,6 +46,8 @@
     <uses-permission android:name="android.permission.health.READ_EXERCISE_ROUTES"/>
     <!-- Health Connect caps reads at the last 30 days without this. -->
     <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_HISTORY"/>
+    <!-- ExportWorker reads while the app is in the background. -->
+    <uses-permission android:name="android.permission.health.READ_HEALTH_DATA_IN_BACKGROUND"/>
 
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>

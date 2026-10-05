@@ -22,7 +22,9 @@ Build/test commands differ per directory; run them from `android/` or `web/` as 
 
 ## Build & test
 
-Android: a standard Gradle-wrapper build; run from `android/`. Web: `cd web && npm test` (node --test).
+Android: a standard Gradle-wrapper build; run from `android/`. Web: `cd web && npm test` (node --test); `web/test/persist.db.test.js` needs a throwaway Postgres via `TEST_DATABASE_URL` (see `web/README.md`).
+
+The app has product flavors, so variant tasks are flavored (e.g. `testProductionDebugUnitTest`, `assembleProductionDebug`); the unflavored names below are shorthand.
 
 ```bash
 cd android
@@ -47,6 +49,8 @@ Toolchain: Gradle 9.5, AGP via `android/gradle/libs.versions.toml` version catal
 - **`HealthConnectManager`** knows only Health Connect. In: `ExportConfig`. Out: `List<DailyHealthData>`. No network, no settings.
 - **`ServerForwarder`** knows only JSON + HTTP. No Health Connect knowledge.
 - **`SyncSettings`** is the only thing that touches `SharedPreferences`. `MainActivity` and `ExportWorker` read/write config *through it*, never directly.
+
+Sync windows always start at **local midnight** (`HealthConnectManager.windowStart`): the server stores per-day totals, so a mid-day start overwrites a day with a partial total. `lastSync` only advances on a clean, non-empty read. The receiver's in-memory rate limits assume a **single replica**.
 
 This keeps the JSON builder and the settings↔`ExportConfig` mapping pure and unit-testable without a device. The webhook payload schema is fully specified in the design doc — match it exactly (only user-enabled metrics appear; omitted, not null; aggregates use `MinMaxAvg`).
 

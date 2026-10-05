@@ -3,6 +3,7 @@ package com.android.vitalix
 import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
+import androidx.health.connect.client.HealthConnectFeatures
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.metadata.Device
@@ -183,9 +184,41 @@ class HealthConnectManager(
         // which would make the full-history backfill return almost nothing.
         // Spelled out because connect-client 1.1.0-alpha07 has no constant for it.
         PERMISSION_READ_HEALTH_DATA_HISTORY,
+        // Health Connect refuses reads from a backgrounded app without this, which
+        // is every ExportWorker run.
+        HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND,
         HealthPermission.getWritePermission(WeightRecord::class),
         HealthPermission.getWritePermission(HeightRecord::class),
     )
+
+    /**
+     * [permissions] minus the feature permissions this Health Connect version
+     * doesn't know: asking for one of those rejects the whole request.
+     */
+    suspend fun requestablePermissions(): Set<String> =
+        permissions.filterTo(mutableSetOf()) { p ->
+            when (p) {
+                PERMISSION_READ_HEALTH_DATA_HISTORY ->
+                    featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_HISTORY)
+                HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND ->
+                    featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND)
+                else -> true
+            }
+        }
+
+    /**
+     * Whether a background (worker) read will be allowed. Without the grant every
+     * read throws SecurityException, which [RecordReader] can't tell apart from a
+     * declined record type — the run would ship nothing and look successful.
+     * Health Connect versions without the feature don't restrict background reads.
+     */
+    suspend fun canReadInBackground(): Boolean =
+        !featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND) ||
+            HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND in
+            client.permissionController.getGrantedPermissions()
+
+    private fun featureAvailable(feature: Int): Boolean =
+        client.features.getFeatureStatus(feature) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
 
     /** Tracks the most-recent value seen in a day (for "latest wins" scalars). */
     private class Latest<V> {
@@ -317,10 +350,14 @@ class HealthConnectManager(
         }
     }
 
-    suspend fun readHealthDataByDay(cfg: ExportConfig): List<DailyHealthData> {
-        val end = Instant.now()
-        return readHealthDataByDay(cfg, end.minus(cfg.daysBack.toLong(), ChronoUnit.DAYS), end)
-    }
+    /**
+     * Reads the last [ExportConfig.daysBack] calendar days, today included, from
+     * local midnight. The start must sit on midnight: the server stores per-day
+     * totals, and a window starting mid-day would report (and overwrite) a partial
+     * total for its oldest day.
+     */
+    suspend fun readHealthDataByDay(cfg: ExportConfig): List<DailyHealthData> =
+        readHealthDataByDay(cfg, windowStart(LocalDate.now(zone), cfg.daysBack, zone), Instant.now())
 
     /**
      * Reads an explicit window instead of the trailing [ExportConfig.daysBack].
@@ -840,6 +877,10 @@ class HealthConnectManager(
     }
 
     companion object {
+        /** Local midnight [daysBack] calendar days back, counting [today] as day one. */
+        fun windowStart(today: LocalDate, daysBack: Int, zone: ZoneId): Instant =
+            today.minusDays((daysBack - 1).coerceAtLeast(0).toLong()).atStartOfDay(zone).toInstant()
+
         const val PERMISSION_READ_HEALTH_DATA_HISTORY =
             "android.permission.health.READ_HEALTH_DATA_HISTORY"
 

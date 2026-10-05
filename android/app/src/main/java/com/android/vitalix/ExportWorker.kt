@@ -11,6 +11,8 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
@@ -27,13 +29,20 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         if (url.isNullOrBlank()) return Result.failure()
 
 
-        val cfg = settings.readConfig().copy(daysBack = daysSinceLastSync(settings))
+        val cfg = settings.readConfig().copy(
+            daysBack = daysToRead(settings.lastSync, LocalDate.now(ZoneId.systemDefault()))
+        )
         val log = SyncLog(applicationContext)
         val (from, to) = SyncLog.trailingWindow(cfg.daysBack)
         val runId = log.start(SyncLog.Kind.AUTO, from, to)
 
         return try {
             val manager = HealthConnectManager(applicationContext)
+            if (!manager.canReadInBackground()) {
+                log.finish(runId, SyncLog.Status.FAILED,
+                    message = "Background access not granted — open Vitalix and tap Sync to allow it")
+                return Result.failure()
+            }
             val days = manager.readHealthDataByDay(cfg)
             val meta = PayloadMeta(
                 appVersion = appVersion(),
@@ -44,8 +53,10 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             )
             ServerForwarder.forwardChunked(applicationContext, url, days, meta).fold(
                 onSuccess = {
-                    settings.lastSync = System.currentTimeMillis()
                     val missed = manager.lastFailedMetrics
+                    // Only a clean, non-empty read moves the window forward: a
+                    // throttled metric or an empty read gets re-read next run.
+                    if (missed.isEmpty() && days.isNotEmpty()) settings.lastSync = System.currentTimeMillis()
                     log.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,
@@ -87,13 +98,18 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         "1.0.0"
     }
 
-    private fun daysSinceLastSync(s: SyncSettings): Int {
-        if (s.lastSync == 0L) return 1
-        val days = ChronoUnit.DAYS.between(Instant.ofEpochMilli(s.lastSync), Instant.now())
-        return days.toInt().coerceAtLeast(1)
-    }
-
     companion object {
+        /**
+         * Calendar days to read, today included: back to the last sync's day, and
+         * never less than yesterday + today — a wearable often hands over last
+         * night's data hours after midnight.
+         */
+        fun daysToRead(lastSyncMs: Long, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Int {
+            if (lastSyncMs == 0L) return 2
+            val lastDay = Instant.ofEpochMilli(lastSyncMs).atZone(zone).toLocalDate()
+            return (ChronoUnit.DAYS.between(lastDay, today).toInt() + 1).coerceAtLeast(2)
+        }
+
         const val NAME = "vitalix_auto_export"
 
         /** Fixed auto-sync cadence: every 4h = 6 runs/day. */

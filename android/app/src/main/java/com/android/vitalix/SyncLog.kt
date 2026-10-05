@@ -176,7 +176,7 @@ class SyncLog(context: Context) {
 
         /** ISO date for an instant, in the device's zone — matches how days are bucketed. */
         fun dateOf(instant: Instant): String =
-            LocalDate.ofInstant(instant, ZoneId.systemDefault()).toString()
+            instant.atZone(ZoneId.systemDefault()).toLocalDate().toString() // LocalDate.ofInstant is API 34+
 
         /** The window a trailing-days sync covers, as (from, to). */
         fun trailingWindow(daysBack: Int): Pair<String, String> {

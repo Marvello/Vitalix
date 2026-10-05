@@ -1,3 +1,39 @@
+# Audit fixes P0–P1 (branch `fix/audit-p0-p1`, 2026-10-05)
+
+Source: 5-persona repo review. P0 = data loss, P1 = security/privacy/crash.
+
+## P0
+- [x] 1. Day-aligned read window — `HealthConnectManager.readHealthDataByDay(cfg)` starts at local midnight (`daysBack` = calendar days incl. today); `ExportWorker` daysBack = calendar days since lastSync day, min 2 (re-reads yesterday for late wearable data). Unit test the day math.
+- [x] 1b. Server: `replaceAggregates`/`replaceSamples` delete only metrics present in the payload (a throttled/absent metric no longer wipes stored rows).
+- [x] 2. `records` identity → `(user_id, type, start_at, hc_id)` (migration 015) + persist conflict target. Nutrition nutrients stop overwriting each other.
+- [x] 3. `lastSync` only advances on a clean, non-empty read (ExportWorker + manual sync).
+- [x] 4. Declare + request `READ_HEALTH_DATA_IN_BACKGROUND` (feature-gated); ExportWorker fails loudly when not granted.
+
+## P1
+- [x] 5. Remove Microsoft Clarity (dep, BuildConfig field, init).
+- [x] 6. `requireAuth` re-checks `disabled_at` + `role` in DB per request.
+- [x] 7. `AuthedHttp`: serialize refresh, reuse a token another thread refreshed, clear session only on 401 from refresh (not IO errors).
+- [x] 8. `pages.js` BMI placeholder TDZ crash.
+- [x] 9. In-memory rate limiter on auth (API + form) + AI generate; `trust proxy` for private-net proxies; LLM fetch timeout.
+- [x] 10. `pool.on('error')`; `release(err)` when ROLLBACK fails.
+- [x] 11. APK download only from Zealot origin (choke point `downloadApk`); FCM update push ignored unless newer versionCode.
+- [x] 12. Exclude `vitalix_auth*`/`vitalix_secure*` prefs from backup + device transfer.
+
+## Verify
+- [x] `cd web && npm test`; persist/auth checks against a throwaway Postgres
+- [x] `cd android && ./gradlew testProductionDebugUnitTest assembleProductionDebug`
+
+
+## Review
+- Web: 90/90 unit; `persist.db.test.js` 3/3 on Postgres 18 — all 3 fail on pre-fix code. Migration 015 applied cleanly to a populated pre-015 DB; range query uses the new key.
+- Android: 60/60 unit (new: AuthedHttpTest, SyncWindowTest, Zealot-origin test); `assembleProductionDebug` OK. Lint: 19 errors, all pre-existing RestrictedApi `*_INT_TO_STRING_MAP`.
+- Extra: `SyncLog.dateOf` used API-34 `LocalDate.ofInstant` (minSdk 30) → crash on Android 11–13 during backfill. Fixed.
+- Not verified on device: background-read prompt + worker path. Existing users get the new permission prompt on next manual Sync.
+- Skipped: APK SHA-256 check (needs Zealot to publish a checksum); same-origin + signature match cover it for now.
+- Follow-ups: sync folionix `db.js` with the updated `common-tech/tech-standard/postgres-client.md`; homeserver `k8s/vitalix/vitalix.yaml` runs `NODE_ENV: development` → auth cookies not `Secure` in prod.
+
+---
+
 # Feature: No-Sync Push Notification (server source of truth)
 
 **Goal:** When a user's device stops sending health data, the server detects it and pushes an FCM notification to that user's device(s).

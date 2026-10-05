@@ -18,7 +18,6 @@ coroutines = "1.11.0"
 kotlin = "2.3.20"
 json = "20260814"
 mockitoCore = "5.23.0"
-clarity = "3.10.0"
 googleServices = "4.5.0"
 firebaseMessaging = "25.1.2"
 
@@ -43,7 +42,6 @@ kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", vers
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
-clarity = { group = "com.microsoft.clarity", name = "clarity", version.ref = "clarity" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
 
 [plugins]
