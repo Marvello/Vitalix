@@ -8,7 +8,16 @@ pg.types.setTypeParser(1082, (v) => v); // date
 pg.types.setTypeParser(1114, (v) => v); // timestamp
 pg.types.setTypeParser(1184, (v) => v); // timestamptz
 
-export const pool = new pg.Pool({ connectionString: config.databaseUrl });
+export const pool = new pg.Pool({
+  connectionString: config.databaseUrl,
+  // common-tech/tech-standard/postgres-client.md: an exhausted pool fails instead of
+  // waiting forever; a runaway query or forgotten open transaction can't pin a
+  // connection. Long jobs (the migrator's lock wait) opt out per session.
+  connectionTimeoutMillis: 10_000,
+  idleTimeoutMillis: 30_000,
+  options: "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000",
+  application_name: "vitalix-web",
+});
 // An idle client erroring (Postgres restart, network blip) emits on the pool;
 // unhandled, Node exits. The pool drops that client and reconnects on demand.
 pool.on("error", (err) => console.error("[db] idle client error:", err.message));

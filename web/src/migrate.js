@@ -78,6 +78,9 @@ export async function runPendingMigrations() {
   const client = await pool.connect();
   const applied = [];
   try {
+    // The pool's statement_timeout must not apply here: waiting for the lock or a
+    // long data migration legitimately takes longer. Reset before release.
+    await client.query("SET statement_timeout = 0");
     await client.query("SELECT pg_advisory_lock($1)", [LOCK_KEY]);
     await ensureLedger(client);
 
@@ -109,6 +112,7 @@ export async function runPendingMigrations() {
     return applied;
   } finally {
     await client.query("SELECT pg_advisory_unlock($1)", [LOCK_KEY]).catch(() => {});
+    await client.query("RESET statement_timeout").catch(() => {});
     client.release();
   }
 }
