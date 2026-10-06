@@ -609,15 +609,17 @@ class HealthConnectManager(
         // ---- Sleep ----
         perMetric(cfg.includeSleepSession, SleepSessionRecord::class) { recs ->
             recs.forEach { r ->
-                val b = builder(day(r.startTime)); b.hasSleep = true
+                // A whole session — total and stages — belongs to the day it ends
+                // (the night you woke up from). Bucketing the total by start and
+                // each stage by its own start split overnight sleep across two
+                // days: total on D-1, stages on D, and "0 min" of sleep on D.
+                val b = builder(day(r.endTime)); b.hasSleep = true
                 b.sleepMinutes += ChronoUnit.MINUTES.between(r.startTime, r.endTime)
                 r.stages.forEach { st ->
                     val name = SleepSessionRecord.STAGE_TYPE_INT_TO_STRING_MAP[st.stage] ?: "unknown"
                     val mins = ChronoUnit.MINUTES.between(st.startTime, st.endTime)
-                    val sb = builder(day(st.startTime))
-                    sb.hasSleep = true
-                    sb.stageMinutes[name] = (sb.stageMinutes[name] ?: 0L) + mins
-                    sb.samples += HealthSample("sleepStage", st.startTime.toString(), st.endTime.toString(), text = name, source = r.origin, hcId = r.uid)
+                    b.stageMinutes[name] = (b.stageMinutes[name] ?: 0L) + mins
+                    b.samples += HealthSample("sleepStage", st.startTime.toString(), st.endTime.toString(), text = name, source = r.origin, hcId = r.uid)
                 }
             }
         }

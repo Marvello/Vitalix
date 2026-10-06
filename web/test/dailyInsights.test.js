@@ -6,7 +6,9 @@ process.env.JWT_SECRET ??= "test-secret";
 const { runDailyInsights, PENDING_USERS_SQL } = await import("../src/dailyInsights.js");
 
 describe("PENDING_USERS_SQL", () => {
-  test("wants the day's users lacking a recommendation", () => {
+  test("wants each user's local yesterday, lacking a recommendation", () => {
+    assert.match(PENDING_USERS_SQL, /AT TIME ZONE COALESCE\(u\.timezone, 'UTC'\)/);
+    assert.match(PENDING_USERS_SQL, /disabled_at IS NULL/);
     assert.match(PENDING_USERS_SQL, /FROM health_days/);
     assert.match(PENDING_USERS_SQL, /NOT EXISTS/);
     assert.match(PENDING_USERS_SQL, /ai_recommendations/);
@@ -16,7 +18,7 @@ describe("PENDING_USERS_SQL", () => {
 function makeDeps(overrides = {}) {
   const calls = { generated: [], pushed: [] };
   const query = async (text, params) => {
-    if (text === PENDING_USERS_SQL) return { rows: [{ id: 1 }, { id: 2 }] };
+    if (text === PENDING_USERS_SQL) return { rows: [{ id: 1, day: "2026-09-10" }, { id: 2, day: "2026-09-09" }] };
     if (text.includes("array_agg(token)")) return { rows: [{ tokens: ["t-" + params[0]] }] };
     return { rows: [] };
   };
@@ -27,17 +29,17 @@ function makeDeps(overrides = {}) {
       return { successCount: tokens.length, responses: tokens.map(() => ({ success: true })) };
     },
   };
-  return { deps: { query, generate, messaging, day: "2026-09-10", ...overrides }, calls };
+  return { deps: { query, generate, messaging, ...overrides }, calls };
 }
 
 describe("runDailyInsights", () => {
   test("generates for each pending user and pushes insight_ready", async () => {
     const { deps, calls } = makeDeps();
     const r = await runDailyInsights(deps);
-    assert.deepEqual(r, { day: "2026-09-10", candidates: 2, generated: 2, pushed: 2, failed: 0 });
-    assert.deepEqual(calls.generated, [[1, "2026-09-10"], [2, "2026-09-10"]]);
+    assert.deepEqual(r, { candidates: 2, generated: 2, pushed: 2, failed: 0, skipped: 0 });
+    assert.deepEqual(calls.generated, [[1, "2026-09-10"], [2, "2026-09-09"]]);
     assert.equal(calls.pushed[0].data.type, "insight_ready");
-    assert.equal(calls.pushed[0].data.day, "2026-09-10");
+    assert.equal(calls.pushed[1].data.day, "2026-09-09");
   });
 
   test("does not push for a user whose generation failed", async () => {
@@ -58,6 +60,16 @@ describe("runDailyInsights", () => {
     const r = await runDailyInsights(deps);
     assert.equal(r.generated, 0);
     assert.equal(r.failed, 1);     // broke after the first failure
+    assert.equal(calls.pushed.length, 0);
+  });
+
+  test("skips users with no data without counting a failure", async () => {
+    const { deps, calls } = makeDeps({
+      generate: async () => { const e = new Error("none"); e.code = "NO_DATA"; throw e; },
+    });
+    const r = await runDailyInsights(deps);
+    assert.equal(r.skipped, 2);
+    assert.equal(r.failed, 0);
     assert.equal(calls.pushed.length, 0);
   });
 });

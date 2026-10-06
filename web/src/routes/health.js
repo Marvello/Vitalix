@@ -7,6 +7,15 @@ import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../record
 
 export const router = Router();
 
+function isTimeZone(tz) {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 router.get("/healthz", async (_req, res) => {
   const ok = await ping();
   res.status(ok ? 200 : 503).json({ ok });
@@ -22,6 +31,9 @@ router.post("/api/health", requireAuth, async (req, res) => {
     const inserted = await persist(req.user.id, mapped);
     const profileHeightM = typeof body.profileHeightM === "number" ? body.profileHeightM : null;
     const bmiScale = body.bmiScale === "asian" ? "asian" : "standard";
+    if (typeof body.timeZone === "string" && isTimeZone(body.timeZone)) {
+      await query("UPDATE users SET timezone = $2 WHERE id = $1 AND timezone IS DISTINCT FROM $2", [req.user.id, body.timeZone]);
+    }
     if (profileHeightM !== null || body.bmiScale) {
       const sets = [];
       const vals = [req.user.id];

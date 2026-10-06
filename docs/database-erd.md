@@ -23,6 +23,7 @@ source of truth; update this doc when they change.
 | 014 | `no_sync_notify` | `users.no_sync_notified_at` (stale-sync push dedup) |
 | 015 | `records_identity_type` | `records` identity → `(user_id, type, start_at, hc_id)` |
 | 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
+| 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
 
 ## Diagram
 
@@ -55,6 +56,7 @@ erDiagram
         text bmi_scale "standard | asian"
         timestamptz disabled_at "nullable; soft disable"
         timestamptz no_sync_notified_at "nullable"
+        text timezone "nullable; IANA zone from the app"
     }
 
     refresh_tokens {
@@ -95,6 +97,7 @@ erDiagram
         timestamptz exported_at
         integer range_days
         timestamptz received_at
+        text_array failed_metrics "nullable"
     }
 
     health_days {
@@ -214,7 +217,8 @@ deleting a user cascades to their tokens, syncs, health days, and records.
 `disabled_at` soft-disables an account (login, refresh and every authenticated
 request are refused; data is kept). `profile_height_m` / `bmi_scale` come from the
 app payload and back the BMI card when Health Connect has no height.
-`no_sync_notified_at` dedups the stale-sync push.
+`no_sync_notified_at` dedups the stale-sync push. `timezone` is the device's IANA
+zone, updated on ingest; it sets the user's day boundaries for AI insights.
 
 ### `refresh_tokens` / `password_resets`
 Same shape (built by the `tokenTable` helper): `user_id` FK (CASCADE),
@@ -230,7 +234,8 @@ Admin-issued signup invites. `token_hash` (indexed), target `email` + `role`,
 ### `syncs`
 One row per upload from the Android app. Metadata about the payload: `source`,
 `app_version`, `device`, `exported_at` (device clock), `range_days`,
-`received_at` (server clock). `user_id` FK (CASCADE). Referenced by
+`received_at` (server clock), `failed_metrics` (Health Connect record types the
+read couldn't return; NULL when clean). `user_id` FK (CASCADE). Referenced by
 `health_days.sync_id` (SET NULL — deleting a sync keeps the day rollup).
 
 ### `health_days`

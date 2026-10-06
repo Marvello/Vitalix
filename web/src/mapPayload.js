@@ -112,6 +112,9 @@ export function mapPayload(body) {
     device: body.device ?? null,
     exported_at: body.exportedAt ?? null,
     range_days: body.rangeDays ?? null,
+    failed_metrics: Array.isArray(body.failedMetrics)
+      ? body.failedMetrics.filter((m) => typeof m === "string").slice(0, 64)
+      : null,
   };
   let skipped = 0;
   const days = (Array.isArray(body.days) ? body.days : []).map((day) => {

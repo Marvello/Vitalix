@@ -5,7 +5,7 @@ export function formatOpenAiPayload(model, systemPrompt, userPrompt) {
       { role: 'system', content: systemPrompt },
       { role: 'user', content: userPrompt },
     ],
-    temperature: 0.7,
+    temperature: 0.3, // steadier, more literal notes; the prompt is a strict format
     stream: false,
   };
 }

@@ -40,7 +40,13 @@ test("maps sync metadata", () => {
     device: "Pixel 8",
     exported_at: "2026-07-21T09:00:00Z",
     range_days: 7,
+    failed_metrics: null,
   });
+});
+
+test("keeps only string failedMetrics", () => {
+  const { sync } = mapPayload({ ...payload, failedMetrics: ["SleepSessionRecord", 3, null] });
+  assert.deepEqual(sync.failed_metrics, ["SleepSessionRecord"]);
 });
 
 test("maps scalar columns and omits absent metrics", () => {

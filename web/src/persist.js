@@ -115,8 +115,8 @@ async function upsertSourceMetrics(client, userId, day) {
 export function persist(userId, mapped) {
   return withTransaction(async (client) => {
     const { rows } = await client.query(
-      "INSERT INTO syncs (user_id, source, app_version, device, exported_at, range_days) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id",
-      [userId, mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days]
+      "INSERT INTO syncs (user_id, source, app_version, device, exported_at, range_days, failed_metrics) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id",
+      [userId, mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days, mapped.sync.failed_metrics ?? null]
     );
     const syncId = rows[0].id;
     let samples = 0, exercises = 0, records = 0, sourceMetrics = 0;

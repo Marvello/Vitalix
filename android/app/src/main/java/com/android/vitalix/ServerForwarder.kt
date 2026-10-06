@@ -20,6 +20,10 @@ data class PayloadMeta(
     val rangeDays: Int,
     val profileHeightM: Double? = null,
     val bmiScale: String? = null,
+    /** Device zone ID (e.g. "Asia/Jakarta"): the server's day boundaries follow it. */
+    val timeZone: String = java.time.ZoneId.systemDefault().id,
+    /** Metrics Health Connect failed to return on this read; omitted when empty. */
+    val failedMetrics: Set<String> = emptySet(),
 )
 
 object ServerForwarder {
@@ -81,6 +85,8 @@ object ServerForwarder {
         }
         meta.profileHeightM?.let { root.put("profileHeightM", it) }
         meta.bmiScale?.let { root.put("bmiScale", it) }
+        root.put("timeZone", meta.timeZone)
+        if (meta.failedMetrics.isNotEmpty()) root.put("failedMetrics", JSONArray(meta.failedMetrics.toList()))
         val arr = JSONArray()
         for (d in days) {
             val o = JSONObject().put("date", d.date)

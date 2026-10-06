@@ -116,6 +116,7 @@ Invariants:
   "exportedAt": "2026-10-05T09:00:00Z", "rangeDays": 2,
   "chunk": { "index": 0, "total": 1 },
   "profileHeightM": 1.78, "bmiScale": "standard",
+  "timeZone": "Asia/Jakarta", "failedMetrics": ["SleepSessionRecord"],
   "days": [{
     "date": "2026-10-05",
     "activity": { "steps": 8123, "...": "..." },
@@ -139,6 +140,10 @@ Rules:
   `NutritionRecord` becomes a `nutrition` sample plus one `nutrition.<field>`
   sample per nutrient, all sharing `hcId` and `start`.
 - Unknown sample metrics are skipped and counted, never fatal.
+- `timeZone` (device zone ID) is stored on the user and sets their day boundaries
+  for insights; `failedMetrics` (omitted when empty) lists the Health Connect
+  record types this read couldn't return and is stored on the `syncs` row.
+- Sleep sessions belong to the day they **end** (total and stages alike).
 - The metric vocabulary is defined on both sides (Android `ExportConfig` /
   `HealthConnectManager`; server `mapPayload.js`, `persist.js`, `records.js`,
   `stats.js`). Adding a metric touches both — see the coverage doc.
@@ -235,9 +240,24 @@ older day-scoped copy kept for the current dashboard queries.
 | Exercise detail | `exercises.detail` | Laps, segments, GPS route (route needs its own grant) |
 | Custom dashboard | `dashboard_layouts` | Add/remove/reorder cards |
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
-| Daily review + AI insight | `/daily-review`, `ai_recommendations` | Day vs previous day and 7-day baseline; non-diagnostic text |
+| Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
 | In-app update | Zealot + FCM | Full-screen changelog (Android-only commits since the last release, built by the Fastfile), download, install |
+
+### 5a. AI insight
+
+- **Completed days only**, judged in the user's zone (`users.timezone`, UTC if
+  unknown); the page defaults to yesterday and the daily cron picks each user's
+  local yesterday. Days with nothing recorded are skipped without an LLM call.
+- **Prompt** (`buildPrompts`, pure, unit-tested): labelled values with units, the
+  7-day average with its day count and % change, sleep stages (dropped when they
+  cover < 80% of the night), workouts. `0`/null is "(not recorded)". The fixed
+  system prompt forbids inventing data, reading calories burned as food, and
+  diagnosis; output is 2–4 plain-text `- lead: sentence` lines.
+- **Incomplete data**: if the day's last sync ran before local midnight or listed
+  `failed_metrics`, the prompt is marked INCOMPLETE and a fixed "Data note" line
+  is prepended to the stored text — not left to the model.
+- Output is cleaned (headings, bold, emoji) before storing; temperature 0.3.
 
 ---
 
@@ -257,5 +277,8 @@ older day-scoped copy kept for the current dashboard queries.
 - `samples` duplicates `records`; ingest is one INSERT per row.
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
-- `/api/records` buckets by UTC day while `health_days` uses the phone's local date.
+- `/api/records` buckets by UTC day while `health_days` uses the phone's local date
+  (`users.timezone` now exists to fix this).
+- Sleep rows stored before the end-day fix have totals and stages on different
+  days until a full-history backfill re-sends them.
 - Android lint reports RestrictedApi uses of Health Connect's `*_INT_TO_STRING_MAP`.

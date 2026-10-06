@@ -76,4 +76,37 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     res = await fetch(`${baseUrl}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
     assert.equal(res.status, 401);
   });
+
+  test("generateRecommendation: complete days only, incomplete-data note, cleaned output", async (t) => {
+    const { generateRecommendation } = await import("../src/ai/recommendations.js");
+    await db.query("UPDATE users SET disabled_at = NULL, timezone = 'Asia/Jakarta' WHERE id = $1", [userId]);
+    let prompt;
+    t.mock.method(globalThis, "fetch", async (_url, opts) => {
+      prompt = JSON.parse(opts.body).messages[1].content;
+      return { ok: true, json: async () => ({ choices: [{ message: { content: "## Note\n- **Steps**: lower. 💪" } }] }) };
+    });
+
+    // Synced at 21:40 Jakarta on the day itself, with sleep unreadable.
+    await persist(userId, {
+      sync: { ...sync, exported_at: "2026-09-20T14:40:00Z", failed_metrics: ["SleepSessionRecord"] },
+      days: [{ day: "2026-09-20", scalars: { steps: 3000, total_calories: 131 }, aggregates: [], samples: [], exercises: [] }],
+    });
+    const { text } = await generateRecommendation(userId, "2026-09-20");
+    assert.match(prompt, /Total calories burned: 131 kcal/);
+    assert.match(prompt, /INCOMPLETE/);
+    assert.equal(text,
+      "- Data note: this day's data is incomplete (last synced at 21:40, so the rest of the day is missing; " +
+      "Health Connect didn't return sleep session). Treat these suggestions as tentative.\nNote\n- Steps: lower.");
+
+    // A later full read (after local midnight) clears the note.
+    await persist(userId, {
+      sync: { ...sync, exported_at: "2026-09-20T17:30:00Z", failed_metrics: null },
+      days: [{ day: "2026-09-20", scalars: { steps: 9000 }, aggregates: [], samples: [], exercises: [] }],
+    });
+    assert.doesNotMatch((await generateRecommendation(userId, "2026-09-20")).text, /Data note/);
+
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jakarta" }).format(new Date());
+    await assert.rejects(generateRecommendation(userId, today), { code: "DAY_INCOMPLETE" });
+    await assert.rejects(generateRecommendation(userId, "2026-09-01"), { code: "NO_DATA" });
+  });
 });

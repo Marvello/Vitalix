@@ -1,18 +1,20 @@
 import { query as dbQuery } from "./db.js";
 import { messaging as defaultMessaging } from "./firebase.js";
-import { generateRecommendation as defaultGenerate, yesterdayKey } from "./ai/recommendations.js";
+import { generateRecommendation as defaultGenerate } from "./ai/recommendations.js";
 import { deadTokens } from "./syncCheck.js";
 
-// Users who have a health_days row for `day` but no ai_recommendation yet — the
-// set the worker should generate for (skip ones already done, don't re-spend).
+// Active users with data for *their* yesterday (in their own zone, UTC when
+// unknown) and no recommendation for it yet — skip ones already done, don't
+// re-spend tokens.
 export const PENDING_USERS_SQL = `
-  SELECT DISTINCT h.user_id AS id
-  FROM health_days h
-  WHERE h.day = $1
-    AND NOT EXISTS (
-      SELECT 1 FROM ai_recommendations r
-      WHERE r.user_id = h.user_id AND r.day = $1
-    )`;
+  SELECT u.id, y.day::text AS day
+  FROM users u
+  CROSS JOIN LATERAL (
+    SELECT (now() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date - 1 AS day
+  ) y
+  WHERE u.disabled_at IS NULL
+    AND EXISTS (SELECT 1 FROM health_days h WHERE h.user_id = u.id AND h.day = y.day)
+    AND NOT EXISTS (SELECT 1 FROM ai_recommendations r WHERE r.user_id = u.id AND r.day = y.day)`;
 
 const TOKENS_SQL = "SELECT array_agg(token) AS tokens FROM fcm_tokens WHERE user_id = $1";
 
@@ -24,18 +26,19 @@ export async function runDailyInsights({
   query = dbQuery,
   messaging = defaultMessaging,
   generate = defaultGenerate,
-  day = yesterdayKey(),
 } = {}) {
-  const { rows } = await query(PENDING_USERS_SQL, [day]);
+  const { rows } = await query(PENDING_USERS_SQL);
   let generated = 0;
   let pushed = 0;
   let failed = 0;
+  let skipped = 0;
 
-  for (const { id } of rows) {
+  for (const { id, day } of rows) {
     try {
       await generate(id, day);
       generated++;
     } catch (e) {
+      if (e.code === "NO_DATA" || e.code === "DAY_INCOMPLETE") { skipped++; continue; }
       failed++;
       if (e.code === "AI_UNCONFIGURED") break; // nothing will succeed — stop early
       console.error(`insight gen failed user=${id}`, e.message);
@@ -53,5 +56,5 @@ export async function runDailyInsights({
     if (resp.successCount > 0) pushed++;
   }
 
-  return { day, candidates: rows.length, generated, pushed, failed };
+  return { candidates: rows.length, generated, pushed, failed, skipped };
 }

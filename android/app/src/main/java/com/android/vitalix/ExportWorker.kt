@@ -50,6 +50,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                 rangeDays = cfg.daysBack,
                 profileHeightM = settings.userHeightCm?.let { it / 100.0 },
                 bmiScale = settings.resolvedBmiScale(),
+                failedMetrics = manager.lastFailedMetrics,
             )
             ServerForwarder.forwardChunked(applicationContext, url, days, meta).fold(
                 onSuccess = {

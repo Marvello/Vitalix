@@ -14,6 +14,7 @@ import {
 import { sendMail } from "../auth/mailer.js";
 import { resetEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
+import { todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
 
 const buildInfo = { version: config.buildVersion, date: config.buildDate };
 
@@ -435,7 +436,9 @@ pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
 
 pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
   try {
-    const date = req.query.day || toKey(new Date());
+    // Default to the user's yesterday: insights exist only for days that have ended.
+    const today = todayIn(await userTimeZone(req.user.id));
+    const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day ?? "") ? req.query.day : shiftDay(today, -1);
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
     const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
 
@@ -472,6 +475,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       email: user?.email,
       userRole: user?.role,
       date,
+      canGenerate: date < today,
       dayData,
       deltas,
       baseline7d,

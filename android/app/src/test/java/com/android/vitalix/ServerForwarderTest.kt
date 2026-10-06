@@ -28,6 +28,16 @@ class ServerForwarderTest {
         assertEquals(1, day.getJSONArray("exercises").length())
     }
 
+    @Test fun carriesTimeZoneAndFailedMetricsOnlyWhenPresent() {
+        val clean = JSONObject(ServerForwarder.buildPayload(listOf(sampleDay()),
+            PayloadMeta("1.0.0", "d", 1, timeZone = "Asia/Jakarta")))
+        org.junit.Assert.assertEquals("Asia/Jakarta", clean.getString("timeZone"))
+        org.junit.Assert.assertFalse(clean.has("failedMetrics"))
+        val partial = JSONObject(ServerForwarder.buildPayload(listOf(sampleDay()),
+            PayloadMeta("1.0.0", "d", 1, failedMetrics = setOf("SleepSessionRecord"))))
+        org.junit.Assert.assertEquals("SleepSessionRecord", partial.getJSONArray("failedMetrics").getString(0))
+    }
+
     @Test fun omitsDisabledMetricSections() {
         val day = DailyHealthData(date = "2026-07-20", activityData = mapOf("steps" to 10))
         val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))

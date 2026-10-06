@@ -103,11 +103,11 @@
       <span class="ai-badge">AI INSIGHTS</span>
       <h3>Health & Habit Recommendations</h3>
     </div>
-    <button id="btn-generate" onclick="generateRecommendation()">Generate Insights</button>
+    <button id="btn-generate" onclick="generateRecommendation()" <%= canGenerate ? '' : 'disabled' %>>Generate Insights</button>
   </div>
 
   <div id="ai-content" class="ai-content">
-    <%- recommendation ? recommendation.recommendation_text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." %>
+    <%- recommendation ? recommendation.recommendation_text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : (canGenerate ? "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." : "Insights are available once this day has ended.") %>
   </div>
 
   <div class="disclaimer">

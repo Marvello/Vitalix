@@ -2,24 +2,24 @@ import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
 import { query } from "../db.js";
 import { config } from "../config.js";
-import { generateRecommendation, buildPrompts, toKey } from "../ai/recommendations.js";
+import { generateRecommendation, todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
 import { rateLimit } from "../rateLimit.js";
 
 export const aiRouter = Router();
-
-// re-exported for existing tests that import buildPrompts from this module
-export { buildPrompts };
 
 // Each call is a paid/slow LLM completion: cap per user.
 const generateLimit = rateLimit({ windowMs: 60 * 60 * 1000, max: 10, key: (req) => req.user.id });
 
 aiRouter.post("/api/ai/recommendations/generate", requireAuth, generateLimit, async (req, res) => {
-  const day = req.body.day || toKey(new Date());
+  const day = req.body?.day;
+  if (day !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.status(400).json({ error: "day must be YYYY-MM-DD" });
   try {
-    const { text } = await generateRecommendation(req.user.id, day);
+    const target = day ?? shiftDay(todayIn(await userTimeZone(req.user.id)), -1);
+    const { text } = await generateRecommendation(req.user.id, target);
     res.json({ success: true, text });
   } catch (err) {
     if (err.code === "AI_UNCONFIGURED") return res.status(503).json({ error: "AI service not configured" });
+    if (err.code === "DAY_INCOMPLETE" || err.code === "NO_DATA") return res.status(422).json({ error: err.message });
     console.error("AI recommendation generation failed", err);
     let message = "Failed to generate recommendation.";
     const code = err.cause?.code || err.code;

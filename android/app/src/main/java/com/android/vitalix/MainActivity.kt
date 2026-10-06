@@ -689,6 +689,7 @@ class MainActivity : AppCompatActivity() {
                             rangeDays = cfg.daysBack,
                             profileHeightM = settings.userHeightCm?.let { it / 100.0 },
                             bmiScale = settings.resolvedBmiScale(),
+                            failedMetrics = healthConnectManager.lastFailedMetrics,
                         )
                     )
                 }

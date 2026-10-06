@@ -16,6 +16,7 @@ import androidx.health.connect.client.records.MindfulnessSessionRecord
 import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.records.SkinTemperatureRecord
+import androidx.health.connect.client.records.SleepSessionRecord
 import androidx.health.connect.client.records.StepsCadenceRecord
 import androidx.health.connect.client.records.StepsRecord
 import androidx.health.connect.client.records.metadata.DataOrigin
@@ -292,5 +293,28 @@ class HealthConnectManagerTest {
         assertEquals(2000.0, ex.laps.single().lengthMeters!!, 0.0)
         assertEquals(1, ex.segments.size)
         assertEquals("running", ex.segments.single().type)
+    }
+
+    @Test fun overnightSleepTotalAndStagesLandOnWakeUpDay() = runTest {
+        val zone = java.time.ZoneId.systemDefault()
+        val bed = java.time.ZonedDateTime.of(2026, 10, 5, 22, 0, 0, 0, zone).toInstant()
+        val midnight = bed.plusSeconds(2 * 3600)
+        val wake = bed.plusSeconds(8 * 3600)
+        val off = zone.rules.getOffset(bed)
+        val rec = SleepSessionRecord(
+            startTime = bed, startZoneOffset = off, endTime = wake, endZoneOffset = off,
+            metadata = meta("sl-1", "com.x"),
+            stages = listOf(
+                SleepSessionRecord.Stage(bed, midnight, SleepSessionRecord.STAGE_TYPE_LIGHT),
+                SleepSessionRecord.Stage(midnight, wake, SleepSessionRecord.STAGE_TYPE_DEEP),
+            ),
+        )
+        val mgr = manager(SleepSessionRecord::class to listOf(rec))
+        val days = mgr.readHealthDataByDay(ExportConfig(includeSleepSession = true), bed.minusSeconds(1), wake.plusSeconds(1))
+        val d = days.single()
+        assertEquals("2026-10-06", d.date)
+        assertEquals(480L, d.sleepData["durationMinutes"])
+        assertEquals(mapOf("light" to 120L, "deep" to 360L), d.sleepData["stages"])
+        assertEquals(2, d.samples.count { it.metric == "sleepStage" })
     }
 }
