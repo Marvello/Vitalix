@@ -33,7 +33,8 @@ controls. Nothing goes to a third-party data path. The receiver is multi-user
 (invite-only accounts) and stores both per-day rollups and every raw reading.
 
 Deployment: one receiver replica + Postgres on the homelab k3s cluster behind
-cloudflared (`homeserver/k8s/vitalix/vitalix.yaml`); `web/docker-compose.yml` is
+cloudflared (`homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
+CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05); `web/docker-compose.yml` is
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
 
@@ -200,7 +201,7 @@ older day-scoped copy kept for the current dashboard queries.
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
-| POST | `/api/admin/run-daily-insights` | `x-cron-token` | Daily cron: generate yesterday's insight, push `insight_ready` |
+| POST | `/api/admin/run-daily-insights` | `x-cron-token` | Hourly cron: per-user insight after 08:00 local (§5a), push `insight_ready` |
 | POST | `/api/webhooks/zealot` | `?token=` (Zealot can't send headers) | New build → push `app_update` to `app-updates-beta` / `app-updates` by `release_type` |
 
 ### Auth
@@ -247,8 +248,16 @@ older day-scoped copy kept for the current dashboard queries.
 ### 5a. AI insight
 
 - **Completed days only**, judged in the user's zone (`users.timezone`, UTC if
-  unknown); the page defaults to yesterday and the daily cron picks each user's
-  local yesterday. Days with nothing recorded are skipped without an LLM call.
+  unknown); the page defaults to yesterday. Days with nothing recorded are skipped
+  without an LLM call.
+- **When the worker runs**: k8s CronJob `vitalix-daily-insights`
+  (`homeserver/k8s/vitalix/vitalix.yaml`) calls `POST /api/admin/run-daily-insights`
+  hourly at :05. `PENDING_USERS_SQL` (`dailyInsights.js`) picks a user only once it
+  is past **08:00 in their own zone** (`GENERATE_HOUR`), for their local yesterday,
+  if that day has data and no insight yet — so each user gets one insight a day
+  around 08:00 local, then an `insight_ready` push. The wait gives the phone's
+  4-hourly auto-sync time to send the end of the night; disabled users are skipped.
+  Users can still generate on demand from `/daily-review` (10/hour).
 - **Prompt** (`buildPrompts`, pure, unit-tested): labelled values with units, the
   7-day average with its day count and % change, sleep stages (dropped when they
   cover < 80% of the night), workouts. `0`/null is "(not recorded)". The fixed

@@ -9,6 +9,7 @@ describe("PENDING_USERS_SQL", () => {
   test("wants each user's local yesterday, lacking a recommendation", () => {
     assert.match(PENDING_USERS_SQL, /AT TIME ZONE COALESCE\(u\.timezone, 'UTC'\)/);
     assert.match(PENDING_USERS_SQL, /disabled_at IS NULL/);
+    assert.match(PENDING_USERS_SQL, /EXTRACT\(HOUR FROM n\.local_now\) >= 8/);
     assert.match(PENDING_USERS_SQL, /FROM health_days/);
     assert.match(PENDING_USERS_SQL, /NOT EXISTS/);
     assert.match(PENDING_USERS_SQL, /ai_recommendations/);

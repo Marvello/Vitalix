@@ -3,16 +3,20 @@ import { messaging as defaultMessaging } from "./firebase.js";
 import { generateRecommendation as defaultGenerate } from "./ai/recommendations.js";
 import { deadTokens } from "./syncCheck.js";
 
-// Active users with data for *their* yesterday (in their own zone, UTC when
-// unknown) and no recommendation for it yet — skip ones already done, don't
-// re-spend tokens.
+// The worker runs hourly; each user is picked once it is past GENERATE_HOUR in
+// their own zone (UTC when unknown), for their yesterday, if they have data for
+// it and no recommendation yet (don't re-spend tokens). Waiting until morning
+// gives the phone's 4-hourly auto-sync time to send the end of the night.
+export const GENERATE_HOUR = 8;
 export const PENDING_USERS_SQL = `
   SELECT u.id, y.day::text AS day
   FROM users u
   CROSS JOIN LATERAL (
-    SELECT (now() AT TIME ZONE COALESCE(u.timezone, 'UTC'))::date - 1 AS day
-  ) y
+    SELECT (now() AT TIME ZONE COALESCE(u.timezone, 'UTC')) AS local_now
+  ) n
+  CROSS JOIN LATERAL (SELECT n.local_now::date - 1 AS day) y
   WHERE u.disabled_at IS NULL
+    AND EXTRACT(HOUR FROM n.local_now) >= ${GENERATE_HOUR}
     AND EXISTS (SELECT 1 FROM health_days h WHERE h.user_id = u.id AND h.day = y.day)
     AND NOT EXISTS (SELECT 1 FROM ai_recommendations r WHERE r.user_id = u.id AND r.day = y.day)`;
 
