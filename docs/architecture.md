@@ -237,7 +237,7 @@ older day-scoped copy kept for the current dashboard queries.
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
 | Daily review + AI insight | `/daily-review`, `ai_recommendations` | Day vs previous day and 7-day baseline; non-diagnostic text |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
-| In-app update | Zealot + FCM | Full-screen changelog, download, install |
+| In-app update | Zealot + FCM | Full-screen changelog (Android-only commits since the last release, built by the Fastfile), download, install |
 
 ---
 

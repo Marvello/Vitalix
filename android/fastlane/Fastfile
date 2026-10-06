@@ -46,6 +46,20 @@ def bump_version(flavor, type: :patch)
   { code: new_code, name: new_name }
 end
 
+ANDROID_DIR = File.expand_path("..", __dir__)
+
+# Release notes for Zealot (shown on the in-app update screen): subjects of
+# commits that touched android/ since this flavor's previous release (its "bump
+# <flavor> to" commit). Web/docs commits and release tooling (fastlane, Gemfile,
+# version.properties) stay out. Runs before this release's bump is committed.
+def mobile_changelog(flavor)
+  git = ["git", "-C", ANDROID_DIR]
+  last = IO.popen(git + ["log", "-1", "--format=%H", "--grep=^bump #{flavor} to"], &:read).strip
+  range = last.empty? ? "HEAD" : "#{last}..HEAD"
+  notes = IO.popen(git + ["log", "--no-merges", "--format=- %s", range, "--", ".", ":!version.properties", ":!fastlane", ":!Gemfile", ":!Gemfile.lock"], &:read).strip
+  notes.empty? ? "- Maintenance build" : notes
+end
+
 platform :android do
   desc "Runs all the tests"
   lane :test do
@@ -63,7 +77,7 @@ platform :android do
       endpoint: ENV["ZEALOT_ENDPOINT"],
       token: ENV["ZEALOT_TOKEN"],
       channel_key: ENV["ZEALOT_BETA_CHANNEL_KEY"],
-      changelog: changelog_from_git_commits(commits_count: 10, pretty: "- %s"),
+      changelog: mobile_changelog("beta"),
       release_type: "beta",
       branch: git_branch,
       git_commit: last_git_commit[:commit_hash]
@@ -86,7 +100,7 @@ platform :android do
       endpoint: ENV["ZEALOT_ENDPOINT"],
       token: ENV["ZEALOT_TOKEN"],
       channel_key: ENV["ZEALOT_PROD_CHANNEL_KEY"],
-      changelog: changelog_from_git_commits(commits_count: 10, pretty: "- %s"),
+      changelog: mobile_changelog("production"),
       release_type: "release",
       branch: git_branch,
       git_commit: last_git_commit[:commit_hash]
