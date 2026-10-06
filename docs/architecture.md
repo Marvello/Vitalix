@@ -201,7 +201,7 @@ older day-scoped copy kept for the current dashboard queries.
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
 | POST | `/api/admin/run-daily-insights` | `x-cron-token` | Daily cron: generate yesterday's insight, push `insight_ready` |
-| POST | `/api/webhooks/zealot` | `x-zealot-token` | New build → push `app_update` |
+| POST | `/api/webhooks/zealot` | `?token=` (Zealot can't send headers) | New build → push `app_update` to `app-updates-beta` / `app-updates` by `release_type` |
 
 ### Auth
 
