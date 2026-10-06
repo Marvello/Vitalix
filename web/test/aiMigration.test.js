@@ -25,7 +25,4 @@ describe("013_ai_recommendations migration", () => {
     assert.match(sql, /UNIQUE \(user_id, day\)/);
   });
 
-  test("adds users.ai_config", () => {
-    assert.match(sql, /ALTER TABLE users ADD COLUMN ai_config jsonb/);
-  });
 });

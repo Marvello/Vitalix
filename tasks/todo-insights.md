@@ -4,7 +4,7 @@
 
 ## Decisions
 - **Day:** yesterday (`now() - 1 day`, user's assumption: yesterday's data exists).
-- **Audience:** every user with a `health_days` row for yesterday, when server AI (`config.ai.baseUrl`) is configured. `ai_config` column stays unused (already dead). Skip users already holding a recommendation for that day (don't re-spend tokens).
+- **Audience:** every user with a `health_days` row for yesterday, when server AI (`config.ai.baseUrl`) is configured. Skip users already holding a recommendation for that day (don't re-spend tokens).
 - **Trigger:** `POST /api/admin/run-daily-insights`, guarded by cron secret, external daily cron (run a few hours after midnight so yesterday is fully ingested).
 - **Reuse, don't duplicate:** extract the route's generation body into one shared function.
 

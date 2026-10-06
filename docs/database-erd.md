@@ -1,16 +1,28 @@
 # Vitalix Server — Database ERD
 
-Schema for the self-hosted Vitalix receiver (`web/`). PostgreSQL, managed by
-`node-pg-migrate`. This doc is derived from the migrations in
-`web/migrations/` — those files are the source of truth; update this doc when
-they change.
+Schema for the self-hosted Vitalix receiver (`web/`). PostgreSQL 18, migrated by
+the in-repo runner `web/src/migrate.js` (applied automatically on server start,
+ledger in `schema_migrations`). The SQL files in `web/db/migrations/` are the
+source of truth; update this doc when they change.
 
-Migration order:
-
-1. `1721520000000_init.cjs` — health data tables (`syncs`, `health_days`, `day_aggregates`, `samples`, `exercises`)
-2. `1721600000000_auth.cjs` — auth tables (`users`, `refresh_tokens`, `password_resets`, `invites`) + adds `user_id` to health data
-3. `1721700000000_sample_source.cjs` — adds `source` to `samples`/`exercises`
-4. `1721800000000_records.cjs` — raw per-reading `records` table + `hc_id` on `exercises`
+| # | Migration | Change |
+|---|-----------|--------|
+| 001 | `init` | health data: `syncs`, `health_days`, `day_aggregates`, `samples`, `exercises` |
+| 002 | `auth` | `users`, `refresh_tokens`, `password_resets`, `invites`; `user_id` on health data |
+| 003 | `sample_source` | `source` on `samples` / `exercises` |
+| 004 | `records` | raw per-reading `records`; `hc_id` on `exercises` |
+| 005 | `day_source_metrics` | per-source daily rollup (+ backfill from `records`) |
+| 006 | `reading_meta` | `meta jsonb` on `samples` / `records` |
+| 007 | `exercise_detail` | `detail jsonb` on `exercises` (laps, segments, GPS route) |
+| 008 | `dashboard_layouts` | per-user dashboard card order |
+| 009 | `user_profile` | `users.profile_height_m`, `users.bmi_scale` |
+| 010 | `strip_source_hash` | data fix: drop `#…` suffix from source package names |
+| 011 | `user_disabled` | `users.disabled_at` (soft disable) |
+| 012 | `fcm_tokens` | device push tokens |
+| 013 | `ai_recommendations` | daily AI insight per user/day (also added `users.ai_config`, dropped in 016) |
+| 014 | `no_sync_notify` | `users.no_sync_notified_at` (stale-sync push dedup) |
+| 015 | `records_identity_type` | `records` identity → `(user_id, type, start_at, hc_id)` |
+| 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
 
 ## Diagram
 
@@ -23,6 +35,9 @@ erDiagram
     users ||--o{ health_days : "owns"
     users ||--o{ records : "owns"
     users ||--o{ day_source_metrics : "owns"
+    users ||--o| dashboard_layouts : "has"
+    users ||--o{ fcm_tokens : "has"
+    users ||--o{ ai_recommendations : "has"
 
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
@@ -36,6 +51,10 @@ erDiagram
         text password_hash
         text role "default 'user'"
         timestamptz created_at
+        double profile_height_m "nullable"
+        text bmi_scale "standard | asian"
+        timestamptz disabled_at "nullable; soft disable"
+        timestamptz no_sync_notified_at "nullable"
     }
 
     refresh_tokens {
@@ -127,6 +146,7 @@ erDiagram
         timestamptz start_at
         integer duration_minutes
         text source
+        jsonb detail "laps, segments, route"
     }
 
     records {
@@ -156,6 +176,33 @@ erDiagram
         double avg
         integer count
     }
+
+    dashboard_layouts {
+        integer user_id PK "FK CASCADE"
+        jsonb cards "ordered card keys"
+    }
+
+    fcm_tokens {
+        serial id PK
+        integer user_id FK "CASCADE, indexed"
+        text token UK
+        text app_id
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    ai_recommendations {
+        bigserial id PK
+        bigint user_id FK "CASCADE"
+        date day "UK(user_id, day)"
+        text provider
+        text model
+        text recommendation_text
+        jsonb metrics_snapshot
+        integer prompt_tokens
+        integer completion_tokens
+        timestamptz created_at
+    }
 ```
 
 ## Table reference
@@ -164,6 +211,10 @@ erDiagram
 Account records. `email` is `citext` (case-insensitive) and unique. `role` is
 `user` or `admin` (see `scripts/create-admin.js`). Root of all per-user data —
 deleting a user cascades to their tokens, syncs, health days, and records.
+`disabled_at` soft-disables an account (login, refresh and every authenticated
+request are refused; data is kept). `profile_height_m` / `bmi_scale` come from the
+app payload and back the BMI card when Health Connect has no height.
+`no_sync_notified_at` dedups the stale-sync push.
 
 ### `refresh_tokens` / `password_resets`
 Same shape (built by the `tokenTable` helper): `user_id` FK (CASCADE),
@@ -207,6 +258,24 @@ Workout sessions per day. `day_id` FK (CASCADE), `name`, `start_at`,
 `duration_minutes`, `source`, `hc_id`. Unique on `(day_id, hc_id)`
 (`exercises_identity`) so re-syncs upsert instead of duplicating.
 
+### `exercises.detail`
+`jsonb` `{ laps, segments, route }` — set when the session carried any of them
+(`route` needs the exercise-route grant); `NULL` otherwise.
+
+### `dashboard_layouts`
+One row per user who customized the dashboard: `cards` is the ordered list of
+card keys. No row = default layout (every card with data).
+
+### `fcm_tokens`
+Firebase Cloud Messaging device tokens, registered by the app on open
+(`POST /api/fcm/register`). Unique `token`; tokens that FCM reports as
+unregistered are pruned when a push fails.
+
+### `ai_recommendations`
+Cached daily insight per `(user_id, day)`: the LLM text plus the
+`metrics_snapshot` it was generated from, provider/model, and token counts.
+Written by `/api/ai/recommendations/generate` and the daily-insights cron.
+
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern
 source of truth, parallel to `samples`. Keyed on the Health Connect record UID:
@@ -239,5 +308,8 @@ metrics. Indexed on `(user_id, metric, day)`.
 - **Cascade behavior**: deleting a `user` wipes all their data. Deleting a
   `sync` nulls `health_days.sync_id` but keeps the day. Deleting a
   `health_days` cascades to its aggregates, samples, and exercises.
+- **Known debt**: `dashboard_layouts.user_id` and `fcm_tokens.user_id` are
+  `integer` while `users.id` is `bigint`; `samples` duplicates `records` and is
+  slated for removal once the dashboard reads only from `records`.
 - **All tokens are hashed at rest** — `token_hash` columns never hold
   plaintext.

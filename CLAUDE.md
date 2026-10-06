@@ -8,7 +8,7 @@ Vitalix is an Android app that reads Health Connect data on-device and **forward
 
 It is a re-target of the upstream `teqxnology/healthexport` app, swapping the Google Sheets/CSV export destination for a generic HTTP `POST`.
 
-Read `docs/superpowers/specs/2026-07-21-vitalix-health-forwarder-design.md` before touching code — it is the authoritative design and defines the component boundaries, payload schema, and error-handling matrix.
+Read `docs/architecture.md` before touching code — it is the current design: component boundaries, sync model, payload contract, endpoints, auth, config. Update it in the same commit when a change alters any of those. `docs/README.md` indexes the rest.
 
 ## Repository layout
 
@@ -16,7 +16,7 @@ Read `docs/superpowers/specs/2026-07-21-vitalix-health-forwarder-design.md` befo
 |------|------|
 | `android/` | The Vitalix Android app (Gradle root `Vitalix`, package `com.android.vitalix`). |
 | `web/` | Self-hosted receiver: Node/Express + Postgres, dashboard, AI recommendations. See `web/README.md`. |
-| `docs/branding/` | Brand guide + SVGs (`vitalix-icon.svg`, `vitalix-lockup.svg`). |
+| `docs/` | `architecture.md` (start here), `database-erd.md`, `health-connect-data-coverage.md`, `branding/`. See `docs/README.md`. |
 
 Build/test commands differ per directory; run them from `android/` or `web/` as the change requires.
 
@@ -48,11 +48,11 @@ Toolchain: Gradle 9.5, AGP via `android/gradle/libs.versions.toml` version catal
 
 - **`HealthConnectManager`** knows only Health Connect. In: `ExportConfig`. Out: `List<DailyHealthData>`. No network, no settings.
 - **`ServerForwarder`** knows only JSON + HTTP. No Health Connect knowledge.
-- **`SyncSettings`** is the only thing that touches `SharedPreferences`. `MainActivity` and `ExportWorker` read/write config *through it*, never directly.
+- **`SyncSettings`** is the only thing that touches config `SharedPreferences` (`SyncLog` keeps its own log store). `MainActivity` and the workers read/write config *through it*, never directly.
 
 Sync windows always start at **local midnight** (`HealthConnectManager.windowStart`): the server stores per-day totals, so a mid-day start overwrites a day with a partial total. `lastSync` only advances on a clean, non-empty read. The receiver's in-memory rate limits assume a **single replica**.
 
-This keeps the JSON builder and the settings↔`ExportConfig` mapping pure and unit-testable without a device. The webhook payload schema is fully specified in the design doc — match it exactly (only user-enabled metrics appear; omitted, not null; aggregates use `MinMaxAvg`).
+This keeps the JSON builder and the settings↔`ExportConfig` mapping pure and unit-testable without a device. The webhook payload contract is in `docs/architecture.md` §3 — match it exactly (only user-enabled metrics appear; omitted, not null; aggregates use `MinMaxAvg`).
 
 ## Data models
 

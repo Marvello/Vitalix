@@ -19,7 +19,7 @@ List of data that we export and store can be check on [Data Coverage](./docs/hea
 | `android/` | The **Vitalix** Android app (`com.android.vitalix`). Reads Health Connect, forwards JSON. |
 | `web/` | The **Vitalix receiver** — a self-hosted Node/Express + Postgres server that ingests, stores, and charts the data. |
 | `android/healthexport/` | Upstream reference clone. Read-only; not shipped. |
-| `docs/` | Design spec and branding. |
+| `docs/` | Architecture, database ERD, data coverage, branding — see [`docs/README.md`](docs/README.md). |
 
 ## The Android app (`android/`)
 
