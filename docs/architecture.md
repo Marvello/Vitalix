@@ -33,7 +33,7 @@ controls. Nothing goes to a third-party data path. The receiver is multi-user
 (invite-only accounts) and stores both per-day rollups and every raw reading.
 
 Deployment: one receiver replica + Postgres on the homelab k3s cluster behind
-cloudflared (`homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
+cloudflared (`common-tech/homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
 CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05); `web/docker-compose.yml` is
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
@@ -251,7 +251,7 @@ older day-scoped copy kept for the current dashboard queries.
   unknown); the page defaults to yesterday. Days with nothing recorded are skipped
   without an LLM call.
 - **When the worker runs**: k8s CronJob `vitalix-daily-insights`
-  (`homeserver/k8s/vitalix/vitalix.yaml`) calls `POST /api/admin/run-daily-insights`
+  (`common-tech/homeserver/k8s/vitalix/vitalix.yaml`) calls `POST /api/admin/run-daily-insights`
   hourly at :05. `PENDING_USERS_SQL` (`dailyInsights.js`) picks a user only once it
   is past **08:00 in their own zone** (`GENERATE_HOUR`), for their local yesterday,
   if that day has data and no insight yet — so each user gets one insight a day
