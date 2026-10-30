@@ -10,6 +10,8 @@ import { pagesRouter } from "./routes/pages.js";
 import { webhookRouter } from "./routes/webhooks.js";
 import { aiRouter } from "./routes/ai.js";
 import { fcmRouter } from "./routes/fcm.js";
+import { oidcRouter } from "./routes/oidc.js";
+import { oidcEnabled } from "./auth/oidc.js";
 import { runPendingMigrations } from "./migrate.js";
 import { rateLimit } from "./rateLimit.js";
 
@@ -21,6 +23,7 @@ const app = express();
 app.set("trust proxy", process.env.TRUST_PROXY || "loopback, linklocal, uniquelocal");
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
+app.locals.ssoEnabled = oidcEnabled; // login view shows "Sign in with Authentik"
 app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: false }));
@@ -34,10 +37,12 @@ app.post(["/api/auth/login", "/login"], rateLimit({ windowMs: 15 * MIN, max: 10,
 app.post(["/api/auth/forgot", "/forgot"], rateLimit({ windowMs: 60 * MIN, max: 5 }));
 app.post(["/api/auth/reset", "/reset"], rateLimit({ windowMs: 60 * MIN, max: 10 }));
 app.post(["/api/auth/signup", "/signup"], rateLimit({ windowMs: 60 * MIN, max: 10 }));
+app.get("/auth/oidc/callback", rateLimit({ windowMs: 15 * MIN, max: 20 }));
 app.use(healthRouter);
 app.use(authRouter);
 app.use(adminRouter);
 app.use(pagesRouter);
+app.use(oidcRouter);
 app.use(webhookRouter);
 app.use(aiRouter);
 app.use(fcmRouter);

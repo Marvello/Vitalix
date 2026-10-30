@@ -29,7 +29,14 @@ export const config = {
   zealotWebhookSecret: process.env.ZEALOT_WEBHOOK_SECRET || null,
   syncCronSecret: process.env.SYNC_CRON_SECRET || null,
   cronSecret: process.env.CRON_SECRET || process.env.SYNC_CRON_SECRET || null,
-  firebaseEnabled: !!(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_SERVICE_ACCOUNT),
+  // Authentik SSO for the web dashboard; off unless all four are set.
+  oidc: {
+    issuer: process.env.OIDC_ISSUER || null,
+    clientId: process.env.OIDC_CLIENT_ID || null,
+    clientSecret: process.env.OIDC_CLIENT_SECRET || null,
+    redirectUri: process.env.OIDC_REDIRECT_URI || null,
+  },
+  firebaseEnabled:!!(process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.FIREBASE_SERVICE_ACCOUNT),
   ai: {
     provider: process.env.AI_PROVIDER || "openai-compatible",
     baseUrl: process.env.AI_BASE_URL || "http://localhost:11434/v1",

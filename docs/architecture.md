@@ -195,6 +195,7 @@ older day-scoped copy kept for the current dashboard queries.
 | GET | `/healthz` | — | Liveness + DB ping |
 | POST | `/api/auth/{signup,login,refresh,logout,forgot,reset}` | — / token | Account flows (JSON for the app) |
 | GET/POST | `/login`, `/signup`, `/forgot`, `/reset`, `/logout` | — | Same flows as web forms |
+| GET | `/auth/oidc/start`, `/auth/oidc/callback` | — | Authentik SSO for the web dashboard (only when `OIDC_*` set); ends in the same cookies as `/login` |
 | GET | `/dashboard`, `/dashboard/:date`, `/daily-review` | user (cookie) | Charts, day detail, daily review + AI insight |
 | POST/PUT/DELETE | `/dashboard/layout…` | user | Custom card order |
 | GET/POST | `/api/ai/recommendations…` | user | Latest / by day / generate (rate limited) |
@@ -213,7 +214,12 @@ older day-scoped copy kept for the current dashboard queries.
   `httpOnly`, `SameSite=Lax` cookies (`Secure` when `NODE_ENV=production`).
 - `requireAuth` re-reads the user on every request: a disabled account is
   refused immediately and the role comes from the database, not the token.
-- Login/signup/forgot/reset are rate limited per IP (login also per email).
+- **Authentik SSO (web only, optional):** `src/auth/oidc.js` runs the authorization-code flow with
+  PKCE + state + nonce (`openid-client`; the three ride in a 10-min JWT-signed `oidc_flow` cookie).
+  The id_token's email must be `email_verified` and match an existing, enabled user —
+  SSO never creates accounts. Success issues the normal access + refresh cookies. The Android
+  app is unchanged (email/password + Bearer).
+- Login/signup/forgot/reset and the SSO callback are rate limited per IP (login also per email).
 - Forgot-password never reveals whether an email exists.
 
 ### Configuration
@@ -229,6 +235,7 @@ older day-scoped copy kept for the current dashboard queries.
 | `SYNC_CRON_SECRET`, `CRON_SECRET` | no | Cron endpoint secrets (`CRON_SECRET` falls back to `SYNC_CRON_SECRET`) |
 | `AI_PROVIDER`, `AI_BASE_URL`, `AI_MODEL`, `AI_API_KEY` | no | LLM for insights (default local Ollama) |
 | `TRUST_PROXY` | no | Proxy hops trusted for client IP (default private networks) |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI` | no | Authentik SSO for the web dashboard; off unless all four are set |
 
 ---
 
