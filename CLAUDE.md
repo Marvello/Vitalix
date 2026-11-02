@@ -23,6 +23,7 @@ Build/test commands differ per directory; run them from `android/` or `web/` as 
 ## Build & test
 
 Android: a standard Gradle-wrapper build; run from `android/`. Web: `cd web && npm test` (node --test); `web/test/persist.db.test.js` needs a throwaway Postgres via `TEST_DATABASE_URL` (see `web/README.md`).
+Web `overrides`: `rimraf → glob ^14.0.3` clears glob/minimatch advisories via firebase-admin → firestore-api@0.2 → google-gax@5 (upstream still pins it); drop once `@google-cloud/firestore` moves to firestore-api ≥0.7.
 
 The app has product flavors, so variant tasks are flavored (e.g. `testProductionDebugUnitTest`, `assembleProductionDebug`); the unflavored names below are shorthand.
 
