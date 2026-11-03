@@ -351,5 +351,13 @@ Title "Vitalix alert". Tap → `InsightActivity` for `day`.
 - [ ] Deploy web (DB backup first when the phase has a migration: A, B, C do; D has none → restart only); release app via fastlane beta.
 - [ ] Review section appended below.
 
-## Review
-_(filled on completion)_
+## Review (2026-11-03)
+
+All 16 tasks implemented via subagent-driven development (fresh implementer + spec/quality review per task, fix loops where needed), then a whole-branch review (opus) and one fix wave. Branches stack: `feat/roadmap-a-debt` → `-b-insights` → `-c-data` → `-d-android` (final head carries the final-review fixes).
+
+- Verification at final head: web 200/200 with TEST_DATABASE_URL (0 skipped); android `testProductionDebugUnitTest` + `assembleProductionDebug` green; lint = 19 known RestrictedApi errors, none new.
+- Device (emulator API 34): widget render light/dark; Changes API deletion end-to-end (HC delete → server row gone); dark-mode screens; loading states; backfill month status. Not verified on device: widget live-sync update, push-driven chip, notification taps, Changes fallback path (unit-tested), Update screen.
+- Bugs caught in review: sleep stages assigned by stage end (now session end); 018 would have dropped pre-records history (now copied); export held a pool connection across backpressure; widget failures could break sync; recordSpan failure silently skipped data; day page crashed with journal entries; notification taps collided; unbounded changes plan could stall auto-sync.
+- Plan corrections (rulings): readiness test values 65/76 (formula binding); query-count test as O(1) equality; bucket_start stays timestamptz; changes token kept when valid (manual + backfill).
+- Pending ops (not done here): DB backup → deploy server (migrations 018–023) → add the two documented `:05` cron curls to `common-tech/homeserver/k8s/vitalix/vitalix.yaml` → release app via fastlane beta. First push will run the new Android CI.
+- Known ceilings (documented, ponytail-marked): deleted record's day only re-read if yesterday/today (health_days scalars, day_aggregates, day_source_metrics keep old value); changes plan capped at 31 days; window functions span all record types; cookie-auth POSTs rely on SameSite=Lax (destructive delete additionally gated by password + typed email).
