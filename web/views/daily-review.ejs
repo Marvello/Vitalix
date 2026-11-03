@@ -23,6 +23,9 @@
 .ai-badge{background:var(--teal);color:#fff;font-size:12px;font-weight:600;padding:4px 8px;border-radius:4px}
 .ai-header h3{margin:0}
 .ai-content{line-height:1.6;white-space:pre-wrap}
+.thumbs{display:flex;gap:8px;margin-top:12px}
+.thumbs button{background:transparent;color:inherit;border:1px solid var(--line)}
+.thumbs button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
 .disclaimer{font-size:11px;color:var(--muted);margin-top:12px;font-style:italic}
 </style>
 </head>
@@ -128,6 +131,13 @@
     <%- recommendation ? recommendation.recommendation_text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : (canGenerate ? "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." : "Insights are available once this day has ended.") %>
   </div>
 
+  <% if (recommendation) { %>
+  <div class="thumbs" id="thumbs" data-value="<%= recommendation.feedback || 0 %>">
+    <button type="button" id="thumb-up" aria-label="Helpful" title="Helpful" onclick="sendFeedback(1)">&#128077;</button>
+    <button type="button" id="thumb-down" aria-label="Not helpful" title="Not helpful" onclick="sendFeedback(-1)">&#128078;</button>
+  </div>
+  <% } %>
+
   <div class="disclaimer">
     Vitalix AI Insights are generated automatically for motivational fitness & habit coaching. They do not constitute medical advice.
   </div>
@@ -146,6 +156,26 @@ function renderMd(s) {
     .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
     .replace(/\n/g,'<br>');
 }
+function paintThumbs(v) {
+  var box = document.getElementById('thumbs');
+  if (!box) return;
+  box.dataset.value = v;
+  document.getElementById('thumb-up').classList.toggle('on', v === 1);
+  document.getElementById('thumb-down').classList.toggle('on', v === -1);
+}
+async function sendFeedback(v) {
+  var cur = Number(document.getElementById('thumbs').dataset.value);
+  var next = cur === v ? 0 : v; // tapping the selected thumb clears it
+  try {
+    var res = await fetch('/api/ai/recommendations/<%= date %>/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: next })
+    });
+    if (res.ok) paintThumbs(next);
+  } catch (err) {}
+}
+(function () { var b = document.getElementById('thumbs'); if (b) paintThumbs(Number(b.dataset.value)); })();
 async function generateRecommendation() {
   var btn = document.getElementById('btn-generate');
   var content = document.getElementById('ai-content');

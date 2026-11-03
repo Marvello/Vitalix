@@ -64,6 +64,26 @@
 </div>
 
 <div class="card">
+  <h2 style="margin-top:0">Insight feedback (last 30 days)</h2>
+  <div class="table-scroll">
+  <table>
+    <thead><tr><th>Model</th><th>Up</th><th>Down</th></tr></thead>
+    <tbody>
+    <% feedbackStats.forEach(function(r) { %>
+      <tr><td><%= r.model %></td><td><%= r.up %></td><td><%= r.down %></td></tr>
+    <% }); %>
+    <% if (!feedbackStats.length) { %><tr><td colspan="3">No insights yet.</td></tr><% } %>
+    </tbody>
+  </table>
+  </div>
+  <h3>Recent downvoted insights</h3>
+  <% downvoted.forEach(function(r) { %>
+    <p class="sub"><strong><%= r.day %></strong> (<%= r.model %>)<br><span style="white-space:pre-wrap"><%= r.text %></span></p>
+  <% }); %>
+  <% if (!downvoted.length) { %><p class="sub">None.</p><% } %>
+</div>
+
+<div class="card">
   <h2 style="margin-top:0">Users</h2>
   <div class="table-scroll">
   <table>

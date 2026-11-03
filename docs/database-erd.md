@@ -27,6 +27,7 @@ source of truth; update this doc when they change.
 | 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`), then drops `samples`; back up first |
 | 019 | `anomaly_alerts` | personal-baseline anomaly alerts, unique `(user_id, day, rule)` |
 | 020 | `ai_digests` | weekly / monthly AI digests, unique `(user_id, kind, period_start)` |
+| 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
 
 ## Diagram
 
@@ -196,6 +197,8 @@ erDiagram
         integer prompt_tokens
         integer completion_tokens
         timestamptz created_at
+        smallint feedback "1 up, -1 down, NULL none"
+        timestamptz feedback_at
     }
 
     anomaly_alerts {

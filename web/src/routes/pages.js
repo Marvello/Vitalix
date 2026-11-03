@@ -338,10 +338,18 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
 });
 
 pagesRouter.get("/admin", requireAuth, requireAdmin, async (req, res) => {
-  const [users, invites, user] = await Promise.all([
+  const [users, invites, user, { rows: feedbackStats }, { rows: downvoted }] = await Promise.all([
     store.listUsers(),
     store.listInvites(),
     store.findUserById(req.user.id),
+    query(
+      `SELECT model, COUNT(*) FILTER (WHERE feedback = 1)::int AS up, COUNT(*) FILTER (WHERE feedback = -1)::int AS down
+       FROM ai_recommendations WHERE created_at >= NOW() - INTERVAL '30 days' GROUP BY model ORDER BY model`,
+    ),
+    query(
+      `SELECT day::text AS day, model, recommendation_text AS text
+       FROM ai_recommendations WHERE feedback = -1 ORDER BY feedback_at DESC LIMIT 20`,
+    ),
   ]);
   const now = new Date();
   const invitesWithStatus = invites.map((inv) => ({
@@ -353,6 +361,8 @@ pagesRouter.get("/admin", requireAuth, requireAdmin, async (req, res) => {
     users,
     invites: invitesWithStatus,
     currentUserId: req.user.id,
+    feedbackStats,
+    downvoted,
   });
 });
 

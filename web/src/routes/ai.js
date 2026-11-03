@@ -46,11 +46,26 @@ aiRouter.get("/api/ai/recommendations", requireAuth, async (req, res) => {
 // Stored recommendation for a specific day (used by the app's insight screen).
 aiRouter.get("/api/ai/recommendations/:day", requireAuth, async (req, res) => {
   const { rows } = await query(
-    "SELECT day, recommendation_text, created_at FROM ai_recommendations WHERE user_id = $1 AND day = $2",
+    "SELECT day, recommendation_text, created_at, feedback FROM ai_recommendations WHERE user_id = $1 AND day = $2",
     [req.user.id, req.params.day],
   );
   if (rows.length === 0) return res.status(404).json({ error: "not found" });
-  res.json({ day: rows[0].day, text: rows[0].recommendation_text, created_at: rows[0].created_at });
+  res.json({ day: rows[0].day, text: rows[0].recommendation_text, created_at: rows[0].created_at, feedback: rows[0].feedback });
+});
+
+// Thumbs on a day's insight: 1 up, -1 down, 0 clears.
+aiRouter.post("/api/ai/recommendations/:day/feedback", requireAuth, async (req, res) => {
+  const value = req.body?.value;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(req.params.day)) return res.status(400).json({ error: "day must be YYYY-MM-DD" });
+  if (![1, -1, 0].includes(value)) return res.status(400).json({ error: "value must be 1, -1 or 0" });
+  const { rowCount } = await query(
+    `UPDATE ai_recommendations SET feedback = NULLIF($3::smallint, 0),
+       feedback_at = CASE WHEN $3::smallint = 0 THEN NULL ELSE NOW() END
+     WHERE user_id = $1 AND day = $2`,
+    [req.user.id, req.params.day, value],
+  );
+  if (rowCount === 0) return res.status(404).json({ error: "not found" });
+  res.sendStatus(204);
 });
 
 // Latest stored weekly or monthly digest (app's digest_ready screen, /daily-review).

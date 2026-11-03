@@ -219,6 +219,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | GET | `/dashboard`, `/dashboard/:date`, `/daily-review` | user (cookie) | Charts, day detail, daily review + AI insight |
 | POST/PUT/DELETE | `/dashboard/layout…` | user | Custom card order |
 | GET/POST | `/api/ai/recommendations…` | user | Latest / by day / generate (rate limited) |
+| POST | `/api/ai/recommendations/:day/feedback` | user | Thumbs on a day's insight, body `{value: 1\|-1\|0}` (0 clears) → 204; 400 bad day/value, 404 no row. GET by day also returns `feedback`. Web `/daily-review` calls it via same-origin `fetch` (cookie auth, SameSite=Lax, no CSRF token — same as the `/dashboard/layout` calls); totals per model and recent downvotes on `/admin` |
 | GET | `/api/ai/digests/latest?kind=week\|month` | user | Latest weekly / monthly digest `{kind, period_start, period_end, text}`; 400 on another kind, 404 if none (§5b) |
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
