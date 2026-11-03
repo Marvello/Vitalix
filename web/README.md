@@ -38,6 +38,8 @@ docker run -d --rm -e POSTGRES_PASSWORD=t -e POSTGRES_USER=t -p 55432:5432 postg
 TEST_DATABASE_URL=postgres://t:t@127.0.0.1:55432/t npm test
 ```
 
+DB test files share one database and wipe it, so the suite runs files serially (`--test-concurrency=1`).
+
 ## Environment
 
 See `.env.example`. `JWT_SECRET` must be a long random string. If `SMTP_*` is unset, reset/invite links are printed to the server console instead of emailed.
