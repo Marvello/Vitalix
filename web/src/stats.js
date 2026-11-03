@@ -1,4 +1,33 @@
 import { query } from "./db.js";
+import { userTimeZone } from "./ai/recommendations.js";
+
+/**
+ * The local day a reading belongs to, mirroring the phone's bucketing in
+ * HealthConnectManager: by start, except sleep stages, which belong to the day
+ * their session ENDS. `tz` is a SQL parameter placeholder such as "$4".
+ */
+const readingDay = (tz) =>
+  `((CASE WHEN type = 'sleepStage' THEN coalesce(end_at, start_at) ELSE start_at END) AT TIME ZONE ${tz})::date`;
+
+/**
+ * Coarse start_at window so the (user_id, type, start_at) index can prune before
+ * readingDay() is evaluated; +-2 days covers any zone offset plus an overnight session.
+ */
+const readingWindow = (from, to) =>
+  `start_at >= ${from}::date - 2 AND start_at < ${to}::date + 3`;
+
+/** Readings of one local day (dashboard day detail and /api/days/:date). */
+export async function dayReadings(userId, day, tz, { limit = null } = {}) {
+  const { rows } = await query(
+    `SELECT type AS metric, start_at, end_at, value_num, value_secondary, value_text, source, meta
+       FROM records
+      WHERE user_id = $1 AND ${readingWindow("$2", "$2")} AND ${readingDay("$3")} = $2
+      ORDER BY start_at
+      LIMIT $4`,
+    [userId, day, tz, limit]
+  );
+  return rows;
+}
 
 /** Metrics charted as a min/max band with an average line. */
 export const BAND_METRICS = ["heartRate", "spo2", "hrv", "respiratoryRate"];
@@ -107,12 +136,12 @@ export async function summary(userId, from, to) {
       WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3`,
     [userId, from, to]
   );
+  const tz = await userTimeZone(userId);
   const { rows: samples } = await query(
     `SELECT count(*)::bigint AS samples
-       FROM samples s
-       JOIN health_days hd ON hd.id = s.day_id
-      WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3`,
-    [userId, from, to]
+       FROM records
+      WHERE user_id = $1 AND ${readingWindow("$2", "$3")} AND ${readingDay("$4")} BETWEEN $2 AND $3`,
+    [userId, from, to, tz]
   );
   return { ...rows[0], ...ex[0], ...samples[0] };
 }
@@ -137,13 +166,13 @@ export async function availableMetrics(userId, from, to) {
  * than resting heart rate proper (that is its own recorded metric).
  */
 export async function heartRateSplit(userId, from, to) {
+  const tz = await userTimeZone(userId);
   const { rows } = await query(
     `WITH hr AS (
-       SELECT hd.day, s.start_at, s.value_num
-         FROM samples s
-         JOIN health_days hd ON hd.id = s.day_id
-        WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3
-          AND s.metric = 'heartRate' AND s.value_num IS NOT NULL
+       SELECT ${readingDay("$4")} AS day, start_at, value_num
+         FROM records
+        WHERE user_id = $1 AND ${readingWindow("$2", "$3")} AND ${readingDay("$4")} BETWEEN $2 AND $3
+          AND type = 'heartRate' AND value_num IS NOT NULL
      ), windows AS (
        -- Sessions are matched by timestamp, not by day, so one crossing midnight
        -- still claims its samples on both sides.
@@ -165,7 +194,7 @@ export async function heartRateSplit(userId, from, to) {
        FROM hr
       GROUP BY 1, 2
       ORDER BY 1`,
-    [userId, from, to]
+    [userId, from, to, tz]
   );
   return rows;
 }

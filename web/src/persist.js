@@ -59,17 +59,6 @@ async function replaceAggregates(client, dayId, aggregates) {
   ], aggregates);
 }
 
-async function replaceSamples(client, dayId, samples) {
-  const metrics = [...new Set(samples.map((s) => s.metric))];
-  await client.query("DELETE FROM samples WHERE day_id = $1 AND metric = ANY($2)", [dayId, metrics]);
-  for (const s of samples) {
-    await client.query(
-      "INSERT INTO samples (day_id, metric, start_at, end_at, value_num, value_secondary, value_text, source, meta) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)",
-      [dayId, s.metric, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source, s.meta ?? null]
-    );
-  }
-}
-
 async function replaceExercises(client, dayId, exercises) {
   const withId = exercises.filter((e) => e.hc_id);
   const withoutId = exercises.filter((e) => !e.hc_id);
@@ -132,7 +121,6 @@ export function persist(userId, mapped) {
     for (const day of mapped.days) {
       const dayId = await upsertDay(client, syncId, userId, day);
       await replaceAggregates(client, dayId, day.aggregates);
-      await replaceSamples(client, dayId, day.samples);
       await replaceExercises(client, dayId, day.exercises);
       records += await upsertRecords(client, userId, day.samples);
       sourceMetrics += await upsertSourceMetrics(client, userId, day);

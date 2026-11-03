@@ -24,6 +24,7 @@ source of truth; update this doc when they change.
 | 015 | `records_identity_type` | `records` identity → `(user_id, type, start_at, hc_id)` |
 | 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
 | 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
+| 018 | `drop_samples` | drop `samples` (dashboard reads `records`). **Destructive: back up the DB before deploying.** |
 
 ## Diagram
 
@@ -43,7 +44,6 @@ erDiagram
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
     health_days ||--o{ day_aggregates : "day_id (CASCADE)"
-    health_days ||--o{ samples : "day_id (CASCADE)"
     health_days ||--o{ exercises : "day_id (CASCADE)"
 
     users {
@@ -126,19 +126,6 @@ erDiagram
         double min
         double max
         double avg
-    }
-
-    samples {
-        bigserial id PK
-        bigint day_id FK "CASCADE"
-        text metric "idx(metric, start_at)"
-        timestamptz start_at
-        timestamptz end_at
-        double value_num
-        double value_secondary
-        text value_text
-        text source "indexed"
-        jsonb meta "nullable; per-reading context enums"
     }
 
     exercises {
@@ -249,15 +236,6 @@ user-enabled metrics are populated; the rest stay NULL. Upserted per sync.
 Min/max/avg triples for metrics that aggregate over a day. `day_id` FK
 (CASCADE), unique on `(day_id, metric)`. Maps to the `MinMaxAvg` model.
 
-### `samples`
-Intraday readings attached to a day. `day_id` FK (CASCADE), `metric`,
-`start_at`/`end_at`, `value_num`/`value_secondary`/`value_text`, `source`
-(Health Connect `dataOrigin` package name). Indexed on `(metric, start_at)`,
-`day_id`, and `source`. Legacy granular store — parallel to `records`.
-
-`meta` (jsonb, nullable) — per-reading Health Connect context enums
-(`bodyPosition`, `mealType`, `measurementMethod`, …). `NULL` when the reading carries no context.
-
 ### `exercises`
 Workout sessions per day. `day_id` FK (CASCADE), `name`, `start_at`,
 `duration_minutes`, `source`, `hc_id`. Unique on `(day_id, hc_id)`
@@ -283,7 +261,7 @@ Written by `/api/ai/recommendations/generate` and the daily-insights cron.
 
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern
-source of truth, parallel to `samples`. Keyed on the Health Connect record UID:
+source of truth (the only granular store since migration 018). Keyed on the Health Connect record UID:
 unique `(user_id, type, start_at, hc_id)` (`records_identity`, migration 015) so
 overlapping backfill windows and re-syncs upsert rather than duplicate. `type` is
 part of the key because one NutritionRecord fans out into several rows (one per
@@ -306,15 +284,13 @@ metrics. Indexed on `(user_id, metric, day)`.
 
 ## Notes
 
-- **Two granular stores exist**: `samples` (day-scoped, older) and `records`
-  (user-scoped, UID-keyed, idempotent). New granular ingestion targets
-  `records`; the `/api/records` endpoint reads from it and derives bucketed
-  series (see `src/records.js`, `src/chartData.js`).
+- **One granular store**: `records` (user-scoped, UID-keyed, idempotent) feeds the
+  dashboard day detail and `/api/records`; a reading's day is derived at query
+  time (`readingDay` in `src/stats.js`: start, or end for `sleepStage`).
 - **Cascade behavior**: deleting a `user` wipes all their data. Deleting a
   `sync` nulls `health_days.sync_id` but keeps the day. Deleting a
-  `health_days` cascades to its aggregates, samples, and exercises.
+  `health_days` cascades to its aggregates and exercises.
 - **Known debt**: `dashboard_layouts.user_id` and `fcm_tokens.user_id` are
-  `integer` while `users.id` is `bigint`; `samples` duplicates `records` and is
-  slated for removal once the dashboard reads only from `records`.
+  `integer` while `users.id` is `bigint`.
 - **All tokens are hashed at rest** — `token_hash` columns never hold
   plaintext.

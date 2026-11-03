@@ -4,6 +4,7 @@ import { mapPayload, PAYLOAD_SCHEMA_VERSION } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
 import { userTimeZone } from "../ai/recommendations.js";
+import { dayReadings } from "../stats.js";
 import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../records.js";
 
 export const router = Router();
@@ -75,10 +76,10 @@ router.get("/api/days/:date", requireAuth, async (req, res) => {
     const day = rows[0];
     const [aggregates, samples, exercises] = await Promise.all([
       query("SELECT metric, min, max, avg FROM day_aggregates WHERE day_id = $1", [day.id]),
-      query("SELECT metric, start_at, end_at, value_num, value_secondary, value_text FROM samples WHERE day_id = $1 ORDER BY start_at", [day.id]),
+      dayReadings(req.user.id, req.params.date, await userTimeZone(req.user.id)),
       query("SELECT name, start_at, duration_minutes FROM exercises WHERE day_id = $1", [day.id]),
     ]);
-    res.json({ ...day, aggregates: aggregates.rows, samples: samples.rows, exercises: exercises.rows });
+    res.json({ ...day, aggregates: aggregates.rows, samples: samples.map(({ source, meta, ...r }) => r), exercises: exercises.rows });
   } catch (err) {
     console.error("query failed", err);
     res.status(500).json({ error: "query failed" });

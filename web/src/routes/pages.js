@@ -494,10 +494,10 @@ pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
     const d = rows[0];
     const [aggs, samples, ex] = await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
-      query("SELECT metric,start_at,end_at,value_num,value_secondary,value_text,source,meta FROM samples WHERE day_id=$1 ORDER BY start_at LIMIT 500", [d.id]),
+      stats.dayReadings(req.user.id, req.params.date, await userTimeZone(req.user.id), { limit: 500 }),
       query("SELECT name,start_at,duration_minutes,source,detail FROM exercises WHERE day_id=$1", [d.id]),
     ]);
-    res.render("day", { day: d, aggregates: aggs.rows, samples: samples.rows, exercises: ex.rows, date: req.params.date });
+    res.render("day", { day: d, aggregates: aggs.rows, samples, exercises: ex.rows, date: req.params.date });
   } catch (err) {
     console.error("GET /dashboard/:date failed", err);
     res.status(500).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });

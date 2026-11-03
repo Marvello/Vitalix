@@ -63,7 +63,7 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     )] });
     await persist(userId, { sync, days: [day([sample("steps", "st1", 120)])] });
 
-    const { rows: s } = await db.query("SELECT metric, value_num FROM samples ORDER BY metric");
+    const { rows: s } = await db.query("SELECT type AS metric, value_num FROM records WHERE hc_id IN ('hr1','st1') ORDER BY type");
     assert.deepEqual(s.map((r) => [r.metric, r.value_num]), [["heart_rate", 60], ["steps", 120]]);
     const { rows: a } = await db.query("SELECT metric FROM day_aggregates");
     assert.deepEqual(a.map((r) => r.metric), ["heart_rate"]);
@@ -91,8 +91,7 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     });
     await persist(userId, mapped);
     t.mock.restoreAll();
-    // samples stay one INSERT per row (Task 5 drops that table); everything else must be O(1).
-    return seen.filter((q) => !/\bsamples\b/.test(q)).length;
+    return seen.length;
   }
   const bulkPayload = (n, tag) => ({ sync, days: [{
     day: "2026-10-02", scalars: {}, aggregates: [{ metric: "steps", min: 1, max: 2, avg: 1.5 }],
@@ -122,6 +121,24 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     assert.deepEqual(rows.map((r) => r.value_num), [2, 3]);
     const { rows: e } = await db.query("SELECT name FROM exercises WHERE hc_id = 'dx'");
     assert.deepEqual(e.map((r) => r.name), ["b"]);
+  });
+
+  test("day readings come from records, sleep belongs to the day it ends (Asia/Jakarta)", async () => {
+    const stats = await import("../src/stats.js");
+    const at = (iso, metric, id, end, text = null) => ({ ...sample(metric, id, 1, iso), end_at: end ?? iso, value_text: text });
+    await db.query("DELETE FROM records WHERE start_at >= '2026-11-01'"); // other tests seed around here
+    // 22:00 local 11-03 = 15:00Z; 06:00 local 11-04 = 23:00Z. HR 23:30 local 11-03 = 16:30Z.
+    await persist(userId, { sync, days: [
+      { day: "2026-11-04", scalars: {}, aggregates: [], exercises: [], samples: [
+        at("2026-11-03T15:00:00Z", "sleepStage", "dr-sleep", "2026-11-03T23:00:00Z", "deep")] },
+      { day: "2026-11-03", scalars: {}, aggregates: [], exercises: [], samples: [
+        at("2026-11-03T16:30:00Z", "heartRate", "dr-hr")] },
+    ] });
+    const ids = async (d) => (await stats.dayReadings(userId, d, "Asia/Jakarta")).map((r) => r.metric);
+    assert.deepEqual(await ids("2026-11-04"), ["sleepStage"]);
+    assert.deepEqual(await ids("2026-11-03"), ["heartRate"]);
+    const [r] = await stats.dayReadings(userId, "2026-11-03", "Asia/Jakarta");
+    assert.deepEqual(Object.keys(r).sort(), ["end_at", "meta", "metric", "source", "start_at", "value_num", "value_secondary", "value_text"]);
   });
 
   test("requireAuth rejects a disabled user and takes role from the DB", async () => {

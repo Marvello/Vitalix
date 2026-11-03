@@ -186,7 +186,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 Per POST, in one transaction: insert a `syncs` row, then for each day:
 1. Upsert `health_days` on `(user_id, day)`; scalar columns merge with
    `COALESCE(new, old)`, so a column absent from this payload keeps its value.
-2. Replace `day_aggregates` and `samples` **per metric present** in the payload —
+2. Replace `day_aggregates` **per metric present** in the payload —
    metrics not in the payload keep their rows.
 3. Upsert `exercises` on `(day_id, hc_id)`.
 4. Upsert `records` on `(user_id, type, start_at, hc_id)`.
@@ -194,8 +194,12 @@ Per POST, in one transaction: insert a `syncs` row, then for each day:
 
 Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in JS (last wins).
 
-`records` is the idempotent, native-granularity source of truth; `samples` is the
-older day-scoped copy kept for the current dashboard queries.
+`records` is the idempotent, native-granularity source of truth; the dashboard
+day detail, `/api/days/:date`, the sample count and the heart-rate split all read
+it (`stats.dayReadings`, `readingDay` in `src/stats.js`). A reading's local day
+(user zone) is its `start_at`, except `sleepStage`, which belongs to the day its
+session ends, mirroring the phone's bucketing. The old `samples` table is gone
+(migration 018 — **back up the DB before deploying it**, it is a destructive drop).
 
 ### Endpoints
 
@@ -256,7 +260,7 @@ older day-scoped copy kept for the current dashboard queries.
 | Feature | Where | Notes |
 |---------|-------|-------|
 | Source filter & per-source overlay | `day_source_metrics`, dashboard | Compare apps writing the same metric |
-| Per-reading context (`meta`) | `samples.meta`, `records.meta` | BP position, glucose meal relation, … |
+| Per-reading context (`meta`) | `records.meta` | BP position, glucose meal relation, … |
 | Exercise detail | `exercises.detail` | Laps, segments, GPS route (route needs its own grant) |
 | Custom dashboard | `dashboard_layouts` | Add/remove/reorder cards |
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
@@ -302,7 +306,7 @@ older day-scoped copy kept for the current dashboard queries.
 
 ## 7. Known debt
 
-- `samples` duplicates `records`; `samples` ingest is still one INSERT per row (table is dropped in a later task); the other ingest tables are one `unnest` INSERT per day.
+- Ingest tables are one `unnest` INSERT per day. Readings the phone sent without a Health Connect UID are no longer stored (`records` needs `hc_id`).
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
 - Sleep rows stored before the end-day fix have totals and stages on different
