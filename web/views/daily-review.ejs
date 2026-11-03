@@ -144,8 +144,8 @@
 
   <% if (recommendation) { %>
   <div class="thumbs" id="thumbs" data-value="<%= recommendation.feedback || 0 %>">
-    <button type="button" id="thumb-up" aria-label="Helpful" title="Helpful" onclick="sendFeedback(1)">&#128077;</button>
-    <button type="button" id="thumb-down" aria-label="Not helpful" title="Not helpful" onclick="sendFeedback(-1)">&#128078;</button>
+    <button type="button" id="thumb-up" aria-label="Helpful" title="Helpful" onclick="sendFeedback(1)">Helpful</button>
+    <button type="button" id="thumb-down" aria-label="Not helpful" title="Not helpful" onclick="sendFeedback(-1)">Not helpful</button>
   </div>
   <% } %>
 
