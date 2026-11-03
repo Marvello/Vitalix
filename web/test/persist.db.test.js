@@ -43,6 +43,19 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
   });
   const day = (samples, aggregates = []) => ({ day: "2026-10-01", scalars: {}, aggregates, samples, exercises: [] });
 
+  test("records day bucket is the user's local midnight as a true instant", async () => {
+    const { buildRecordsQuery } = await import("../src/records.js");
+    await db.query(
+      "INSERT INTO records (user_id, type, hc_id, start_at, value_num) VALUES ($1, 'steps', 'tz1', '2026-11-03T18:30:00Z', 10)",
+      [userId]);
+    const q = buildRecordsQuery({ userId, from: "2026-11-01T00:00:00Z", to: "2026-11-10T00:00:00Z",
+      types: ["steps"], bucket: "day", tz: "Asia/Jakarta" });
+    const { rows } = await db.query(q.text, q.values);
+    assert.equal(rows.length, 1);
+    // db.js returns timestamptz as text; compare as an instant.
+    assert.equal(new Date(rows[0].bucket_start).getTime(), new Date("2026-11-03T17:00:00Z").getTime());
+  });
+
   test("a metric absent from a later payload keeps its samples and aggregates", async () => {
     await persist(userId, { sync, days: [day(
       [sample("heart_rate", "hr1", 60), sample("steps", "st1", 100)],

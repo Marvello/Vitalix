@@ -51,12 +51,13 @@ export function buildRecordsQuery({ userId, from, to, types, bucket, tz = "UTC" 
     };
   }
   // date_trunc unit is from the validated allowlist above, never user text.
-  // The zone is a bind parameter; bucket_start is a local (zone-less) timestamp.
+  // The zone is a bind parameter; 3-arg date_trunc (PG14+) returns a timestamptz,
+  // so bucket_start is a true instant (the zone's local midnight for `day`).
   values.push(tz);
   const zone = `$${values.length}`;
   return {
     text: `SELECT type,
-                  date_trunc('${bucket}', start_at AT TIME ZONE ${zone}) AS bucket_start,
+                  date_trunc('${bucket}', start_at, ${zone}) AS bucket_start,
                   count(*)::int AS count,
                   sum(value_num) AS sum,
                   min(value_num) AS min,
