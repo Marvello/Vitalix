@@ -42,6 +42,11 @@ after the anomaly curl (hourly is right: each run only picks users past 08:00 lo
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
 
+**Release order (do not reorder):** back up the DB → deploy the server (migrations 018+ run on
+start) → apply the two cron curls above → only then release the app via fastlane. A new app
+against an old server would advance its Health Connect changes token while the old server
+ignores `deletedHcIds`, so those deletions would be lost for good.
+
 ---
 
 ## 2. Android app (`android/`)
