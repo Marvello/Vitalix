@@ -118,6 +118,15 @@
 </div>
 <% } %>
 
+<% if (journal.length) { %>
+<div class="card">
+  <h2 style="margin-top:0">Journal (<%= date %>)</h2>
+  <% journal.forEach(function (j) { %>
+    <div class="metric-sub"><strong><%= j.kind %></strong>: <%= j.value_text !== null ? j.value_text : j.value_num %></div>
+  <% }) %>
+</div>
+<% } %>
+
 <div class="card ai-card">
   <div class="ai-header">
     <div class="ai-header-left">

@@ -460,6 +460,8 @@ pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
   }
 });
 
+const JOURNAL_SQL = "SELECT kind, value_num, value_text, logged_at FROM journal_entries WHERE user_id = $1 AND day = $2 ORDER BY logged_at, id";
+
 pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
   try {
     // Default to the user's yesterday: insights exist only for days that have ended.
@@ -468,7 +470,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
     const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
 
-    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }, { rows: alerts }, { rows: digestRows }, user] = await Promise.all([
+    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }, { rows: alerts }, { rows: digestRows }, user, { rows: journal }] = await Promise.all([
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, date]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, yesterdayDate]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [req.user.id, from7d, date]),
@@ -476,6 +478,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       query("SELECT rule, value, baseline FROM anomaly_alerts WHERE user_id = $1 AND day = $2 ORDER BY id", [req.user.id, date]),
       query("SELECT period_start::text AS period_start, period_end::text AS period_end, text FROM ai_digests WHERE user_id = $1 AND kind = 'week' ORDER BY period_start DESC LIMIT 1", [req.user.id]),
       store.findUserById(req.user.id),
+      query(JOURNAL_SQL, [req.user.id, date]),
     ]);
 
     const readiness = await readinessForDay(req.user.id, date);
@@ -511,6 +514,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       readiness,
       recommendation,
       alerts,
+      journal,
       digest: digestRows[0] || null,
     });
   } catch (err) {
@@ -522,16 +526,17 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
   try {
     const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
-    if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });
+    if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
     const d = rows[0];
-    const [aggs, samples, ex] = await Promise.all([
+    const [aggs, samples, ex, { rows: journal }] = await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
       stats.dayReadings(req.user.id, req.params.date, await userTimeZone(req.user.id), { limit: 500 }),
       query("SELECT name,start_at,duration_minutes,source,detail FROM exercises WHERE day_id=$1", [d.id]),
+      query(JOURNAL_SQL, [req.user.id, req.params.date]),
     ]);
-    res.render("day", { day: d, aggregates: aggs.rows, samples, exercises: ex.rows, date: req.params.date });
+    res.render("day", { day: d, aggregates: aggs.rows, samples, exercises: ex.rows, journal, date: req.params.date });
   } catch (err) {
     console.error("GET /dashboard/:date failed", err);
-    res.status(500).render("day", { day: null, samples: [], aggregates: [], exercises: [], date: req.params.date });
+    res.status(500).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
   }
 });

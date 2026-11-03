@@ -28,6 +28,7 @@ source of truth; update this doc when they change.
 | 019 | `anomaly_alerts` | personal-baseline anomaly alerts, unique `(user_id, day, rule)` |
 | 020 | `ai_digests` | weekly / monthly AI digests, unique `(user_id, kind, period_start)` |
 | 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
+| 022 | `journal` | `journal_entries`: manual mood / symptom / medication / caffeine / alcohol / note per user, index `(user_id, day)` |
 
 ## Diagram
 
@@ -45,6 +46,7 @@ erDiagram
     users ||--o{ ai_recommendations : "has"
     users ||--o{ anomaly_alerts : "has"
     users ||--o{ ai_digests : "has"
+    users ||--o{ journal_entries : "logs"
 
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
@@ -225,6 +227,17 @@ erDiagram
         integer completion_tokens
         timestamptz created_at
     }
+
+    journal_entries {
+        bigserial id PK
+        bigint user_id FK "CASCADE, index (user_id, day)"
+        date day "user-local day of logged_at, server-derived"
+        text kind "mood | symptom | medication | caffeine | alcohol | note"
+        double value_num "mood 1-5, caffeine cups, alcohol drinks"
+        text value_text "symptom / medication / note, max 200"
+        timestamptz logged_at
+        timestamptz created_at
+    }
 ```
 
 ## Table reference
@@ -301,6 +314,13 @@ One weekly (previous Mon–Sun) or monthly (previous calendar month) digest per
 `(user_id, kind, period_start)`: LLM text, the prompt it was built from in
 `metrics_snapshot`, provider/model, token counts. The unique key is the cron's
 dedup (one generate, one `digest_ready` push per period). Written by `digests.js`.
+
+### `journal_entries`
+User-entered context. `day` is the user's local day of `logged_at` (computed in
+`validateEntry` from `users.timezone`; clients cannot set it). Numeric kinds use
+`value_num` (mood 1-5, caffeine cups, alcohol drinks), text kinds `value_text`
+(≤ 200, CHECK). Notes stay out of the AI prompt. Read by `dailySeries`,
+`generateRecommendation`, `/dashboard/:date`, `/daily-review`.
 
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern

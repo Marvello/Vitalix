@@ -9,6 +9,7 @@ import { adminRouter } from "./routes/admin.js";
 import { pagesRouter } from "./routes/pages.js";
 import { webhookRouter } from "./routes/webhooks.js";
 import { aiRouter } from "./routes/ai.js";
+import { journalRouter } from "./routes/journal.js";
 import { fcmRouter } from "./routes/fcm.js";
 import { oidcRouter } from "./routes/oidc.js";
 import { oidcEnabled } from "./auth/oidc.js";
@@ -45,6 +46,7 @@ app.use(pagesRouter);
 app.use(oidcRouter);
 app.use(webhookRouter);
 app.use(aiRouter);
+app.use(journalRouter);
 app.use(fcmRouter);
 
 // Apply pending migrations before serving — the DB must match the code that

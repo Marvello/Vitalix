@@ -154,6 +154,11 @@
             android:theme="@style/Theme.Vitalix" />
 
         <activity
+            android:name=".JournalActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Vitalix" />
+
+        <activity
             android:name=".InsightActivity"
             android:exported="false"
             android:theme="@style/Theme.Vitalix" />

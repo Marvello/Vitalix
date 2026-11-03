@@ -85,12 +85,30 @@ export function coverageNote(coverage) {
   return `- Data note: this day's data is incomplete (${parts.join("; ")}). Treat these suggestions as tentative.`;
 }
 
+// Free text is data: one line, capped. Notes are never sent to the model.
+const clip = (t) => String(t).replace(/\s+/g, " ").trim().slice(0, 60);
+
+/** Pure: the day's journal rows → "Journal: mood 2/5; caffeine 4 cups; symptom: headache" or null. */
+export function journalLine(entries) {
+  const num = (kind) => entries.filter((e) => e.kind === kind && e.value_num != null).map((e) => Number(e.value_num));
+  const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const parts = [];
+  const mood = num("mood");
+  if (mood.length) parts.push(`mood ${Math.round(sum(mood) / mood.length)}/5`);
+  if (sum(num("caffeine")) > 0) parts.push(`caffeine ${sum(num("caffeine"))} cups`);
+  if (sum(num("alcohol")) > 0) parts.push(`alcohol ${sum(num("alcohol"))} drinks`);
+  for (const kind of ["symptom", "medication"]) {
+    for (const e of entries) if (e.kind === kind && clip(e.value_text ?? "")) parts.push(`${kind}: ${clip(e.value_text)}`);
+  }
+  return parts.length ? `Journal: ${parts.join("; ")}` : null;
+}
+
 /**
  * Pure: the day's row, the prior 7 days' rows, the day's workouts and the
  * coverage of its last sync → prompts. `hasData` false means there is nothing
  * worth sending to the model.
  */
-export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], coverage = null, readiness = null }) {
+export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], coverage = null, readiness = null, journal = [] }) {
   const note = coverageNote(coverage);
   const lines = [`Day: ${day} (${note ? "INCOMPLETE data" : "complete"})`];
   let hasData = false;
@@ -123,6 +141,8 @@ export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], 
     const parts = Object.entries(readiness.parts).map(([k, v]) => `${names[k]} ${v}`).join(", ");
     lines.push(`Readiness: ${readiness.score}/100 (${parts})`);
   }
+  const jl = journalLine(journal);
+  if (jl) lines.push(jl);
   if (workouts.length) {
     hasData = true;
     lines.push(`Workouts: ${workouts.map((w) => `${w.name ?? "Workout"} ${hm(w.duration_minutes ?? 0)}`).join(", ")}`);
@@ -188,7 +208,7 @@ export async function generateRecommendation(userId, day) {
   const tz = await userTimeZone(userId);
   if (day >= todayIn(tz)) throw fail("DAY_INCOMPLETE", "Insights are generated for completed days only");
 
-  const [{ rows: dayRows }, { rows: pastDays }, { rows: workouts }, { rows: cov }, readiness] = await Promise.all([
+  const [{ rows: dayRows }, { rows: pastDays }, { rows: workouts }, { rows: cov }, readiness, { rows: journal }] = await Promise.all([
     query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [userId, day]),
     query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [userId, shiftDay(day, -7), day]),
     query(
@@ -207,13 +227,14 @@ export async function generateRecommendation(userId, day) {
       [userId, day, tz],
     ),
     readinessForDay(userId, day),
+    query("SELECT kind, value_num, value_text FROM journal_entries WHERE user_id = $1 AND day = $2 ORDER BY logged_at, id", [userId, day]),
   ]);
 
   const coverage = cov[0]
     ? { partial: !!cov[0].partial, syncedThrough: cov[0].synced_through, failedMetrics: cov[0].failed_metrics ?? [] }
     : null;
   const dayData = dayRows[0] || {};
-  const { system, user, hasData, note } = buildPrompts({ day, dayData, pastDays, workouts, coverage, readiness });
+  const { system, user, hasData, note } = buildPrompts({ day, dayData, pastDays, workouts, coverage, readiness, journal });
   if (!hasData) throw fail("NO_DATA", "No health data recorded for this day");
 
   const result = await generateCompletion(aiConfig, system, user);

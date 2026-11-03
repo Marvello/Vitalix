@@ -183,6 +183,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 | `auth/*` | bcrypt passwords, JWT + hashed refresh/reset/invite tokens, `requireAuth`/`requireAdmin`, mailer |
 | `ai/*` | Prompt building, OpenAI-compatible client (120 s timeout), recommendation storage |
 | `firebase.js`, `zealot.js` | FCM sender; Zealot API (invite download link, update info) |
+| `journal.js`, `routes/journal.js` | `validateEntry` (pure) and the `/api/journal` routes |
 | `rateLimit.js` | In-memory fixed-window limiter (single replica only) |
 
 ### Ingest (`persist`)
@@ -221,6 +222,9 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | GET/POST | `/api/ai/recommendations…` | user | Latest / by day / generate (rate limited) |
 | POST | `/api/ai/recommendations/:day/feedback` | user | Thumbs on a day's insight, body `{value: 1\|-1\|0}` (0 clears) → 204; 400 bad day/value, 404 no row. GET by day also returns `feedback`. Web `/daily-review` calls it via same-origin `fetch` (cookie auth, SameSite=Lax, no CSRF token — same as the `/dashboard/layout` calls); totals per model and recent downvotes on `/admin` |
 | GET | `/api/ai/digests/latest?kind=week\|month` | user | Latest weekly / monthly digest `{kind, period_start, period_end, text}`; 400 on another kind, 404 if none (§5b) |
+| GET | `/api/journal?from&to` | user | Own journal entries for `[from, to]` (YYYY-MM-DD, default the user's today) → `{entries: [{id, day, kind, value_num, value_text, logged_at}]}` |
+| POST | `/api/journal` | user | Add `{kind, value_num\|value_text, logged_at}` → 201 + the row. Kinds: `mood` int 1-5, `caffeine` cups 0-20, `alcohol` drinks 0-30, `symptom`/`medication`/`note` text 1-200 chars. `logged_at` ISO, ≤ 1 day ahead; `day` is derived server-side from it in `users.timezone` (a client `day` is ignored). 400 invalid; 60/hour per user |
+| DELETE | `/api/journal/:id` | user | Delete own entry → 204; 404 when absent or another user's |
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
@@ -275,6 +279,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
 | Readiness score | `readiness.js`, dashboard card, `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
 | Anomaly alerts | `anomalies.js`, `anomaly_alerts`, `/daily-review`, `VitalixFirebaseService` | Against the previous 28 days (statistical rules need ≥ 14): `rhr_up` (resting HR ≥ mean + max(sd, 3) on each of the last 3 days), `hrv_drop` (HRV ≤ mean − 2·sd, sd > 0), `spo2_low` (min < 90), `bp_high` (sys ≥ 140 or dia ≥ 90). Push `{type: anomaly, day, rule, value, baseline}` (strings; bp value = `sys/dia`), channel `alerts`, tap opens `InsightActivity` |
+| Journal | `journal.js`, `routes/journal.js`, `journal_entries`, `JournalActivity`, `/dashboard/:date`, `/daily-review` | Manual mood / caffeine / alcohol / symptom / medication / note. Feeds the AI prompt as one line (`Journal: mood 2/5; caffeine 4 cups; symptom: headache`: mood averaged, caffeine/alcohol summed, zero sums omitted, symptom/medication text one line capped at 60 chars; **notes are never sent to the LLM**) and `dailySeries` (`mood` avg, `caffeine`/`alcohol` sums; rows still come from `health_days`, so journal-only days do not appear) |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
 | In-app update | Zealot + FCM | Full-screen changelog (Android-only commits since the last release, built by the Fastfile), download, install |
 

@@ -266,6 +266,9 @@ class MainActivity : AppCompatActivity() {
         R.id.menu_insight -> {
             startActivity(InsightActivity.intent(this)); true
         }
+        R.id.menu_journal -> {
+            startActivity(Intent(this, JournalActivity::class.java)); true
+        }
         R.id.menu_logout -> {
             onLogoutClicked(); true
         }

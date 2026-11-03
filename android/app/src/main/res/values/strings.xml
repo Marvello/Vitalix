@@ -1,4 +1,20 @@
 <resources>
+    <string name="journal_title">Journal</string>
+    <string name="journal_subtitle">Context for your insights. Notes stay private and are never sent to the AI.</string>
+    <string name="journal_mood">Mood (1 low - 5 high)</string>
+    <string name="journal_caffeine">Caffeine (cups)</string>
+    <string name="journal_alcohol">Alcohol (drinks)</string>
+    <string name="journal_symptoms">Symptoms</string>
+    <string name="journal_symptom_hint">Other symptom</string>
+    <string name="journal_medication_hint">Medication</string>
+    <string name="journal_note_hint">Note</string>
+    <string name="journal_add">Add</string>
+    <string name="journal_today">Today</string>
+    <string name="journal_empty">No entries today.</string>
+    <string name="journal_delete">Delete</string>
+    <string name="journal_save_failed">Couldn\'t save. Check your connection.</string>
+    <string name="journal_load_failed">Couldn\'t load entries.</string>
+
     <string name="action_settings">Settings</string>
     <!-- Strings used for fragments for navigation -->
     <string name="first_fragment_label">First Fragment</string>

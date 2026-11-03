@@ -13,6 +13,9 @@ export const METRIC_SOURCES = {
   deepMin: "health_days.sleep_deep",
   steps: "health_days.steps",
   activeKcal: "health_days.active_calories",
+  mood: "journal_entries mood avg",
+  caffeine: "journal_entries caffeine sum (cups)",
+  alcohol: "journal_entries alcohol sum (drinks)",
 };
 
 // Mean + sample SD (n-1) of the finite numbers in `values`; null when none.
@@ -34,9 +37,17 @@ export const DAILY_SERIES_SQL = `
          h.sleep_duration_minutes AS "sleepMin",
          h.sleep_deep AS "deepMin",
          h.steps,
-         h.active_calories AS "activeKcal"
+         h.active_calories AS "activeKcal",
+         MAX(j.mood) AS mood, MAX(j.caffeine) AS caffeine, MAX(j.alcohol) AS alcohol
   FROM health_days h
   LEFT JOIN day_aggregates a ON a.day_id = h.id
+  LEFT JOIN (
+    SELECT day,
+           AVG(value_num) FILTER (WHERE kind = 'mood') AS mood,
+           SUM(value_num) FILTER (WHERE kind = 'caffeine') AS caffeine,
+           SUM(value_num) FILTER (WHERE kind = 'alcohol') AS alcohol
+    FROM journal_entries WHERE user_id = $1 AND day BETWEEN $2 AND $3 GROUP BY day
+  ) j ON j.day = h.day
   WHERE h.user_id = $1 AND h.day BETWEEN $2 AND $3
   GROUP BY h.id
   ORDER BY h.day`;
