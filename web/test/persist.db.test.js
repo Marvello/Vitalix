@@ -135,6 +135,12 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
         at("2026-11-03T16:30:00Z", "heartRate", "dr-hr")] },
     ] });
     const ids = async (d) => (await stats.dayReadings(userId, d, "Asia/Jakarta")).map((r) => r.metric);
+    // two stages of ONE session (A 22:00-23:30 local, B 23:30-06:00 next day): both on the end day
+    await persist(userId, { sync, days: [{ day: "2026-11-06", scalars: {}, aggregates: [], exercises: [], samples: [
+      at("2026-11-05T15:00:00Z", "sleepStage", "sess", "2026-11-05T16:30:00Z", "light"),
+      at("2026-11-05T16:30:00Z", "sleepStage", "sess", "2026-11-05T23:00:00Z", "deep")] }] });
+    assert.deepEqual(await ids("2026-11-06"), ["sleepStage", "sleepStage"]);
+    assert.deepEqual(await ids("2026-11-05"), []);
     assert.deepEqual(await ids("2026-11-04"), ["sleepStage"]);
     assert.deepEqual(await ids("2026-11-03"), ["heartRate"]);
     const [r] = await stats.dayReadings(userId, "2026-11-03", "Asia/Jakarta");

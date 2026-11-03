@@ -2,26 +2,31 @@ import { query } from "./db.js";
 import { userTimeZone } from "./ai/recommendations.js";
 
 /**
- * The local day a reading belongs to, mirroring the phone's bucketing in
- * HealthConnectManager: by start, except sleep stages, which belong to the day
- * their session ENDS. `tz` is a SQL parameter placeholder such as "$4".
+ * records of $1 (user) with a `day` column = the local day (tz) the phone put the
+ * reading on, restricted to days from..to (SQL placeholders, e.g. "$2", "$3").
+ * HealthConnectManager buckets by start, except every stage of a sleep session
+ * goes to the day the SESSION ends; stages share the session's hc_id, so that day
+ * is the latest stage end per (user, hc_id). The one place this rule lives.
+ * The inner start_at window lets the (user_id, type, start_at) index prune; it
+ * assumes sessions shorter than ~36h (2 days of slack each side for zones, plus
+ * 2 more after `to` so a session's later stages are still seen by the max()).
+ * ponytail: the window function runs over every type in the window, not just sleep.
  */
-const readingDay = (tz) =>
-  `((CASE WHEN type = 'sleepStage' THEN coalesce(end_at, start_at) ELSE start_at END) AT TIME ZONE ${tz})::date`;
-
-/**
- * Coarse start_at window so the (user_id, type, start_at) index can prune before
- * readingDay() is evaluated; +-2 days covers any zone offset plus an overnight session.
- */
-const readingWindow = (from, to) =>
-  `start_at >= ${from}::date - 2 AND start_at < ${to}::date + 3`;
+const readingsInDays = (from, to, tz) => `(
+  SELECT * FROM (
+    SELECT *, (CASE WHEN type = 'sleepStage'
+                    THEN max(coalesce(end_at, start_at)) OVER (PARTITION BY user_id, type, hc_id)
+                    ELSE start_at END AT TIME ZONE ${tz})::date AS day
+      FROM records
+     WHERE user_id = $1 AND start_at >= ${from}::date - 2 AND start_at < ${to}::date + 5
+  ) w WHERE day BETWEEN ${from} AND ${to}
+) rd`;
 
 /** Readings of one local day (dashboard day detail and /api/days/:date). */
 export async function dayReadings(userId, day, tz, { limit = null } = {}) {
   const { rows } = await query(
     `SELECT type AS metric, start_at, end_at, value_num, value_secondary, value_text, source, meta
-       FROM records
-      WHERE user_id = $1 AND ${readingWindow("$2", "$2")} AND ${readingDay("$3")} = $2
+       FROM ${readingsInDays("$2", "$2", "$3")}
       ORDER BY start_at
       LIMIT $4`,
     [userId, day, tz, limit]
@@ -139,8 +144,7 @@ export async function summary(userId, from, to) {
   const tz = await userTimeZone(userId);
   const { rows: samples } = await query(
     `SELECT count(*)::bigint AS samples
-       FROM records
-      WHERE user_id = $1 AND ${readingWindow("$2", "$3")} AND ${readingDay("$4")} BETWEEN $2 AND $3`,
+       FROM ${readingsInDays("$2", "$3", "$4")}`,
     [userId, from, to, tz]
   );
   return { ...rows[0], ...ex[0], ...samples[0] };
@@ -169,10 +173,9 @@ export async function heartRateSplit(userId, from, to) {
   const tz = await userTimeZone(userId);
   const { rows } = await query(
     `WITH hr AS (
-       SELECT ${readingDay("$4")} AS day, start_at, value_num
-         FROM records
-        WHERE user_id = $1 AND ${readingWindow("$2", "$3")} AND ${readingDay("$4")} BETWEEN $2 AND $3
-          AND type = 'heartRate' AND value_num IS NOT NULL
+       SELECT day, start_at, value_num
+         FROM ${readingsInDays("$2", "$3", "$4")}
+        WHERE type = 'heartRate' AND value_num IS NOT NULL
      ), windows AS (
        -- Sessions are matched by timestamp, not by day, so one crossing midnight
        -- still claims its samples on both sides.
