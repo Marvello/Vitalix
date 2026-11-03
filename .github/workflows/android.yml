@@ -8,10 +8,12 @@ on:
     branches: [main]
     paths:
       - "android/**"
+      - "docs/fixtures/**"
       - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "android/**"
+      - "docs/fixtures/**"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 
