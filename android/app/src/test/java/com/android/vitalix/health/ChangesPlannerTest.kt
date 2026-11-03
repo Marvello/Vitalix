@@ -47,6 +47,21 @@ class ChangesPlannerTest {
         assertEquals("t2", plan.nextToken)
     }
 
+    @Test fun `more than MAX_CHANGED_DAYS changed days falls back but keeps deletions`() {
+        // 29 old days + yesterday + today = 31 -> still token mode
+        val ok = (1..29).map { LocalDate.of(2026, 9, 1).plusDays(it.toLong()).atTime(8, 0).atZone(zone).toInstant().let { t -> t to t } }
+        val p31 = ChangesPlanner.plan(listOf(page(upserts = ok, deleted = listOf("a"))), zone, today)
+        assertEquals(31, p31.days.size)
+        assertFalse(p31.fallback)
+        assertFalse(p31.truncated)
+        val more = ok + (LocalDate.of(2026, 8, 1).atTime(8, 0).atZone(zone).toInstant().let { t -> t to t })
+        val p32 = ChangesPlanner.plan(listOf(page(upserts = more, deleted = listOf("a", "b"))), zone, today)
+        assertTrue(p32.fallback)
+        assertTrue(p32.truncated)
+        assertNull(p32.nextToken)
+        assertEquals(listOf("a", "b"), p32.deletedIds)
+    }
+
     @Test fun `an expired page means fallback`() {
         val plan = ChangesPlanner.plan(listOf(page(deleted = listOf("a")), page(expired = true)), zone, today)
         assertTrue(plan.fallback)
@@ -78,7 +93,9 @@ class ChangesPlannerTest {
 
     @Test fun `no token or a getChanges failure falls back to the window read`() = runTest {
         assertTrue(ChangesPlanner.planFrom(FakeChangesSource(emptyMap()), null, zone, today).fallback)
-        assertTrue(ChangesPlanner.planFrom(FakeChangesSource(emptyMap(), fail = true), "t0", zone, today).fallback)
+        val warned = mutableListOf<String>()
+        assertTrue(ChangesPlanner.planFrom(FakeChangesSource(emptyMap(), fail = true), "t0", zone, today) { m, _ -> warned += m }.fallback)
+        assertEquals(1, warned.size)
     }
 
     @Test fun `recordSpan reads interval and instantaneous records`() {
@@ -101,6 +118,6 @@ class ChangesPlannerTest {
             override suspend fun token(types: Set<KClass<out Record>>) = "fresh"
             override suspend fun changes(token: String) = response.toPage()
         }
-        assertTrue(ChangesPlanner.planFrom(src, "t0", zone, today).fallback)
+        assertTrue(ChangesPlanner.planFrom(src, "t0", zone, today) { _, _ -> }.fallback)
     }
 }

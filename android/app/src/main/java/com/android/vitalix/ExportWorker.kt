@@ -85,6 +85,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                         days = days.size,
                         message = listOfNotNull(
                             "full window".takeIf { plan.fallback },
+                            applicationContext.getString(R.string.sync_older_skipped).takeIf { plan.truncated },
                             "$deleted deleted".takeIf { deleted > 0 },
                             "could not read ${missed.joinToString(", ")}".takeIf { missed.isNotEmpty() },
                         ).joinToString("; ").ifEmpty { null }?.replaceFirstChar { it.uppercase() },

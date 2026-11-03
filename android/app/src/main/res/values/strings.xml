@@ -90,4 +90,5 @@
     <string name="widget_partial_at">Partial · %1$s</string>
     <string name="widget_failed_retry">Failed (retry)</string>
     <string name="widget_sleep_value">%1$dh %2$dm</string>
+    <string name="sync_older_skipped">Older changes skipped — run Full history</string>
 </resources>

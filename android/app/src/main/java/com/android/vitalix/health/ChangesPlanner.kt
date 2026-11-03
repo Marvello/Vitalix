@@ -1,5 +1,6 @@
 package com.android.vitalix.health
 
+import android.util.Log
 import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 import java.time.ZoneId
@@ -12,12 +13,23 @@ import java.util.SortedSet
  * since `lastSync` instead and take a fresh token.
  */
 object ChangesPlanner {
+    private const val TAG = "ChangesPlanner"
+
+    /**
+     * Most changed days re-read via the token; more means a bulk import or a long gap.
+     * ponytail: ceiling 31 days — beyond it we read the window since lastSync instead
+     * and tell the user to run Full history for anything older.
+     */
+    const val MAX_CHANGED_DAYS = 31
+
     data class Plan(
         val days: SortedSet<LocalDate>,
         val deletedIds: List<String>,
         val fallback: Boolean,
         /** Token to store after a clean send; null on fallback. */
         val nextToken: String? = null,
+        /** Fallback forced by [MAX_CHANGED_DAYS]; changes older than the window are skipped. */
+        val truncated: Boolean = false,
     )
 
     private fun fallback() = Plan(sortedSetOf(), emptyList(), fallback = true)
@@ -34,6 +46,8 @@ object ChangesPlanner {
             while (!d.isAfter(last)) { days += d; d = d.plusDays(1) }
         }
         val deleted = pages.flatMap { it.deletedIds }.distinct()
+        // Deletions still go out; the window read replaces the (too long) day list.
+        if (days.size > MAX_CHANGED_DAYS) return Plan(sortedSetOf(), deleted, fallback = true, truncated = true)
         return Plan(days, deleted, fallback = false, nextToken = pages.last().nextToken)
     }
 
@@ -41,7 +55,10 @@ object ChangesPlanner {
      * Pages [ChangesSource.changes] from [token] until done. No token, an expired
      * one, or any failure → fallback: a skipped change would be lost silently.
      */
-    suspend fun planFrom(source: ChangesSource, token: String?, zone: ZoneId, today: LocalDate): Plan {
+    suspend fun planFrom(
+        source: ChangesSource, token: String?, zone: ZoneId, today: LocalDate,
+        warn: (String, Throwable) -> Unit = { msg, e -> Log.w(TAG, msg, e) },
+    ): Plan {
         if (token == null) return fallback()
         val pages = mutableListOf<ChangesPage>()
         try {
@@ -55,6 +72,7 @@ object ChangesPlanner {
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            warn("getChanges failed, falling back to a window read", e)
             return fallback()
         }
         return plan(pages, zone, today)
