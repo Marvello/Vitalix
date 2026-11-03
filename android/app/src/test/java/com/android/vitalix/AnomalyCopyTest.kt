@@ -17,4 +17,11 @@ class AnomalyCopyTest {
         assertNull(VitalixFirebaseService.anomalyCopy("nope", "1", ""))
         assertNull(VitalixFirebaseService.anomalyCopy(null, "1", ""))
     }
+
+    @Test fun everyNotificationGetsItsOwnIdAndRequestCode() {
+        val f = VitalixFirebaseService.Companion
+        val ids = listOf("rhr_up", "hrv_drop", "spo2_low", "bp_high").map(f::anomalyNotificationId) +
+            listOf("week", "month").map(f::digestNotificationId)
+        assertEquals(ids.size, ids.toSet().size)
+    }
 }

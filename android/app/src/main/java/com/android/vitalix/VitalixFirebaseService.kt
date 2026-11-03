@@ -117,7 +117,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             )
         }
         val pending = PendingIntent.getActivity(
-            this, 0,
+            this, INSIGHT_NOTIFICATION_ID,
             InsightActivity.intent(this, day).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -140,8 +140,9 @@ class VitalixFirebaseService : FirebaseMessagingService() {
                 NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
+        val id = digestNotificationId(kind)
         val pending = PendingIntent.getActivity(
-            this, 0,
+            this, id,
             InsightActivity.intent(this, digestKind = kind).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -154,7 +155,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             .setContentIntent(pending)
             .build()
         // Own id per kind so a weekly and a monthly summary don't replace each other or the daily insight.
-        getSystemService(NotificationManager::class.java).notify(DIGEST_NOTIFICATION_BASE + if (kind == "month") 1 else 0, notification)
+        getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
     private fun showAnomalyNotification(day: String?, rule: String?, value: String?, baseline: String?) {
@@ -164,8 +165,9 @@ class VitalixFirebaseService : FirebaseMessagingService() {
                 NotificationChannel(ALERTS_CHANNEL, "Alerts", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
+        val id = anomalyNotificationId(rule)
         val pending = PendingIntent.getActivity(
-            this, 0,
+            this, id,
             InsightActivity.intent(this, day).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
             },
@@ -179,7 +181,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             .setContentIntent(pending)
             .build()
         // One notification per rule so same-day alerts don't replace each other.
-        getSystemService(NotificationManager::class.java).notify(ANOMALY_NOTIFICATION_BASE + (rule.hashCode() and 0xff), notification)
+        getSystemService(NotificationManager::class.java).notify(id, notification)
     }
 
     private fun anomalyText(rule: String?, value: String?, baseline: String?): String? {
@@ -188,6 +190,14 @@ class VitalixFirebaseService : FirebaseMessagingService() {
     }
 
     companion object {
+        // Notification id doubles as the PendingIntent request code: intents differing
+        // only in extras collapse otherwise, and a tap opens whatever was pushed last.
+        /** Own id per kind so a weekly and a monthly summary don't replace each other or the daily insight. */
+        fun digestNotificationId(kind: String?) = DIGEST_NOTIFICATION_BASE + if (kind == "month") 1 else 0
+
+        /** One id per rule so same-day alerts don't replace each other. */
+        fun anomalyNotificationId(rule: String?) = ANOMALY_NOTIFICATION_BASE + (rule.hashCode() and 0xff)
+
         /** Push `kind` -> notification title; null for an unknown kind. */
         fun digestTitle(kind: String?): String? = when (kind) {
             "week" -> "Your weekly summary is ready"
