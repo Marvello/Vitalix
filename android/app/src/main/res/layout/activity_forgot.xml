@@ -67,15 +67,6 @@
             android:text="Send reset link"
             android:textColor="@color/white" />
 
-        <com.google.android.material.progressindicator.CircularProgressIndicator
-            android:id="@+id/progressForgot"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="@dimen/space_8"
-            android:indeterminate="true"
-            android:visibility="gone" />
-
         <TextView
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"

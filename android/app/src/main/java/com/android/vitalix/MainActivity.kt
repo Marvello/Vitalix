@@ -785,7 +785,7 @@ class MainActivity : AppCompatActivity() {
                 when (info.state) {
                     WorkInfo.State.RUNNING, WorkInfo.State.ENQUEUED -> {
                         setSyncing(true)
-                        BackfillWorker.statusOf(info.progress)?.let { showStatus("Full history: $it") }
+                        BackfillWorker.statusOf(info.progress)?.let { showStatus(it) }
                     }
                     WorkInfo.State.SUCCEEDED -> {
                         switchFullHistory.isChecked = false // one-time
@@ -806,7 +806,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setSyncing(syncing: Boolean) {
-        btnSyncNow.isEnabled = !syncing
+        btnSyncNow.setBusy(syncing)
         btnSyncNow.text = if (syncing) "Syncing…" else "Sync now"
         editDaysBack.isEnabled = !syncing && !switchFullHistory.isChecked
 

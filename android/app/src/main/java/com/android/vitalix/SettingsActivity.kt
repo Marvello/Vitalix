@@ -49,7 +49,7 @@ class SettingsActivity : AppCompatActivity() {
     private lateinit var editProfileHeight: TextInputEditText
     private lateinit var editProfileWeight: TextInputEditText
     private lateinit var toggleBmiScale: com.google.android.material.button.MaterialButtonToggleGroup
-    private lateinit var btnSaveProfile: Button
+    private lateinit var btnSaveProfile: com.google.android.material.button.MaterialButton
     private lateinit var btnManualWeight: Button
 
     /** Suppresses the switch listener while the form is being populated. */
@@ -315,7 +315,7 @@ class SettingsActivity : AppCompatActivity() {
         if ((heightCm != null && heightCm > 0) || (weightKg != null && weightKg > 0)) {
             // Disable while the Health Connect write runs so a double-tap can't
             // insert duplicate height/weight records; confirm once it settles.
-            btnSaveProfile.isEnabled = false
+            btnSaveProfile.setBusy(true)
             lifecycleScope.launch {
                 try {
                     val hcm = HealthConnectManager(this@SettingsActivity)
@@ -324,7 +324,7 @@ class SettingsActivity : AppCompatActivity() {
                     if (weightKg != null && weightKg > 0) hcm.insertWeightRecord(weightKg, today)
                 } catch (_: Exception) {
                 } finally {
-                    btnSaveProfile.isEnabled = true
+                    btnSaveProfile.setBusy(false)
                     Toast.makeText(this@SettingsActivity, "Profile saved", Toast.LENGTH_SHORT).show()
                 }
             }

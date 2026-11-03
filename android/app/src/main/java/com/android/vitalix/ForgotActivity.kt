@@ -2,12 +2,11 @@ package com.android.vitalix
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.android.vitalix.auth.AuthClient
-import com.google.android.material.progressindicator.CircularProgressIndicator
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import kotlinx.coroutines.launch
 
@@ -19,8 +18,7 @@ import kotlinx.coroutines.launch
 class ForgotActivity : AppCompatActivity() {
 
     private lateinit var editEmail: TextInputEditText
-    private lateinit var btnSubmit: Button
-    private lateinit var progressForgot: CircularProgressIndicator
+    private lateinit var btnSubmit: MaterialButton
     private lateinit var txtStatus: TextView
 
     private val settings by lazy { SyncSettings(this) }
@@ -34,7 +32,6 @@ class ForgotActivity : AppCompatActivity() {
 
         editEmail = findViewById(R.id.editEmail)
         btnSubmit = findViewById(R.id.btnSubmit)
-        progressForgot = findViewById(R.id.progressForgot)
         txtStatus = findViewById(R.id.txtStatus)
 
         btnSubmit.setOnClickListener { onSubmitClicked() }
@@ -56,18 +53,16 @@ class ForgotActivity : AppCompatActivity() {
             return
         }
 
-        setBusy(true)
+        btnSubmit.setBusy(true)
         lifecycleScope.launch {
             // Result intentionally ignored: same message on success or failure,
             // so we never reveal whether the account exists.
-            AuthClient(url).forgot(email)
-            setBusy(false)
+            try {
+                AuthClient(url).forgot(email)
+            } finally {
+                btnSubmit.setBusy(false)
+            }
             txtStatus.text = genericMessage
         }
-    }
-
-    private fun setBusy(busy: Boolean) {
-        btnSubmit.isEnabled = !busy
-        progressForgot.visibility = if (busy) android.view.View.VISIBLE else android.view.View.GONE
     }
 }

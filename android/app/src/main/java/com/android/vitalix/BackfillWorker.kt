@@ -37,7 +37,7 @@ class BackfillWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(ctx, params) {
 
-    private val dayLabel = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
+    private val dayLabel = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
 
     override suspend fun getForegroundInfo(): ForegroundInfo = foregroundInfo("Starting…")
 
@@ -82,7 +82,7 @@ class BackfillWorker(
 
                 val start = maxOf(end.minus(WINDOW_DAYS, ChronoUnit.DAYS), floor)
                 slices++
-                report("Reading ${dayLabel.format(Date(start.toEpochMilli()))}", daysSent)
+                report("Reading ${dayLabel.format(Date(start.toEpochMilli()))}…", daysSent)
                 log.progress(runId, SyncLog.dateOf(start), daysSent)
 
                 var days = manager.readHealthDataByDay(cfg, start, end)
