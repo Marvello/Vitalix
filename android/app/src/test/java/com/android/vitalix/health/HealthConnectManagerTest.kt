@@ -307,4 +307,19 @@ class HealthConnectManagerTest {
         assertEquals(mapOf("light" to 120L, "deep" to 360L), d.sleepData["stages"])
         assertEquals(2, d.samples.count { it.metric == "sleepStage" })
     }
+
+    @Test fun readDaysReadsEachContiguousRunAndKeepsOnlyTheAskedDays() = runTest {
+        val zone = java.time.ZoneId.systemDefault()
+        val d1 = java.time.LocalDate.of(2026, 7, 1)
+        fun stepsOn(d: java.time.LocalDate, n: Long): Record {
+            val t = d.atTime(12, 0).atZone(zone).toInstant()
+            return StepsRecord(startTime = t, startZoneOffset = null, endTime = t.plusSeconds(60),
+                endZoneOffset = null, count = n, metadata = meta("s-$d", "pkg"))
+        }
+        // The fake ignores the window, so every run sees all three days.
+        val mgr = manager(StepsRecord::class to listOf(stepsOn(d1, 1), stepsOn(d1.plusDays(1), 2), stepsOn(d1.plusDays(2), 3)))
+        val days = mgr.readDays(ExportConfig(includeSteps = true), setOf(d1, d1.plusDays(2)))
+        assertEquals(listOf(d1.toString(), d1.plusDays(2).toString()), days.map { it.date })
+        assertEquals(listOf(1L, 3L), days.map { it.activityData["steps"] })
+    }
 }

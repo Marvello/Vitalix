@@ -33,6 +33,11 @@ object ServerForwarder {
     const val PAYLOAD_SCHEMA_VERSION = 2
     const val DEFAULT_CHUNK_DAYS = 7
     const val MAX_PAYLOAD_BYTES = 512 * 1024 // 512 KB
+    /** Server cap on `deletedHcIds` per POST (MAX_DELETED_HC_IDS in mapPayload.js). */
+    const val MAX_DELETED_IDS = 10_000
+
+    /** `deleted` from an ingest response; 0 when absent (older server) or unparsable. */
+    fun deletedCount(body: String): Int = try { JSONObject(body).optInt("deleted", 0) } catch (_: Exception) { 0 }
 
     fun splitIntoChunks(days: List<DailyHealthData>, chunkSize: Int): List<List<DailyHealthData>> {
         if (days.isEmpty()) return emptyList()
@@ -72,6 +77,7 @@ object ServerForwarder {
         meta: PayloadMeta,
         chunkIndex: Int? = null,
         chunkTotal: Int? = null,
+        deletedHcIds: List<String> = emptyList(),
     ): String {
         val root = JSONObject()
         root.put("schemaVersion", PAYLOAD_SCHEMA_VERSION)
@@ -90,6 +96,7 @@ object ServerForwarder {
         meta.bmiScale?.let { root.put("bmiScale", it) }
         root.put("timeZone", meta.timeZone)
         if (meta.failedMetrics.isNotEmpty()) root.put("failedMetrics", JSONArray(meta.failedMetrics.toList()))
+        if (deletedHcIds.isNotEmpty()) root.put("deletedHcIds", JSONArray(deletedHcIds))
         val arr = JSONArray()
         for (d in days) {
             val o = JSONObject().put("date", d.date)
@@ -127,37 +134,47 @@ object ServerForwarder {
         return root.toString()
     }
 
+    /** POSTs one payload; success carries the server's `deleted` count. */
     suspend fun forward(context: Context, url: String, json: String): Result<Int> = withContext(Dispatchers.IO) {
         try {
             val access = AuthStore(context).accessToken
             val builder = Request.Builder().url(url).post(json.toRequestBody(JSON))
             if (!access.isNullOrBlank()) builder.header("Authorization", "Bearer $access")
             AuthedHttp.client(context).newCall(builder.build()).execute().use { resp ->
-                if (resp.isSuccessful) Result.success(resp.code)
+                if (resp.isSuccessful) Result.success(deletedCount(resp.body?.string().orEmpty()))
                 else Result.failure(HttpException(resp.code))
             }
         } catch (e: Exception) { Result.failure(e) }
     }
 
+    /**
+     * Sends [days] in chunks of [chunkDays]; [deletedHcIds] ride along in groups of
+     * [MAX_DELETED_IDS], one per chunk (extra groups go out with no days). Success
+     * carries the total `deleted` the server reported.
+     */
     suspend fun forwardChunked(
         context: Context,
         url: String,
         days: List<DailyHealthData>,
         meta: PayloadMeta,
         chunkDays: Int = DEFAULT_CHUNK_DAYS,
-    ): Result<Unit> {
+        deletedHcIds: List<String> = emptyList(),
+    ): Result<Int> {
         val chunks = splitIntoChunks(days, chunkDays)
-        if (chunks.isEmpty()) return Result.success(Unit)
-
-        val total = chunks.size
-        for ((i, chunk) in chunks.withIndex()) {
-            val json = buildPayload(chunk, meta, chunkIndex = i + 1, chunkTotal = total)
+        val deletions = deletedHcIds.chunked(MAX_DELETED_IDS)
+        val total = maxOf(chunks.size, deletions.size)
+        var deleted = 0
+        for (i in 0 until total) {
+            val chunk = chunks.getOrElse(i) { emptyList() }
+            val dels = deletions.getOrElse(i) { emptyList() }
+            val json = buildPayload(chunk, meta, chunkIndex = i + 1, chunkTotal = total, deletedHcIds = dels)
             val bytes = json.toByteArray()
 
             // Tier 2: if a chunk exceeds MAX_PAYLOAD_BYTES, sub-split it
             if (bytes.size > MAX_PAYLOAD_BYTES && chunk.size > 1) {
-                val subResult = forwardChunked(context, url, chunk, meta, (chunk.size / 2).coerceAtLeast(1))
+                val subResult = forwardChunked(context, url, chunk, meta, (chunk.size / 2).coerceAtLeast(1), dels)
                 if (subResult.isFailure) return subResult
+                deleted += subResult.getOrDefault(0)
                 continue
             }
 
@@ -174,8 +191,9 @@ object ServerForwarder {
                 }
                 return Result.failure(err ?: Exception("Unknown error"))
             }
+            deleted += result.getOrDefault(0)
         }
-        return Result.success(Unit)
+        return Result.success(deleted)
     }
 
     class HttpException(val code: Int) : Exception("HTTP $code")

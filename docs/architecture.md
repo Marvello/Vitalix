@@ -66,7 +66,8 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | Class | Role |
 |-------|------|
 | `MainActivity` | Metric toggles, days-back, manual Sync, full-history toggle, auto-sync card, permission flow |
-| `HealthConnectManager` | Reads every enabled record type for a window → `List<DailyHealthData>` (+ raw `samples`); tracks `lastFailedMetrics` |
+| `HealthConnectManager` | Reads every enabled record type for a window → `List<DailyHealthData>` (+ raw `samples`); `readDays` reads an exact set of days (one midnight window per contiguous run); tracks `lastFailedMetrics` |
+| `health/ChangesSource`, `health/ChangesPlanner` | HC Changes API (`getChangesToken`/`getChanges`) behind a fakeable interface; the planner turns change pages into days to re-read + deleted UIDs, or `fallback` |
 | `health/RecordReader` | Paged HC reads with throttle retry; bisects around records the SDK can't construct; `SecurityException` → `PermanentlyUnavailable` |
 | `ServerForwarder` | Builds the payload, splits into 7-day chunks (re-split above 512 KB), POSTs via `AuthedHttp` |
 | `ExportWorker` | Periodic auto-sync, every 4 h, network-constrained, exponential backoff |
@@ -86,7 +87,8 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | Trigger | Window | Notes |
 |---------|--------|-------|
 | Manual | last *N* calendar days (form field, default 7) | |
-| Auto (`ExportWorker`) | back to the day of `lastSync`, minimum yesterday + today | fails loudly if background read isn't granted |
+| Auto (`ExportWorker`), valid changes token | every local day an upserted record touches + yesterday + today, re-read in full; deletions sent as `deletedHcIds` | pages `getChanges` until `!hasMore` |
+| Auto (`ExportWorker`), no valid token | back to the day of `lastSync`, minimum yesterday + today; takes a fresh token first | token missing/expired, `getChanges` failed, or granted types changed; Sync log shows *Sent · Full window*. Fails loudly if background read isn't granted |
 | Full history (`BackfillWorker`) | 30-day slices back to 10 years | retries throttled slices, then stops with a message |
 
 Invariants:
@@ -94,7 +96,15 @@ Invariants:
   The server stores per-day totals; a mid-day start would send — and overwrite —
   a partial total for the oldest day.
 - **`lastSync` advances only on a clean, non-empty read.** A throttled metric or
-  an empty read is re-read on the next run.
+  an empty read is re-read on the next run. The changes token advances under the
+  same rule (non-empty = days or deletions sent).
+- **Changes token = granted type set.** Stored in `SyncSettings` as
+  `changes_token` + `changes_types` (sorted record simple names, comma-joined). If
+  the currently granted set differs, the token is treated as absent → window read.
+- **Token is taken before the read it follows** (auto fallback, backfill start,
+  manual sync when no valid token exists), so changes made during the read are
+  picked up next run. Manual sync never replaces a valid token: that would skip
+  pending changes older than its *N*-day window.
 - Health Connect permissions are per record type; partial grants are normal and
   sync whatever was allowed. Feature permissions (`READ_HEALTH_DATA_HISTORY`,
   `READ_HEALTH_DATA_IN_BACKGROUND`) are requested only when the installed Health
@@ -153,6 +163,11 @@ Rules:
 - `timeZone` (device zone ID) is stored on the user and sets their day boundaries
   for insights; `failedMetrics` (omitted when empty) lists the Health Connect
   record types this read couldn't return and is stored on the `syncs` row.
+- `deletedHcIds` (optional array of strings, omitted when empty, ≤ 10 000 per POST —
+  more → `400`; non-strings dropped) lists Health Connect UIDs deleted on the phone.
+  The app sends at most 10 000 per payload (extra groups go with `days: []`). The
+  response is `{inserted, skipped, deleted}`; `deleted` counts removed `records` +
+  `exercises` rows (older servers omit it and ignore the field).
 - Sleep sessions belong to the day they **end** (total and stages alike).
 - The metric vocabulary is defined on both sides (Android `ExportConfig` /
   `HealthConnectManager`; server `mapPayload.js`, `persist.js`, `records.js`,
@@ -189,7 +204,9 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 
 ### Ingest (`persist`)
 
-Per POST, in one transaction: insert a `syncs` row, then for each day:
+Per POST, in one transaction: insert a `syncs` row; delete `records` (by
+`user_id`) and `exercises` (via `health_days.user_id`) whose `hc_id` is in
+`deletedHcIds`; then for each day:
 1. Upsert `health_days` on `(user_id, day)`; scalar columns merge with
    `COALESCE(new, old)`, so a column absent from this payload keeps its value.
 2. Replace `day_aggregates` **per metric present** in the payload —
@@ -197,6 +214,11 @@ Per POST, in one transaction: insert a `syncs` row, then for each day:
 3. Upsert `exercises` on `(day_id, hc_id)`.
 4. Upsert `records` on `(user_id, type, start_at, hc_id)`.
 5. Upsert `day_source_metrics` on `(user_id, day, metric, source)`.
+
+Known ceilings of deletion: a `health_days` scalar whose only source record was
+deleted keeps its old value (days merge with `COALESCE(new, old)`; fix = recompute
+from `records`), and `day_source_metrics` rows (no `hc_id`) stay until that day is
+re-sent. Deletes run before the upserts, so a record re-read in the same payload wins.
 
 Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in JS (last wins).
 

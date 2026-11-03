@@ -97,6 +97,20 @@ class ServerForwarderTest {
         org.junit.Assert.assertEquals("SleepSessionRecord", partial.getJSONArray("failedMetrics").getString(0))
     }
 
+    @Test fun carriesDeletedHcIdsOnlyWhenPresent() {
+        val meta = PayloadMeta("1.0.0", "d", 1)
+        org.junit.Assert.assertFalse(JSONObject(ServerForwarder.buildPayload(listOf(sampleDay()), meta)).has("deletedHcIds"))
+        val json = JSONObject(ServerForwarder.buildPayload(emptyList(), meta, deletedHcIds = listOf("a", "b")))
+        org.junit.Assert.assertEquals(2, json.getJSONArray("deletedHcIds").length())
+        org.junit.Assert.assertEquals(0, json.getJSONArray("days").length())
+    }
+
+    @Test fun readsDeletedCountFromResponseAndToleratesOlderServers() {
+        org.junit.Assert.assertEquals(3, ServerForwarder.deletedCount("""{"inserted":{},"skipped":0,"deleted":3}"""))
+        org.junit.Assert.assertEquals(0, ServerForwarder.deletedCount("""{"inserted":{},"skipped":0}"""))
+        org.junit.Assert.assertEquals(0, ServerForwarder.deletedCount("not json"))
+    }
+
     @Test fun omitsDisabledMetricSections() {
         val day = DailyHealthData(date = "2026-07-20", activityData = mapOf("steps" to 10))
         val json = JSONObject(ServerForwarder.buildPayload(listOf(day), PayloadMeta("1.0.0", "d", 1)))

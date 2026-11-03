@@ -183,6 +183,12 @@ The receiver (`web/`) writes three things (see `web/src/persist.js`):
   Health Connect record UID (`hc_id`) so re-syncs are idempotent (`UNIQUE(user_id, type, start_at, hc_id)` — `type` keeps a NutritionRecord's per-nutrient rows apart).
   `GET /api/records` re-aggregates these to any bucket (raw/minute/hour/day/week) via SQL `date_trunc`.
 
+Deletions: auto-sync reads the Health Connect Changes API. A record deleted on the
+phone is sent as its UID in `deletedHcIds` and removed from `records` / `exercises`.
+The day's `health_days` scalar keeps its last value if that record was its only
+source (see architecture §4, known ceilings). Records written by Vitalix itself
+(weight/height) show up as changes too and are re-read like any other.
+
 A `records` row for the heart-rate sample above:
 
 | column | value |

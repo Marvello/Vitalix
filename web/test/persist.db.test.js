@@ -123,6 +123,34 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     assert.deepEqual(e.map((r) => r.name), ["b"]);
   });
 
+  test("deletedHcIds removes the user's records and exercises only; absent field deletes nothing", async () => {
+    const { rows: [other] } = await db.query(
+      "INSERT INTO users (email, password_hash) VALUES ('other@b.c', 'x') RETURNING id");
+    const ex = { name: "run", start_at: "2026-10-01T06:00:00Z", duration_minutes: 5, source: "p", hc_id: "delX", detail: null };
+    for (const uid of [userId, other.id]) {
+      const d = day([sample("weight", "delR", 70), sample("weight", "keepR", 71, "2026-10-01T09:00:00Z")]);
+      d.exercises = [ex];
+      await persist(uid, { sync, days: [d] });
+    }
+    const count = async (table, hc, uid) => (await db.query(table === "records"
+      ? "SELECT count(*)::int AS n FROM records WHERE hc_id = $1 AND user_id = $2"
+      : "SELECT count(*)::int AS n FROM exercises e JOIN health_days d ON d.id = e.day_id WHERE e.hc_id = $1 AND d.user_id = $2",
+    [hc, uid])).rows[0].n;
+
+    // Older app build: no deletedHcIds at all -> nothing removed.
+    const before = await persist(userId, { sync, days: [] });
+    assert.equal(before.deleted, 0);
+    assert.equal(await count("records", "delR", userId), 1);
+
+    const res = await persist(userId, { sync, days: [], deletedHcIds: ["delR", "delX", "nope"] });
+    assert.equal(res.deleted, 2);
+    assert.equal(await count("records", "delR", userId), 0);
+    assert.equal(await count("exercises", "delX", userId), 0);
+    assert.equal(await count("records", "keepR", userId), 1);
+    assert.equal(await count("records", "delR", other.id), 1);
+    assert.equal(await count("exercises", "delX", other.id), 1);
+  });
+
   test("day readings come from records, sleep belongs to the day it ends (Asia/Jakarta)", async () => {
     const stats = await import("../src/stats.js");
     const at = (iso, metric, id, end, text = null) => ({ ...sample(metric, id, 1, iso), end_at: end ?? iso, value_text: text });

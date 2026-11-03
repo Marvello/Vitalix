@@ -45,4 +45,12 @@ describe("POST /api/health schemaVersion", () => {
       assert.notEqual((await post(body)).status, 400);
     }
   });
+
+  test("deletedHcIds above 10 000 -> 400; at the cap it is accepted", async () => {
+    const ids = (n) => Array.from({ length: n }, (_, i) => `id${i}`);
+    const over = await post({ days: [], deletedHcIds: ids(10001) });
+    assert.equal(over.status, 400);
+    assert.equal((await over.json()).error, "deletedHcIds holds more than 10000 ids");
+    assert.notEqual((await post({ days: [], deletedHcIds: ids(10000) })).status, 400);
+  });
 });

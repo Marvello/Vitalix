@@ -684,7 +684,15 @@ class MainActivity : AppCompatActivity() {
                 healthConnectManager.setSaferExportMode(cfg.saferExportMode)
                 var daysSent = 0
                 var lastDays = emptyList<DailyHealthData>()
+                // Seed auto-sync's changes token, taken before the read. Only when
+                // none is valid: replacing one would skip changes older than N days.
+                var newToken: Pair<String, String>? = null
                 val result = withContext(Dispatchers.IO) {
+                    val granted = healthConnectManager.grantedRecordTypes()
+                    val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
+                    if (settings.changesToken(typesKey) == null) {
+                        newToken = healthConnectManager.newChangesToken(granted)?.let { it to typesKey }
+                    }
                     val days = healthConnectManager.readHealthDataByDay(cfg)
                     lastDays = days
                     daysSent = days.size
@@ -708,6 +716,7 @@ class MainActivity : AppCompatActivity() {
                     // that wasn't actually read.
                     if (missed.isEmpty() && daysSent > 0) {
                         settings.lastSync = System.currentTimeMillis()
+                        newToken?.let { (token, key) -> settings.saveChangesToken(token, key) }
                         updateLastSyncLabel()
                     }
                     WidgetState.noteDays(this@MainActivity, lastDays)

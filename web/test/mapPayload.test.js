@@ -177,3 +177,9 @@ test("schemaVersion is read from the payload and defaults to 1", () => {
   assert.equal(mapFixture(fixture).schemaVersion, 2);
   assert.equal(mapFixture({ days: [] }).schemaVersion, 1);
 });
+
+test("deletedHcIds keeps strings only and defaults to an empty list", () => {
+  assert.deepEqual(mapPayload({ days: [], deletedHcIds: ["a", 1, null, "b", { x: 1 }] }).deletedHcIds, ["a", "b"]);
+  assert.deepEqual(mapPayload({ days: [] }).deletedHcIds, []);
+  assert.deepEqual(mapPayload({ days: [], deletedHcIds: "a" }).deletedHcIds, []);
+});

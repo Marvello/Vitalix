@@ -66,6 +66,12 @@ class BackfillWorker(
         var slices = 0
         var daysSent = 0
 
+        // Changes token taken before the first read: once the whole history is in,
+        // auto-sync continues from here and nothing written meanwhile is lost.
+        val granted = manager.grantedRecordTypes()
+        val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
+        val newToken = manager.newChangesToken(granted)
+
         try {
             while (end.isAfter(floor) && emptyRun < EMPTY_LIMIT) {
                 if (isStopped) {
@@ -143,6 +149,7 @@ class BackfillWorker(
             }
 
             settings.lastSync = System.currentTimeMillis()
+            if (newToken != null) settings.saveChangesToken(newToken, typesKey)
             log.finish(runId, SyncLog.Status.SENT, days = daysSent, from = SyncLog.dateOf(end))
             return Result.success(
                 workDataOf(KEY_MESSAGE to "Full history sent ($daysSent days over $slices slices)",

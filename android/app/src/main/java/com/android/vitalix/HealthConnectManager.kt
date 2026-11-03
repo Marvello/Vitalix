@@ -52,6 +52,8 @@ import androidx.health.connect.client.records.Vo2MaxRecord
 import androidx.health.connect.client.records.WeightRecord
 import androidx.health.connect.client.records.WheelchairPushesRecord
 import com.android.vitalix.health.Aggregation
+import com.android.vitalix.health.ChangesSource
+import com.android.vitalix.health.HealthConnectChangesSource
 import com.android.vitalix.health.HealthConnectRecordReader
 import com.android.vitalix.health.MetaMappers
 import com.android.vitalix.health.RecordReader
@@ -135,48 +137,52 @@ class HealthConnectManager(
         saferDelayMs = delayMs
     }
 
-    val permissions: Set<String> = setOf(
-        HealthPermission.getReadPermission(StepsRecord::class),
-        HealthPermission.getReadPermission(HeartRateRecord::class),
-        HealthPermission.getReadPermission(DistanceRecord::class),
-        HealthPermission.getReadPermission(ActiveCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class),
-        HealthPermission.getReadPermission(FloorsClimbedRecord::class),
-        HealthPermission.getReadPermission(ElevationGainedRecord::class),
-        HealthPermission.getReadPermission(PowerRecord::class),
-        HealthPermission.getReadPermission(SpeedRecord::class),
-        HealthPermission.getReadPermission(WheelchairPushesRecord::class),
-        HealthPermission.getReadPermission(Vo2MaxRecord::class),
-        HealthPermission.getReadPermission(WeightRecord::class),
-        HealthPermission.getReadPermission(BodyFatRecord::class),
-        HealthPermission.getReadPermission(BoneMassRecord::class),
-        HealthPermission.getReadPermission(HeightRecord::class),
-        HealthPermission.getReadPermission(LeanBodyMassRecord::class),
-        HealthPermission.getReadPermission(RestingHeartRateRecord::class),
-        HealthPermission.getReadPermission(HeartRateVariabilityRmssdRecord::class),
-        HealthPermission.getReadPermission(OxygenSaturationRecord::class),
-        HealthPermission.getReadPermission(RespiratoryRateRecord::class),
-        HealthPermission.getReadPermission(BloodGlucoseRecord::class),
-        HealthPermission.getReadPermission(BloodPressureRecord::class),
-        HealthPermission.getReadPermission(BodyTemperatureRecord::class),
-        HealthPermission.getReadPermission(SleepSessionRecord::class),
-        HealthPermission.getReadPermission(ExerciseSessionRecord::class),
-        HealthPermission.getReadPermission(HydrationRecord::class),
-        HealthPermission.getReadPermission(NutritionRecord::class),
-        HealthPermission.getReadPermission(MenstruationFlowRecord::class),
-        HealthPermission.getReadPermission(CervicalMucusRecord::class),
-        HealthPermission.getReadPermission(OvulationTestRecord::class),
-        HealthPermission.getReadPermission(SexualActivityRecord::class),
-        HealthPermission.getReadPermission(BasalMetabolicRateRecord::class),
-        HealthPermission.getReadPermission(BodyWaterMassRecord::class),
-        HealthPermission.getReadPermission(BasalBodyTemperatureRecord::class),
-        HealthPermission.getReadPermission(IntermenstrualBleedingRecord::class),
-        HealthPermission.getReadPermission(MenstruationPeriodRecord::class),
-        HealthPermission.getReadPermission(ActivityIntensityRecord::class),
-        HealthPermission.getReadPermission(MindfulnessSessionRecord::class),
-        HealthPermission.getReadPermission(CyclingPedalingCadenceRecord::class),
-        HealthPermission.getReadPermission(StepsCadenceRecord::class),
-        HealthPermission.getReadPermission(SkinTemperatureRecord::class),
+    /** Every record type Vitalix reads; each needs its own read permission. */
+    val readTypes: List<KClass<out Record>> = listOf(
+        StepsRecord::class,
+        HeartRateRecord::class,
+        DistanceRecord::class,
+        ActiveCaloriesBurnedRecord::class,
+        TotalCaloriesBurnedRecord::class,
+        FloorsClimbedRecord::class,
+        ElevationGainedRecord::class,
+        PowerRecord::class,
+        SpeedRecord::class,
+        WheelchairPushesRecord::class,
+        Vo2MaxRecord::class,
+        WeightRecord::class,
+        BodyFatRecord::class,
+        BoneMassRecord::class,
+        HeightRecord::class,
+        LeanBodyMassRecord::class,
+        RestingHeartRateRecord::class,
+        HeartRateVariabilityRmssdRecord::class,
+        OxygenSaturationRecord::class,
+        RespiratoryRateRecord::class,
+        BloodGlucoseRecord::class,
+        BloodPressureRecord::class,
+        BodyTemperatureRecord::class,
+        SleepSessionRecord::class,
+        ExerciseSessionRecord::class,
+        HydrationRecord::class,
+        NutritionRecord::class,
+        MenstruationFlowRecord::class,
+        CervicalMucusRecord::class,
+        OvulationTestRecord::class,
+        SexualActivityRecord::class,
+        BasalMetabolicRateRecord::class,
+        BodyWaterMassRecord::class,
+        BasalBodyTemperatureRecord::class,
+        IntermenstrualBleedingRecord::class,
+        MenstruationPeriodRecord::class,
+        ActivityIntensityRecord::class,
+        MindfulnessSessionRecord::class,
+        CyclingPedalingCadenceRecord::class,
+        StepsCadenceRecord::class,
+        SkinTemperatureRecord::class,
+    )
+
+    val permissions: Set<String> = readTypes.map { HealthPermission.getReadPermission(it) }.toSet() + setOf(
         // Exercise GPS route: a separate permission from ExerciseSessionRecord;
         // without it exerciseRouteResult comes back as ConsentRequired/NoData.
         HealthPermission.PERMISSION_READ_EXERCISE_ROUTES,
@@ -216,6 +222,28 @@ class HealthConnectManager(
         !featureAvailable(HealthConnectFeatures.FEATURE_READ_HEALTH_DATA_IN_BACKGROUND) ||
             HealthPermission.PERMISSION_READ_HEALTH_DATA_IN_BACKGROUND in
             client.permissionController.getGrantedPermissions()
+
+    /** Record types whose read permission is granted right now. */
+    suspend fun grantedRecordTypes(): Set<KClass<out Record>> {
+        val granted = client.permissionController.getGrantedPermissions()
+        return readTypes.filterTo(mutableSetOf()) { HealthPermission.getReadPermission(it) in granted }
+    }
+
+    /** Health Connect changes feed (incremental auto-sync). */
+    val changes: ChangesSource by lazy { HealthConnectChangesSource(client) }
+
+    /** A fresh changes token for [types]; null when none are granted or Health Connect refuses. */
+    suspend fun newChangesToken(types: Set<KClass<out Record>>): String? {
+        if (types.isEmpty()) return null
+        return try {
+            changes.token(types)
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.w(TAG, "No changes token: ${e.message}")
+            null
+        }
+    }
 
     private fun featureAvailable(feature: Int): Boolean =
         client.features.getFeatureStatus(feature) == HealthConnectFeatures.FEATURE_STATUS_AVAILABLE
@@ -777,6 +805,30 @@ class HealthConnectManager(
     }
 
     /**
+     * Reads exactly [days], each contiguous run of dates as one midnight-to-midnight
+     * window, so every day sent is a whole day. [lastFailedMetrics] is the union
+     * over all runs.
+     */
+    suspend fun readDays(cfg: ExportConfig, days: Set<LocalDate>): List<DailyHealthData> {
+        val out = mutableListOf<DailyHealthData>()
+        val failed = linkedSetOf<String>()
+        var skipped = 0
+        for (run in contiguousRuns(days)) {
+            val start = run.first().atStartOfDay(zone).toInstant()
+            val end = minOf(run.last().plusDays(1).atStartOfDay(zone).toInstant(), Instant.now())
+            val wanted = run.map { it.toString() }.toSet()
+            // A record overlapping the window edge can bucket to a neighbouring
+            // day; that day would be a partial total, so it is dropped here.
+            out += readHealthDataByDay(cfg, start, end).filter { it.date in wanted }
+            failed += lastFailedMetrics
+            skipped += lastSkippedWindows
+        }
+        lastFailedMetrics = failed
+        lastSkippedWindows = skipped
+        return out
+    }
+
+    /**
      * `ExerciseSegment.EXERCISE_SEGMENT_TYPE_*` int → lowercase name (e.g.
      * `EXERCISE_SEGMENT_TYPE_RUNNING` → `"running"`). connect-client 1.2.0-alpha
      * exposes the constants but no public int→string map, so derive it once by
@@ -879,6 +931,16 @@ class HealthConnectManager(
     }
 
     companion object {
+        /** Sorted runs of consecutive dates. */
+        fun contiguousRuns(days: Set<LocalDate>): List<List<LocalDate>> {
+            val runs = mutableListOf<MutableList<LocalDate>>()
+            for (d in days.sorted()) {
+                val cur = runs.lastOrNull()
+                if (cur != null && cur.last().plusDays(1) == d) cur += d else runs += mutableListOf(d)
+            }
+            return runs
+        }
+
         /** Local midnight [daysBack] calendar days back, counting [today] as day one. */
         fun windowStart(today: LocalDate, daysBack: Int, zone: ZoneId): Instant =
             today.minusDays((daysBack - 1).coerceAtLeast(0).toLong()).atStartOfDay(zone).toInstant()

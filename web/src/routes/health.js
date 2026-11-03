@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
-import { mapPayload, PAYLOAD_SCHEMA_VERSION } from "../mapPayload.js";
+import { mapPayload, PAYLOAD_SCHEMA_VERSION, MAX_DELETED_HC_IDS } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
 import { userTimeZone } from "../ai/recommendations.js";
@@ -31,9 +31,12 @@ router.post("/api/health", requireAuth, async (req, res) => {
   if (Number.isInteger(body.schemaVersion) && body.schemaVersion > PAYLOAD_SCHEMA_VERSION) {
     return res.status(400).json({ error: "unsupported schemaVersion" });
   }
+  if (Array.isArray(body.deletedHcIds) && body.deletedHcIds.length > MAX_DELETED_HC_IDS) {
+    return res.status(400).json({ error: `deletedHcIds holds more than ${MAX_DELETED_HC_IDS} ids` });
+  }
   try {
     const mapped = mapPayload(body);
-    const inserted = await persist(req.user.id, mapped);
+    const { deleted, ...inserted } = await persist(req.user.id, mapped);
     const profileHeightM = typeof body.profileHeightM === "number" ? body.profileHeightM : null;
     const bmiScale = body.bmiScale === "asian" ? "asian" : "standard";
     if (typeof body.timeZone === "string" && isTimeZone(body.timeZone)) {
@@ -47,7 +50,7 @@ router.post("/api/health", requireAuth, async (req, res) => {
       sets.push(`bmi_scale = $${i++}`); vals.push(bmiScale);
       await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $1`, vals);
     }
-    res.status(200).json({ inserted, skipped: mapped.skipped });
+    res.status(200).json({ inserted, skipped: mapped.skipped, deleted });
   } catch (err) {
     console.error("ingest failed", err);
     res.status(500).json({ error: "ingest failed" });

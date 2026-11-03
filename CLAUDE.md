@@ -51,7 +51,7 @@ Toolchain: Gradle 9.5, AGP via `android/gradle/libs.versions.toml` version catal
 - **`ServerForwarder`** knows only JSON + HTTP. No Health Connect knowledge.
 - **`SyncSettings`** is the only thing that touches config `SharedPreferences` (`SyncLog` keeps its own log store). `MainActivity` and the workers read/write config *through it*, never directly.
 
-Sync windows always start at **local midnight** (`HealthConnectManager.windowStart`): the server stores per-day totals, so a mid-day start overwrites a day with a partial total. `lastSync` only advances on a clean, non-empty read. The receiver's in-memory rate limits assume a **single replica**.
+Sync windows always start at **local midnight** (`HealthConnectManager.windowStart`): the server stores per-day totals, so a mid-day start overwrites a day with a partial total. `lastSync` only advances on a clean, non-empty read. Auto-sync is incremental via the Health Connect Changes API (`health/ChangesPlanner`); its token is per granted type set (stored through `SyncSettings`), advances under the same rule, and any doubt about it falls back to the `lastSync` window. The receiver's in-memory rate limits assume a **single replica**.
 
 This keeps the JSON builder and the settings↔`ExportConfig` mapping pure and unit-testable without a device. The webhook payload contract is in `docs/architecture.md` §3 — match it exactly (only user-enabled metrics appear; omitted, not null; aggregates use `MinMaxAvg`).
 

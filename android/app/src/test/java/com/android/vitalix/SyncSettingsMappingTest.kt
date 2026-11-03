@@ -26,4 +26,14 @@ class SyncSettingsMappingTest {
         assertEquals(false, cfg.includeSteps)
         assertEquals(7, cfg.daysBack)
     }
+
+    @Test fun changesTokenOnlyCountsForTheSameGrantedTypes() {
+        val key = SyncSettings.typesKey(listOf("WeightRecord", "StepsRecord"))
+        assertEquals("StepsRecord,WeightRecord", key)
+        assertEquals("tok", SyncSettings.validChangesToken("tok", key, "StepsRecord,WeightRecord"))
+        // A permission added or revoked since the token was taken: it no longer counts.
+        assertEquals(null, SyncSettings.validChangesToken("tok", key, "StepsRecord"))
+        assertEquals(null, SyncSettings.validChangesToken(null, key, key))
+        assertEquals(null, SyncSettings.validChangesToken("tok", key, ""))
+    }
 }

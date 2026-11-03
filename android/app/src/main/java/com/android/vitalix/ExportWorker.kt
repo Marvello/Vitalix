@@ -2,6 +2,8 @@ package com.android.vitalix
 
 import android.content.Context
 import android.os.Build
+import com.android.vitalix.health.ChangesPlanner
+import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.widget.WidgetState
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -18,9 +20,10 @@ import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 /**
- * Periodic background export: reads Health Connect data since the last sync and
- * forwards it to the configured server. Scheduled/cancelled via [schedule]/[cancel]
- * from the auto-sync toggle in [MainActivity].
+ * Periodic background export. With a valid Health Connect changes token it re-reads
+ * only the days that changed (plus yesterday and today) and sends deletions;
+ * otherwise it reads the window since the last sync and takes a fresh token.
+ * Scheduled/cancelled via [schedule]/[cancel] from the auto-sync toggle in [MainActivity].
  */
 class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
@@ -29,12 +32,11 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
         val url = settings.serverUrl
         if (url.isNullOrBlank()) return Result.failure()
 
-
-        val cfg = settings.readConfig().copy(
-            daysBack = daysToRead(settings.lastSync, LocalDate.now(ZoneId.systemDefault()))
-        )
+        val zone = ZoneId.systemDefault()
+        val today = LocalDate.now(zone)
+        val windowCfg = settings.readConfig().copy(daysBack = daysToRead(settings.lastSync, today))
         val log = SyncLog(applicationContext)
-        val (from, to) = SyncLog.trailingWindow(cfg.daysBack)
+        val (from, to) = SyncLog.trailingWindow(windowCfg.daysBack)
         val runId = log.start(SyncLog.Kind.AUTO, from, to)
 
         return try {
@@ -44,27 +46,50 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                     message = "Background access not granted — open Vitalix and tap Sync to allow it")
                 return Result.failure()
             }
-            val days = manager.readHealthDataByDay(cfg)
+            // The token covers the granted types only; a grant change voids it.
+            val granted = manager.grantedRecordTypes()
+            val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
+            val plan = ChangesPlanner.planFrom(manager.changes, settings.changesToken(typesKey), zone, today)
+            val days: List<DailyHealthData>
+            val nextToken: String?
+            if (plan.fallback) {
+                // Token taken before the read, so changes made during it are not lost.
+                nextToken = manager.newChangesToken(granted)
+                days = manager.readHealthDataByDay(windowCfg)
+            } else {
+                nextToken = plan.nextToken
+                days = manager.readDays(windowCfg, plan.days)
+            }
+            val deletedIds = plan.deletedIds
             val meta = PayloadMeta(
                 appVersion = appVersion(),
                 device = Build.MODEL,
-                rangeDays = cfg.daysBack,
+                rangeDays = if (plan.fallback) windowCfg.daysBack else plan.days.size,
                 profileHeightM = settings.userHeightCm?.let { it / 100.0 },
                 bmiScale = settings.resolvedBmiScale(),
                 failedMetrics = manager.lastFailedMetrics,
             )
-            ServerForwarder.forwardChunked(applicationContext, url, days, meta).fold(
-                onSuccess = {
+            ServerForwarder.forwardChunked(applicationContext, url, days, meta, deletedHcIds = deletedIds).fold(
+                onSuccess = { deleted ->
                     val missed = manager.lastFailedMetrics
-                    // Only a clean, non-empty read moves the window forward: a
-                    // throttled metric or an empty read gets re-read next run.
-                    if (missed.isEmpty() && days.isNotEmpty()) settings.lastSync = System.currentTimeMillis()
+                    // Only a clean, non-empty send moves lastSync and the token forward:
+                    // a throttled metric or an empty read gets re-read next run.
+                    if (missed.isEmpty() && (days.isNotEmpty() || deletedIds.isNotEmpty())) {
+                        settings.lastSync = System.currentTimeMillis()
+                        if (nextToken != null) settings.saveChangesToken(nextToken, typesKey)
+                    }
                     WidgetState.noteDays(applicationContext, days)
                     log.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,
                         days = days.size,
-                        message = if (missed.isEmpty()) null else "Could not read ${missed.joinToString(", ")}",
+                        message = listOfNotNull(
+                            "full window".takeIf { plan.fallback },
+                            "$deleted deleted".takeIf { deleted > 0 },
+                            "could not read ${missed.joinToString(", ")}".takeIf { missed.isNotEmpty() },
+                        ).joinToString("; ").ifEmpty { null }?.replaceFirstChar { it.uppercase() },
+                        from = plan.days.firstOrNull()?.toString(),
+                        to = plan.days.lastOrNull()?.toString(),
                     )
                     Result.success()
                 },

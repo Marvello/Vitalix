@@ -33,6 +33,19 @@ class SyncSettings(context: Context) {
     var lastSync: Long
         get() = plain.getLong("last_sync", 0)
         set(v) { plain.edit().putLong("last_sync", v).apply() }
+
+    /**
+     * Health Connect changes token for auto-sync, valid only for the record types
+     * granted when it was taken ([typesKey]). Pass the currently granted key: a
+     * permission added or revoked since makes it null, i.e. "no token".
+     */
+    fun changesToken(grantedKey: String): String? =
+        validChangesToken(plain.getString("changes_token", null), plain.getString("changes_types", null), grantedKey)
+
+    fun saveChangesToken(token: String, typesKey: String) {
+        plain.edit().putString("changes_token", token).putString("changes_types", typesKey).apply()
+    }
+
     var autoSyncEnabled: Boolean
         get() = plain.getBoolean("auto_sync", false)
         set(v) { plain.edit().putBoolean("auto_sync", v).apply() }
@@ -105,6 +118,12 @@ class SyncSettings(context: Context) {
 
     companion object {
         private const val KEY_SERVER_URL = "server_url"
+
+        /** Record type simple names, sorted and comma-joined: the identity of a token's type set. */
+        fun typesKey(names: Collection<String>): String = names.sorted().joinToString(",")
+
+        fun validChangesToken(token: String?, storedKey: String?, grantedKey: String): String? =
+            token?.takeIf { grantedKey.isNotEmpty() && storedKey == grantedKey }
 
         fun configToMap(cfg: ExportConfig): Map<String, Any> {
             val m = HashMap<String, Any>()

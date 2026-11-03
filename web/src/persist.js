@@ -110,6 +110,20 @@ async function upsertSourceMetrics(client, userId, day) {
   });
 }
 
+// Records the phone saw deleted in Health Connect, scoped to this user.
+// ponytail: a health_days scalar whose only source record was deleted keeps its
+// old value, because days merge with COALESCE(new, old); fix needs a
+// recompute-from-records step, add when it shows up. day_source_metrics rows
+// (no hc_id) likewise stay until that day is re-sent.
+async function deleteByHcId(client, userId, ids) {
+  if (!ids?.length) return 0;
+  const r = await client.query("DELETE FROM records WHERE user_id = $1 AND hc_id = ANY($2)", [userId, ids]);
+  const e = await client.query(
+    `DELETE FROM exercises e USING health_days d
+      WHERE e.day_id = d.id AND d.user_id = $1 AND e.hc_id = ANY($2)`, [userId, ids]);
+  return r.rowCount + e.rowCount;
+}
+
 export function persist(userId, mapped) {
   return withTransaction(async (client) => {
     const { rows } = await client.query(
@@ -117,6 +131,8 @@ export function persist(userId, mapped) {
       [userId, mapped.sync.source, mapped.sync.app_version, mapped.sync.device, mapped.sync.exported_at, mapped.sync.range_days, mapped.sync.failed_metrics ?? null]
     );
     const syncId = rows[0].id;
+    // Before the upserts: a re-read in this same payload is newer than the deletion.
+    const deleted = await deleteByHcId(client, userId, mapped.deletedHcIds);
     let samples = 0, exercises = 0, records = 0, sourceMetrics = 0;
     for (const day of mapped.days) {
       const dayId = await upsertDay(client, syncId, userId, day);
@@ -127,6 +143,6 @@ export function persist(userId, mapped) {
       samples += day.samples.length;
       exercises += day.exercises.length;
     }
-    return { days: mapped.days.length, samples, exercises, records, sourceMetrics };
+    return { days: mapped.days.length, samples, exercises, records, sourceMetrics, deleted };
   });
 }
