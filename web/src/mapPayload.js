@@ -1,6 +1,9 @@
 // Maps the payload day.activity/body/vitals/sleep/cycle/nutrition objects
 // onto flat health_days columns.
-const SCALAR_MAP = {
+/** Payload contract version this receiver understands (docs/fixtures/payload-v2.json). */
+export const PAYLOAD_SCHEMA_VERSION = 2;
+
+export const SCALAR_MAP = {
   activity: { steps: "steps", activeCalories: "active_calories", totalCalories: "total_calories", distance: "distance", floorsClimbed: "floors_climbed", elevationGained: "elevation_gained", power: "power", speed: "speed", wheelchairPushes: "wheelchair_pushes", vo2Max: "vo2_max" },
   body: { weight: "weight", bodyFat: "body_fat", boneMass: "bone_mass", height: "height", leanBodyMass: "lean_body_mass" },
   vitals: { restingHeartRate: "resting_heart_rate", bodyTemperature: "body_temperature" },
@@ -128,5 +131,7 @@ export function mapPayload(body) {
       exercises: mapExercises(day),
     };
   });
-  return { sync, days, skipped };
+  // Builds before schemaVersion existed send none: that is version 1.
+  const schemaVersion = Number.isInteger(body.schemaVersion) ? body.schemaVersion : 1;
+  return { schemaVersion, sync, days, skipped };
 }

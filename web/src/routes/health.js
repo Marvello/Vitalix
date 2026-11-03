@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
-import { mapPayload } from "../mapPayload.js";
+import { mapPayload, PAYLOAD_SCHEMA_VERSION } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
 import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../records.js";
@@ -25,6 +25,9 @@ router.post("/api/health", requireAuth, async (req, res) => {
   const body = req.body;
   if (!body || !Array.isArray(body.days)) {
     return res.status(400).json({ error: "body must include a days array" });
+  }
+  if (Number.isInteger(body.schemaVersion) && body.schemaVersion > PAYLOAD_SCHEMA_VERSION) {
+    return res.status(400).json({ error: "unsupported schemaVersion" });
   }
   try {
     const mapped = mapPayload(body);

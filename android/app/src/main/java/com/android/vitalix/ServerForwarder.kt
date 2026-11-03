@@ -29,6 +29,8 @@ data class PayloadMeta(
 object ServerForwarder {
     private val JSON = "application/json; charset=utf-8".toMediaType()
 
+    /** Payload contract version; bump with docs/fixtures/payload-v2.json when the shape changes. */
+    const val PAYLOAD_SCHEMA_VERSION = 2
     const val DEFAULT_CHUNK_DAYS = 7
     const val MAX_PAYLOAD_BYTES = 512 * 1024 // 512 KB
 
@@ -72,6 +74,7 @@ object ServerForwarder {
         chunkTotal: Int? = null,
     ): String {
         val root = JSONObject()
+        root.put("schemaVersion", PAYLOAD_SCHEMA_VERSION)
         root.put("source", "vitalix")
         root.put("appVersion", meta.appVersion)
         root.put("device", meta.device)

@@ -113,6 +113,7 @@ Invariants:
 
 ```json
 {
+  "schemaVersion": 2,
   "source": "vitalix", "appVersion": "1.5.4", "device": "Pixel 8",
   "exportedAt": "2026-10-05T09:00:00Z", "rangeDays": 2,
   "chunk": { "index": 0, "total": 1 },
@@ -134,6 +135,10 @@ Invariants:
 ```
 
 Rules:
+- `schemaVersion` (integer, optional; absent = `1`) is `PAYLOAD_SCHEMA_VERSION` in
+  `ServerForwarder.kt` and `mapPayload.js`. The receiver answers `400
+  "unsupported schemaVersion"` only for a *higher* version than it knows; older
+  app builds that send none keep working.
 - Only enabled metrics appear; disabled ones are omitted, not null.
 - Distribution metrics (heart rate, SpO₂, glucose, BP, …) use `{min, max, avg}`.
 - `samples` carries every raw reading with its Health Connect UID (`hcId`) and
@@ -147,7 +152,12 @@ Rules:
 - Sleep sessions belong to the day they **end** (total and stages alike).
 - The metric vocabulary is defined on both sides (Android `ExportConfig` /
   `HealthConnectManager`; server `mapPayload.js`, `persist.js`, `records.js`,
-  `stats.js`). Adding a metric touches both — see the coverage doc.
+  `stats.js`). Adding a metric touches both — see the coverage doc. Adding a
+  metric = update `docs/fixtures/payload-v2.json` (one day, every section key, one
+  sample per sample metric; `nutrition.*` is represented by `nutrition.protein`):
+  `mapPayload.test.js` (server maps it, nothing skipped) and `ServerForwarderTest`
+  (an all-enabled export emits exactly the fixture's keys) both fail until it matches.
+  `power`/`speed` are sample-only, so they are not in the fixture's `activity` section.
 
 ---
 
@@ -290,8 +300,6 @@ older day-scoped copy kept for the current dashboard queries.
 
 ## 7. Known debt
 
-- Metric catalog is duplicated across Kotlin and JS with no shared fixture or
-  payload `schemaVersion`.
 - `samples` duplicates `records`; ingest is one INSERT per row.
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.

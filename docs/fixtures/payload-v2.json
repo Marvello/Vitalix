@@ -1,0 +1,407 @@
+{
+  "schemaVersion": 2,
+  "source": "vitalix",
+  "appVersion": "1.0.0",
+  "device": "Fixture",
+  "exportedAt": "2026-07-24T12:00:00Z",
+  "rangeDays": 1,
+  "timeZone": "UTC",
+  "days": [
+    {
+      "date": "2026-07-24",
+      "activity": {
+        "steps": 8123,
+        "distance": 6100.0,
+        "activeCalories": 412.0,
+        "totalCalories": 2300.0,
+        "floorsClimbed": 10.0,
+        "elevationGained": 30.0,
+        "wheelchairPushes": 0,
+        "vo2Max": 45.0
+      },
+      "body": {
+        "weight": 71.2,
+        "bodyFat": 18.5,
+        "boneMass": 3.1,
+        "height": 1.78,
+        "leanBodyMass": 58.0
+      },
+      "vitals": {
+        "heartRate": {
+          "min": 52,
+          "max": 146,
+          "avg": 68
+        },
+        "hrv": {
+          "min": 30,
+          "max": 60,
+          "avg": 45
+        },
+        "spo2": {
+          "min": 94,
+          "max": 99,
+          "avg": 97
+        },
+        "bloodGlucose": {
+          "min": 80,
+          "max": 120,
+          "avg": 95
+        },
+        "respiratoryRate": {
+          "min": 12,
+          "max": 18,
+          "avg": 15
+        },
+        "bloodPressure": {
+          "systolic": {
+            "min": 110,
+            "max": 130,
+            "avg": 118
+          },
+          "diastolic": {
+            "min": 70,
+            "max": 82,
+            "avg": 76
+          }
+        },
+        "restingHeartRate": 54,
+        "bodyTemperature": 36.6
+      },
+      "sleep": {
+        "durationMinutes": 431,
+        "stages": {
+          "deep": 78,
+          "light": 240,
+          "rem": 96,
+          "awake": 17
+        }
+      },
+      "cycle": {
+        "menstruation": "medium",
+        "cervicalMucus": "creamy",
+        "ovulationTest": "positive",
+        "sexualActivity": "protected"
+      },
+      "nutrition": {
+        "hydrationMl": 1800.0,
+        "energyKcal": 2100.0
+      },
+      "exercises": [
+        {
+          "name": "Running",
+          "start": "2026-07-24T06:00:00Z",
+          "durationMinutes": 32,
+          "source": "com.x",
+          "hcId": "fx-ex"
+        }
+      ],
+      "samples": [
+        {
+          "metric": "steps",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 1.0,
+          "source": "com.x",
+          "hcId": "fx-steps"
+        },
+        {
+          "metric": "distance",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 2.0,
+          "source": "com.x",
+          "hcId": "fx-distance"
+        },
+        {
+          "metric": "activeCalories",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 3.0,
+          "source": "com.x",
+          "hcId": "fx-activeCalories"
+        },
+        {
+          "metric": "totalCalories",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 4.0,
+          "source": "com.x",
+          "hcId": "fx-totalCalories"
+        },
+        {
+          "metric": "floorsClimbed",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 5.0,
+          "source": "com.x",
+          "hcId": "fx-floorsClimbed"
+        },
+        {
+          "metric": "elevationGained",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 6.0,
+          "source": "com.x",
+          "hcId": "fx-elevationGained"
+        },
+        {
+          "metric": "wheelchairPushes",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 7.0,
+          "source": "com.x",
+          "hcId": "fx-wheelchairPushes"
+        },
+        {
+          "metric": "power",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 8.0,
+          "source": "com.x",
+          "hcId": "fx-power"
+        },
+        {
+          "metric": "speed",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 9.0,
+          "source": "com.x",
+          "hcId": "fx-speed"
+        },
+        {
+          "metric": "vo2Max",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 10.0,
+          "source": "com.x",
+          "hcId": "fx-vo2Max"
+        },
+        {
+          "metric": "weight",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 11.0,
+          "source": "com.x",
+          "hcId": "fx-weight"
+        },
+        {
+          "metric": "bodyFat",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 12.0,
+          "source": "com.x",
+          "hcId": "fx-bodyFat"
+        },
+        {
+          "metric": "boneMass",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 13.0,
+          "source": "com.x",
+          "hcId": "fx-boneMass"
+        },
+        {
+          "metric": "height",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 14.0,
+          "source": "com.x",
+          "hcId": "fx-height"
+        },
+        {
+          "metric": "leanBodyMass",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 15.0,
+          "source": "com.x",
+          "hcId": "fx-leanBodyMass"
+        },
+        {
+          "metric": "basalMetabolicRate",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 16.0,
+          "source": "com.x",
+          "hcId": "fx-basalMetabolicRate"
+        },
+        {
+          "metric": "bodyWaterMass",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 17.0,
+          "source": "com.x",
+          "hcId": "fx-bodyWaterMass"
+        },
+        {
+          "metric": "heartRate",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 18.0,
+          "source": "com.x",
+          "hcId": "fx-heartRate"
+        },
+        {
+          "metric": "hrv",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 19.0,
+          "source": "com.x",
+          "hcId": "fx-hrv"
+        },
+        {
+          "metric": "spo2",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 20.0,
+          "source": "com.x",
+          "hcId": "fx-spo2"
+        },
+        {
+          "metric": "respiratoryRate",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 21.0,
+          "source": "com.x",
+          "hcId": "fx-respiratoryRate"
+        },
+        {
+          "metric": "bloodGlucose",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 22.0,
+          "source": "com.x",
+          "hcId": "fx-bloodGlucose"
+        },
+        {
+          "metric": "restingHeartRate",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 23.0,
+          "source": "com.x",
+          "hcId": "fx-restingHeartRate"
+        },
+        {
+          "metric": "bodyTemperature",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 24.0,
+          "source": "com.x",
+          "hcId": "fx-bodyTemperature"
+        },
+        {
+          "metric": "hydration",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 25.0,
+          "source": "com.x",
+          "hcId": "fx-hydration"
+        },
+        {
+          "metric": "nutrition",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 26.0,
+          "source": "com.x",
+          "hcId": "fx-nutrition"
+        },
+        {
+          "metric": "nutrition.protein",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 27.0,
+          "source": "com.x",
+          "hcId": "fx-nutrition.protein"
+        },
+        {
+          "metric": "basalBodyTemperature",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 28.0,
+          "source": "com.x",
+          "hcId": "fx-basalBodyTemperature"
+        },
+        {
+          "metric": "intermenstrualBleeding",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 29.0,
+          "source": "com.x",
+          "hcId": "fx-intermenstrualBleeding"
+        },
+        {
+          "metric": "menstruationPeriod",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 30.0,
+          "source": "com.x",
+          "hcId": "fx-menstruationPeriod"
+        },
+        {
+          "metric": "mindfulness",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "value": 31.0,
+          "source": "com.x",
+          "hcId": "fx-mindfulness"
+        },
+        {
+          "metric": "cyclingCadence",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 32.0,
+          "source": "com.x",
+          "hcId": "fx-cyclingCadence"
+        },
+        {
+          "metric": "stepsCadence",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 33.0,
+          "source": "com.x",
+          "hcId": "fx-stepsCadence"
+        },
+        {
+          "metric": "skinTemperature",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 34.0,
+          "source": "com.x",
+          "hcId": "fx-skinTemperature"
+        },
+        {
+          "metric": "bloodPressure",
+          "start": "2026-07-24T06:00:00Z",
+          "value": 118,
+          "value2": 76,
+          "source": "com.x",
+          "hcId": "fx-bloodPressure",
+          "meta": {
+            "bodyPosition": "sitting"
+          }
+        },
+        {
+          "metric": "activityIntensity",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "text": "vigorous",
+          "source": "com.x",
+          "hcId": "fx-activityIntensity"
+        },
+        {
+          "metric": "sleepStage",
+          "start": "2026-07-24T06:00:00Z",
+          "end": "2026-07-24T07:00:00Z",
+          "text": "deep",
+          "source": "com.x",
+          "hcId": "fx-sleepStage"
+        },
+        {
+          "metric": "menstruation",
+          "start": "2026-07-24T06:00:00Z",
+          "text": "medium",
+          "source": "com.x",
+          "hcId": "fx-menstruation"
+        },
+        {
+          "metric": "cervicalMucus",
+          "start": "2026-07-24T06:00:00Z",
+          "text": "creamy",
+          "source": "com.x",
+          "hcId": "fx-cervicalMucus"
+        },
+        {
+          "metric": "ovulationTest",
+          "start": "2026-07-24T06:00:00Z",
+          "text": "positive",
+          "source": "com.x",
+          "hcId": "fx-ovulationTest"
+        },
+        {
+          "metric": "sexualActivity",
+          "start": "2026-07-24T06:00:00Z",
+          "text": "protected",
+          "source": "com.x",
+          "hcId": "fx-sexualActivity"
+        }
+      ]
+    }
+  ]
+}

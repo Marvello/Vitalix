@@ -147,3 +147,33 @@ test("exercise without detail has null detail", () => {
   ] }] });
   assert.equal(days[0].exercises[0].detail, null);
 });
+
+// ---- schemaVersion + shared fixture (docs/fixtures/payload-v2.json) ----
+import { readFileSync } from "node:fs";
+import { mapPayload as mapFixture, PAYLOAD_SCHEMA_VERSION, SCALAR_MAP } from "../src/mapPayload.js";
+
+const fixture = JSON.parse(readFileSync(new URL("../../docs/fixtures/payload-v2.json", import.meta.url), "utf8"));
+
+test("fixture payload maps every metric", () => {
+  const m = mapFixture(fixture);
+  assert.equal(m.skipped, 0);
+  const cols = new Set(Object.keys(m.days[0].scalars));
+  // power/speed are sample-only: the app never puts them in the activity section.
+  const sampleOnly = new Set(["power", "speed"]);
+  for (const c of Object.values(SCALAR_MAP).flatMap((s) => Object.values(s))) {
+    if (!sampleOnly.has(c)) assert.ok(cols.has(c), `scalar column ${c} missing from fixture`);
+  }
+  for (const c of ["sleep_duration_minutes", "sleep_deep", "sleep_light", "sleep_rem", "sleep_awake",
+    "menstruation", "cervical_mucus", "ovulation_test", "sexual_activity"]) {
+    assert.ok(cols.has(c), `column ${c} missing from fixture`);
+  }
+  const aggs = m.days[0].aggregates.map((a) => a.metric).sort();
+  assert.deepEqual(aggs, ["bpDiastolic", "bpSystolic", "bloodGlucose", "heartRate", "hrv", "respiratoryRate", "spo2"].sort());
+  assert.equal(m.days[0].samples.length, fixture.days[0].samples.length);
+});
+
+test("schemaVersion is read from the payload and defaults to 1", () => {
+  assert.equal(PAYLOAD_SCHEMA_VERSION, 2);
+  assert.equal(mapFixture(fixture).schemaVersion, 2);
+  assert.equal(mapFixture({ days: [] }).schemaVersion, 1);
+});

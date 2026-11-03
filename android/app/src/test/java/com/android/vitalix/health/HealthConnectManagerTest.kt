@@ -54,17 +54,7 @@ class HealthConnectManagerTest {
      * `internal` (Kotlin-compiler-enforced only — the constructor is public
      * at the bytecode level), so reflection is used to reach it directly.
      */
-    private fun meta(id: String, pkg: String): Metadata {
-        val ctor = Metadata::class.java.getDeclaredConstructor(
-            Int::class.javaPrimitiveType, String::class.java, DataOrigin::class.java,
-            Instant::class.java, String::class.java, Long::class.javaPrimitiveType, Device::class.java,
-        )
-        ctor.isAccessible = true
-        return ctor.newInstance(
-            Metadata.RECORDING_METHOD_MANUAL_ENTRY, id, DataOrigin(pkg),
-            Instant.EPOCH, null, 0L, null,
-        )
-    }
+    private fun meta(id: String, pkg: String): Metadata = fakeMetadata(id, pkg)
 
     private fun manager(vararg records: Pair<KClass<out Record>, List<Record>>) =
         HealthConnectManager(
