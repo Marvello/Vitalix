@@ -29,6 +29,7 @@ source of truth; update this doc when they change.
 | 020 | `ai_digests` | weekly / monthly AI digests, unique `(user_id, kind, period_start)` |
 | 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
 | 022 | `journal` | `journal_entries`: manual mood / symptom / medication / caffeine / alcohol / note per user, index `(user_id, day)` |
+| 023 | `records_hc_idx` | index `records (user_id, hc_id)` for deletions by Health Connect id |
 
 Account deletion (`DELETE /api/account`, `POST /account/delete`) is a single `DELETE FROM users`;
 every per-user table below references `users` with `ON DELETE CASCADE`
