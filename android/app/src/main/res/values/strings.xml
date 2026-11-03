@@ -70,4 +70,13 @@
     <string name="alert_hrv_drop">HRV well below baseline (%1$s vs %2$s ms)</string>
     <string name="alert_spo2_low">Blood oxygen dipped to %1$s%% overnight</string>
     <string name="alert_bp_high">Blood pressure averaged %1$s mmHg</string>
+    <string name="account_export">Export data</string>
+    <string name="account_export_hint">Opens your account page in the browser to download all your data.</string>
+    <string name="account_delete">Delete account</string>
+    <string name="account_delete_title">Delete account permanently?</string>
+    <string name="account_delete_message">All your health data, journal and AI text on the server will be erased. This cannot be undone. Enter your password to confirm.</string>
+    <string name="account_password_hint">Password</string>
+    <string name="account_delete_confirm">Delete permanently</string>
+    <string name="account_wrong_password">Wrong password</string>
+    <string name="account_no_browser">No browser available to open the account page.</string>
 </resources>

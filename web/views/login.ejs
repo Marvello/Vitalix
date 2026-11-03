@@ -3,6 +3,7 @@
 </head><body>
 <div class="wrap-narrow">
 <h1>Vitalix</h1><h2>Log in</h2>
+<% if (typeof notice !== "undefined" && notice) { %><p class="ok"><%= notice %></p><% } %>
 <% if (error) { %><p class="err"><%= error %></p><% } %>
 <form method="post" action="/login">
   <input name="email" type="email" placeholder="Email" required>

@@ -30,6 +30,12 @@ source of truth; update this doc when they change.
 | 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
 | 022 | `journal` | `journal_entries`: manual mood / symptom / medication / caffeine / alcohol / note per user, index `(user_id, day)` |
 
+Account deletion (`DELETE /api/account`, `POST /account/delete`) is a single `DELETE FROM users`;
+every per-user table below references `users` with `ON DELETE CASCADE`
+(`invites.created_by` is the exception: invites are kept with `created_by` set NULL). The data export
+(`/account/export.json`) reads the same tables except `day_source_metrics` (derived from `records`),
+`dashboard_layouts` and `fcm_tokens` (device secrets).
+
 ## Diagram
 
 ```mermaid

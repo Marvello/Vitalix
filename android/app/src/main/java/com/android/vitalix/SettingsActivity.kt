@@ -1,6 +1,16 @@
 package com.android.vitalix
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
+import android.text.InputType
+import android.widget.EditText
+import com.android.vitalix.auth.AuthStore
+import com.android.vitalix.auth.DeleteResult
+import com.android.vitalix.auth.deleteAccount
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
@@ -65,6 +75,8 @@ class SettingsActivity : AppCompatActivity() {
         btnSaveProfile = findViewById(R.id.btnSaveProfile)
         btnManualWeight = findViewById(R.id.btnManualWeight)
 
+        findViewById<Button>(R.id.btnExportData).setOnClickListener { openAccountPage() }
+        findViewById<Button>(R.id.btnDeleteAccount).setOnClickListener { showDeleteAccountDialog() }
         btnSaveProfile.setOnClickListener { saveProfile() }
         btnManualWeight.setOnClickListener { showManualWeightDialog() }
 
@@ -96,6 +108,52 @@ class SettingsActivity : AppCompatActivity() {
             else BatteryGuardian.requestExemption(this)
         }
         btnOpenDeviceSettings.setOnClickListener { BatteryGuardian.openOemSettings(this) }
+    }
+
+    private fun openAccountPage() {
+        val base = settings.serverUrl?.trimEnd('/') ?: return
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("$base/account")))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.account_no_browser, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showDeleteAccountDialog() {
+        val password = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.account_password_hint)
+        }
+        val pad = (20 * resources.displayMetrics.density).toInt()
+        val box = android.widget.FrameLayout(this).apply { setPadding(pad, pad / 2, pad, 0); addView(password) }
+        val dialog = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.account_delete_title)
+            .setMessage(R.string.account_delete_message)
+            .setView(box)
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.account_delete_confirm, null) // set below so errors keep the dialog open
+            .show()
+        val confirm = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+        confirm.setTextColor(com.google.android.material.color.MaterialColors.getColor(confirm, androidx.appcompat.R.attr.colorError))
+        confirm.setOnClickListener {
+            val pw = password.text.toString()
+            if (pw.isEmpty()) return@setOnClickListener
+            confirm.isEnabled = false
+            lifecycleScope.launch {
+                val result = withContext(Dispatchers.IO) { deleteAccount(applicationContext, pw) }
+                when (result) {
+                    is DeleteResult.Deleted -> {
+                        dialog.dismiss()
+                        AuthStore(this@SettingsActivity).clear()
+                        startActivity(Intent(this@SettingsActivity, LoginActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+                    }
+                    is DeleteResult.WrongPassword -> { confirm.isEnabled = true; password.error = getString(R.string.account_wrong_password) }
+                    is DeleteResult.Refused -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }
+                    is DeleteResult.Failed -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }
+                }
+            }
+        }
     }
 
     /**

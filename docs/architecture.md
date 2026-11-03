@@ -183,6 +183,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 | `auth/*` | bcrypt passwords, JWT + hashed refresh/reset/invite tokens, `requireAuth`/`requireAdmin`, mailer |
 | `ai/*` | Prompt building, OpenAI-compatible client (120 s timeout), recommendation storage |
 | `firebase.js`, `zealot.js` | FCM sender; Zealot API (invite download link, update info) |
+| `exportData.js`, `routes/account.js` | Streamed JSON/CSV export and account deletion (`/account`, `/api/account`) |
 | `journal.js`, `routes/journal.js` | `validateEntry` (pure) and the `/api/journal` routes |
 | `rateLimit.js` | In-memory fixed-window limiter (single replica only) |
 
@@ -226,6 +227,11 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | GET | `/api/journal?from&to` | user | Own journal entries for `[from, to]` (YYYY-MM-DD, default the user's today) → `{entries: [{id, day, kind, value_num, value_text, logged_at}]}` |
 | POST | `/api/journal` | user | Add `{kind, value_num\|value_text, logged_at}` → 201 + the row. Kinds: `mood` int 1-5, `caffeine` cups 0-20, `alcohol` drinks 0-30, `symptom`/`medication`/`note` text 1-200 chars. `logged_at` ISO, ≤ 1 day ahead; `day` is derived server-side from it in `users.timezone` (a client `day` is ignored). 400 invalid; 60/hour per user |
 | DELETE | `/api/journal/:id` | user | Delete own entry → 204; 404 when absent or another user's |
+| GET | `/account` | user (web) | Account page: export links and the delete form |
+| GET | `/account/export.json` | user | Streamed download `vitalix-export-YYYY-MM-DD.json` (user's local day): `{exportedAt, user: {email, timezone, profile}, health_days, day_aggregates, records, exercises, journal, ai_recommendations, ai_digests, anomaly_alerts}`. `records` is read in keyset pages of 5000 on `id` over one pooled connection, with backpressure; stops if the client disconnects. Never includes the password hash, refresh/reset/invite token hashes, FCM tokens or user ids. 3/hour per user (shared with the CSV) |
+| GET | `/account/export-days.csv` | user | `health_days` as CSV (RFC 4180; text cells starting `= + - @` are prefixed with `'`). Same rate limit |
+| DELETE | `/api/account` | user | Body `{password}` → 204 and cookies cleared; 403 wrong password; 409 when the caller is the only enabled admin. 5/hour per user |
+| POST | `/account/delete` | user (web) | Form `{password, email}`; email must match the account (case-insensitive) → 400 otherwise; same checks as above; success redirects to `/login?deleted=1` |
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
@@ -248,6 +254,15 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
   The id_token's email must be `email_verified` and match an existing, enabled user —
   SSO never creates accounts. Success issues the normal access + refresh cookies. The Android
   app is unchanged (email/password + Bearer).
+- **Account deletion:** the password is re-verified with bcrypt (a dummy hash is compared when the
+  row is missing, so timing doesn't differ). In one transaction the enabled admins are locked
+  `FOR UPDATE`; the only enabled admin is refused (409); otherwise `DELETE FROM users` cascades to
+  refresh/reset tokens, syncs, health_days (and its aggregates/exercises), records,
+  day_source_metrics, dashboard_layouts, fcm_tokens, ai_recommendations, ai_digests,
+  anomaly_alerts and journal_entries (invites they created are kept, `created_by` set NULL).
+  Refresh tokens vanish with the cascade, so there is nothing left to revoke. Every user has a
+  password (`users.password_hash NOT NULL`; SSO never creates accounts), so there is no
+  password-less deletion path. Deletion is irreversible and not backed up by the app.
 - Login/signup/forgot/reset and the SSO callback are rate limited per IP (login also per email).
 - Forgot-password never reveals whether an email exists.
 

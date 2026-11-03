@@ -26,7 +26,7 @@ const show = (res, view, extra = {}) => res.render(view, { error: null, ...extra
 
 pagesRouter.get("/", (_req, res) => res.redirect("/dashboard"));
 
-pagesRouter.get("/login", (req, res) => show(res, "login"));
+pagesRouter.get("/login", (req, res) => show(res, "login", { notice: req.query.deleted ? "Your account and all its data have been deleted." : null }));
 pagesRouter.get("/signup", (req, res) => show(res, "signup", { token: req.query.token || "" }));
 pagesRouter.get("/forgot", (req, res) => show(res, "forgot", { sent: false }));
 pagesRouter.get("/reset", (req, res) => show(res, "reset", { token: req.query.token || "" }));
