@@ -66,13 +66,14 @@ class BackfillWorker(
         var slices = 0
         var daysSent = 0
 
-        // Changes token taken before the first read: once the whole history is in,
-        // auto-sync continues from here and nothing written meanwhile is lost.
-        val granted = manager.grantedRecordTypes()
-        val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
-        val newToken = manager.newChangesToken(granted)
-
         try {
+            // Changes token taken before the first read, so nothing written meanwhile
+            // is lost. Only when none is valid: replacing one would drop deletions
+            // still queued under it (the backfill sends no deletions).
+            val granted = manager.grantedRecordTypes()
+            val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
+            val newToken = if (settings.changesToken(typesKey) == null) manager.newChangesToken(granted) else null
+
             while (end.isAfter(floor) && emptyRun < EMPTY_LIMIT) {
                 if (isStopped) {
                     log.finish(runId, SyncLog.Status.FAILED, days = daysSent, message = "Cancelled")

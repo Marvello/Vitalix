@@ -3,9 +3,9 @@ package com.android.vitalix.health
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.changes.DeletionChange
 import androidx.health.connect.client.changes.UpsertionChange
-import android.util.Log
 import androidx.health.connect.client.records.Record
 import androidx.health.connect.client.request.ChangesTokenRequest
+import androidx.health.connect.client.response.ChangesResponse
 import java.time.Instant
 import kotlin.reflect.KClass
 
@@ -31,17 +31,23 @@ class HealthConnectChangesSource(private val client: HealthConnectClient) : Chan
     override suspend fun token(types: Set<KClass<out Record>>): String =
         client.getChangesToken(ChangesTokenRequest(types))
 
-    override suspend fun changes(token: String): ChangesPage {
-        val r = client.getChanges(token)
-        val upserts = mutableListOf<Pair<Instant, Instant>>()
-        val deleted = mutableListOf<String>()
-        for (c in r.changes) when (c) {
-            is UpsertionChange -> recordSpan(c.record)?.let { upserts += it }
-                ?: Log.w("ChangesSource", "No time on ${c.record::class.simpleName}, not re-read")
-            is DeletionChange -> deleted += c.recordId
-        }
-        return ChangesPage(upserts, deleted, r.nextChangesToken, r.hasMore, r.changesTokenExpired)
+    override suspend fun changes(token: String): ChangesPage = client.getChanges(token).toPage()
+}
+
+/**
+ * Reduces a Health Connect response to a [ChangesPage]. An upsert whose time can't
+ * be read throws: the caller then falls back to the window read instead of
+ * advancing the token past a day it never re-read.
+ */
+internal fun ChangesResponse.toPage(): ChangesPage {
+    val upserts = mutableListOf<Pair<Instant, Instant>>()
+    val deleted = mutableListOf<String>()
+    for (c in changes) when (c) {
+        is UpsertionChange -> upserts += recordSpan(c.record)
+            ?: throw IllegalStateException("No time on ${c.record::class.simpleName}")
+        is DeletionChange -> deleted += c.recordId
     }
+    return ChangesPage(upserts, deleted, nextChangesToken, hasMore, changesTokenExpired)
 }
 
 /**

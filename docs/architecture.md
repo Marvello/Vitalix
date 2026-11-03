@@ -101,10 +101,12 @@ Invariants:
 - **Changes token = granted type set.** Stored in `SyncSettings` as
   `changes_token` + `changes_types` (sorted record simple names, comma-joined). If
   the currently granted set differs, the token is treated as absent → window read.
-- **Token is taken before the read it follows** (auto fallback, backfill start,
-  manual sync when no valid token exists), so changes made during the read are
-  picked up next run. Manual sync never replaces a valid token: that would skip
-  pending changes older than its *N*-day window.
+- **Token is taken before the read it follows** (auto fallback; backfill start and
+  manual sync only when no valid token exists), so changes made during the read are
+  picked up next run. Manual sync and backfill never replace a valid token: that
+  would drop pending deletions (and, for manual, changes older than its *N*-day window).
+- An upserted record whose time can't be read makes the run fall back to the window
+  read rather than advance the token past a day it never re-read.
 - Health Connect permissions are per record type; partial grants are normal and
   sync whatever was allowed. Feature permissions (`READ_HEALTH_DATA_HISTORY`,
   `READ_HEALTH_DATA_IN_BACKGROUND`) are requested only when the installed Health
@@ -217,8 +219,9 @@ Per POST, in one transaction: insert a `syncs` row; delete `records` (by
 
 Known ceilings of deletion: a `health_days` scalar whose only source record was
 deleted keeps its old value (days merge with `COALESCE(new, old)`; fix = recompute
-from `records`), and `day_source_metrics` rows (no `hc_id`) stay until that day is
-re-sent. Deletes run before the upserts, so a record re-read in the same payload wins.
+from `records`), and `day_aggregates` min/max/avg and `day_source_metrics` rows
+(no `hc_id`) keep the deleted value until that day is re-sent. A deletion carries no
+time, so the phone re-reads its day only when it is yesterday or today. Deletes run before the upserts, so a record re-read in the same payload wins.
 
 Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in JS (last wins).
 

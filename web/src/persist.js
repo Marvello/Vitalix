@@ -113,8 +113,10 @@ async function upsertSourceMetrics(client, userId, day) {
 // Records the phone saw deleted in Health Connect, scoped to this user.
 // ponytail: a health_days scalar whose only source record was deleted keeps its
 // old value, because days merge with COALESCE(new, old); fix needs a
-// recompute-from-records step, add when it shows up. day_source_metrics rows
-// (no hc_id) likewise stay until that day is re-sent.
+// recompute-from-records step, add when it shows up. day_aggregates min/max/avg
+// and day_source_metrics rows (no hc_id) likewise keep the deleted value until
+// that day is re-sent — a deletion carries no time, so the phone re-reads its day
+// only if it is yesterday or today.
 async function deleteByHcId(client, userId, ids) {
   if (!ids?.length) return 0;
   const r = await client.query("DELETE FROM records WHERE user_id = $1 AND hc_id = ANY($2)", [userId, ids]);

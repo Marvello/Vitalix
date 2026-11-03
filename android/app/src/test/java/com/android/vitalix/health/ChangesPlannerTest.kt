@@ -92,4 +92,15 @@ class ChangesPlannerTest {
         assertEquals(t to t.plusSeconds(60), recordSpan(steps))
         assertEquals(t to t, recordSpan(weight))
     }
+
+    @Test fun `an upsert whose time can't be read means fallback, not a skipped day`() = runTest {
+        val unknown = object : Record { override val metadata = fakeMetadata("u", "pkg") }
+        val response = androidx.health.connect.client.response.ChangesResponse(
+            listOf(androidx.health.connect.client.changes.UpsertionChange(unknown)), "t1", false, false)
+        val src = object : ChangesSource {
+            override suspend fun token(types: Set<KClass<out Record>>) = "fresh"
+            override suspend fun changes(token: String) = response.toPage()
+        }
+        assertTrue(ChangesPlanner.planFrom(src, "t0", zone, today).fallback)
+    }
 }
