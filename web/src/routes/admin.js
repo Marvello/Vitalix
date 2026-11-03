@@ -91,7 +91,7 @@ adminRouter.patch("/api/admin/users/:id", requireAuth, requireAdmin, async (req,
     if (targetId === req.user.id && role !== "admin") return res.status(400).json({ error: "Cannot demote yourself" });
     if (role === "user") {
       const count = await store.countAdmins();
-      const target = (await store.listUsers()).find((u) => u.id === targetId);
+      const target = (await store.listUsers()).find((u) => Number(u.id) === targetId);
       if (target?.role === "admin" && count <= 1) return res.status(400).json({ error: "Cannot remove last admin" });
     }
     await store.updateUserRole(targetId, role);

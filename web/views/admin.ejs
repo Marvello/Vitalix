@@ -92,7 +92,7 @@
     <thead><tr><th>Email</th><th>Role</th><th>Joined</th><th>Status</th><th>Actions</th></tr></thead>
     <tbody id="users-body">
     <% users.forEach(function(u) {
-         var isSelf = u.id === currentUserId;
+         var isSelf = Number(u.id) === currentUserId;
          var isDisabled = !!u.disabled_at;
     %>
       <tr data-id="<%= u.id %>">
