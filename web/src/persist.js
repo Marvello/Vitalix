@@ -31,17 +31,32 @@ async function upsertDay(client, syncId, userId, day) {
   return rows[0].id;
 }
 
+// One INSERT … SELECT FROM unnest(typed arrays) per call, so statement count is
+// independent of row count. cols: [name, pgType, pick(row)]. keyOf dedupes in JS
+// (last wins) because ON CONFLICT DO UPDATE cannot hit one row twice per statement.
+// ponytail: one statement per day keeps param arrays small; no COPY.
+async function bulkInsert(client, table, cols, rows, { keyOf, onConflict = "" } = {}) {
+  if (keyOf) rows = [...new Map(rows.map((r) => [keyOf(r), r])).values()];
+  if (!rows.length) return 0;
+  const sql = `INSERT INTO ${table} (${cols.map((c) => c[0]).join(", ")})
+    SELECT * FROM unnest(${cols.map((c, i) => `$${i + 1}::${c[1]}[]`).join(", ")}) ${onConflict}`;
+  await client.query(sql, cols.map((c) => rows.map(c[2])));
+  return rows.length;
+}
+const json = (v) => (v == null ? null : JSON.stringify(v));
+// Same instant, different string spelling, is the same conflict key.
+const instant = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? v : t; };
+
 // Replace per metric, not per day: a metric absent from this payload (throttled
 // by Health Connect, or outside an older app's partial window) keeps its rows.
 async function replaceAggregates(client, dayId, aggregates) {
   const metrics = [...new Set(aggregates.map((a) => a.metric))];
   await client.query("DELETE FROM day_aggregates WHERE day_id = $1 AND metric = ANY($2)", [dayId, metrics]);
-  for (const a of aggregates) {
-    await client.query(
-      "INSERT INTO day_aggregates (day_id, metric, min, max, avg) VALUES ($1,$2,$3,$4,$5)",
-      [dayId, a.metric, a.min, a.max, a.avg]
-    );
-  }
+  await bulkInsert(client, "day_aggregates", [
+    ["day_id", "bigint", () => dayId], ["metric", "text", (a) => a.metric],
+    ["min", "double precision", (a) => a.min], ["max", "double precision", (a) => a.max],
+    ["avg", "double precision", (a) => a.avg],
+  ], aggregates);
 }
 
 async function replaceSamples(client, dayId, samples) {
@@ -58,58 +73,52 @@ async function replaceSamples(client, dayId, samples) {
 async function replaceExercises(client, dayId, exercises) {
   const withId = exercises.filter((e) => e.hc_id);
   const withoutId = exercises.filter((e) => !e.hc_id);
+  const cols = [
+    ["day_id", "bigint", () => dayId], ["name", "text", (e) => e.name],
+    ["start_at", "timestamptz", (e) => e.start_at], ["duration_minutes", "integer", (e) => e.duration_minutes],
+    ["source", "text", (e) => e.source], ["hc_id", "text", (e) => e.hc_id ?? null],
+    ["detail", "jsonb", (e) => json(e.detail)],
+  ];
   // Legacy path for UID-less rows: clear only those we would re-insert blind.
   if (withoutId.length) {
     await client.query("DELETE FROM exercises WHERE day_id = $1 AND hc_id IS NULL", [dayId]);
-    for (const e of withoutId) {
-      await client.query(
-        "INSERT INTO exercises (day_id, name, start_at, duration_minutes, source, detail) VALUES ($1,$2,$3,$4,$5,$6)",
-        [dayId, e.name, e.start_at, e.duration_minutes, e.source, e.detail ? JSON.stringify(e.detail) : null]
-      );
-    }
+    await bulkInsert(client, "exercises", cols, withoutId);
   }
-  for (const e of withId) {
-    await client.query(
-      `INSERT INTO exercises (day_id, name, start_at, duration_minutes, source, hc_id, detail)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)
-       ON CONFLICT (day_id, hc_id) DO UPDATE SET
-         name = EXCLUDED.name, start_at = EXCLUDED.start_at,
-         duration_minutes = EXCLUDED.duration_minutes, source = EXCLUDED.source, detail = EXCLUDED.detail`,
-      [dayId, e.name, e.start_at, e.duration_minutes, e.source, e.hc_id, e.detail ? JSON.stringify(e.detail) : null]
-    );
-  }
+  await bulkInsert(client, "exercises", cols, withId, {
+    keyOf: (e) => e.hc_id,
+    onConflict: `ON CONFLICT (day_id, hc_id) DO UPDATE SET
+      name = EXCLUDED.name, start_at = EXCLUDED.start_at,
+      duration_minutes = EXCLUDED.duration_minutes, source = EXCLUDED.source, detail = EXCLUDED.detail`,
+  });
 }
 
 async function upsertRecords(client, userId, samples) {
-  let n = 0;
-  for (const s of samples) {
-    if (!s.hc_id) continue; // older app builds without a UID: keep out of records
-    await client.query(
-      `INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_num, value_secondary, value_text, source, meta)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-       ON CONFLICT (user_id, type, start_at, hc_id) DO UPDATE SET
-         end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
-         value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source, meta = EXCLUDED.meta`,
-      [userId, s.metric, s.hc_id, s.start_at, s.end_at, s.value_num, s.value_secondary, s.value_text, s.source, s.meta ?? null]
-    );
-    n++;
-  }
-  return n;
+  // older app builds without a UID: keep out of records
+  return bulkInsert(client, "records", [
+    ["user_id", "bigint", () => userId], ["type", "text", (s) => s.metric], ["hc_id", "text", (s) => s.hc_id],
+    ["start_at", "timestamptz", (s) => s.start_at], ["end_at", "timestamptz", (s) => s.end_at],
+    ["value_num", "double precision", (s) => s.value_num], ["value_secondary", "double precision", (s) => s.value_secondary],
+    ["value_text", "text", (s) => s.value_text], ["source", "text", (s) => s.source], ["meta", "jsonb", (s) => json(s.meta)],
+  ], samples.filter((s) => s.hc_id), {
+    keyOf: (s) => `${s.metric}|${instant(s.start_at)}|${s.hc_id}`,
+    onConflict: `ON CONFLICT (user_id, type, start_at, hc_id) DO UPDATE SET
+      end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
+      value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source, meta = EXCLUDED.meta`,
+  });
 }
 
 async function upsertSourceMetrics(client, userId, day) {
-  const rows = rollupSourceMetrics(day.samples);
-  for (const r of rows) {
-    await client.query(
-      `INSERT INTO day_source_metrics (user_id, day, metric, source, value_num, min, max, avg, count)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-       ON CONFLICT ON CONSTRAINT day_source_metrics_identity DO UPDATE SET
-         value_num = EXCLUDED.value_num, min = EXCLUDED.min, max = EXCLUDED.max,
-         avg = EXCLUDED.avg, count = EXCLUDED.count`,
-      [userId, day.day, r.metric, r.source, r.value_num, r.min, r.max, r.avg, r.count]
-    );
-  }
-  return rows.length;
+  // rollupSourceMetrics yields one row per (metric, source): no in-batch duplicates.
+  return bulkInsert(client, "day_source_metrics", [
+    ["user_id", "bigint", () => userId], ["day", "date", () => day.day], ["metric", "text", (r) => r.metric],
+    ["source", "text", (r) => r.source], ["value_num", "double precision", (r) => r.value_num],
+    ["min", "double precision", (r) => r.min], ["max", "double precision", (r) => r.max],
+    ["avg", "double precision", (r) => r.avg], ["count", "integer", (r) => r.count],
+  ], rollupSourceMetrics(day.samples), {
+    onConflict: `ON CONFLICT ON CONSTRAINT day_source_metrics_identity DO UPDATE SET
+      value_num = EXCLUDED.value_num, min = EXCLUDED.min, max = EXCLUDED.max,
+      avg = EXCLUDED.avg, count = EXCLUDED.count`,
+  });
 }
 
 export function persist(userId, mapped) {

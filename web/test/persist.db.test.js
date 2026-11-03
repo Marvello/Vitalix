@@ -79,6 +79,51 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     assert.deepEqual(rows.map((r) => r.type), ["nutrition", "nutrition.fat", "nutrition.protein"]);
   });
 
+  // Count statements per persist() by wrapping the client withTransaction checks out.
+  async function countQueries(t, mapped) {
+    const seen = [];
+    const orig = db.pool.connect.bind(db.pool);
+    t.mock.method(db.pool, "connect", async () => {
+      const c = await orig();
+      const q = c.query.bind(c);
+      c.query = (text, ...a) => { seen.push(String(text?.text ?? text)); return q(text, ...a); };
+      return c;
+    });
+    await persist(userId, mapped);
+    t.mock.restoreAll();
+    // samples stay one INSERT per row (Task 5 drops that table); everything else must be O(1).
+    return seen.filter((q) => !/\bsamples\b/.test(q)).length;
+  }
+  const bulkPayload = (n, tag) => ({ sync, days: [{
+    day: "2026-10-02", scalars: {}, aggregates: [{ metric: "steps", min: 1, max: 2, avg: 1.5 }],
+    samples: Array.from({ length: n }, (_, i) => sample(i % 2 ? "steps" : "heart_rate", `${tag}${i}`, i, `2026-10-02T${String(i % 24).padStart(2, "0")}:00:00Z`)),
+    exercises: Array.from({ length: n }, (_, i) => ({ name: "run", start_at: "2026-10-02T06:00:00Z", duration_minutes: 5,
+      source: "pkg", hc_id: i % 2 ? `${tag}e${i}` : null, detail: { i } })),
+  }] });
+
+  test("statement count does not grow with the number of records/exercises", async (t) => {
+    const small = await countQueries(t, bulkPayload(20, "s"));
+    const big = await countQueries(t, bulkPayload(2000, "b"));
+    assert.equal(big, small);
+    const { rows } = await db.query("SELECT count(*)::int AS n FROM records WHERE hc_id LIKE 'b%'");
+    assert.equal(rows[0].n, 2000);
+    const { rows: ex } = await db.query("SELECT count(*)::int AS n FROM exercises WHERE detail IS NOT NULL");
+    assert.ok(ex[0].n >= 2000);
+  });
+
+  test("duplicate keys within one payload: last write wins, no error", async () => {
+    const d = day([sample("steps", "dup1", 1), sample("steps", "dup1", 2), sample("steps", "dup1", 3, "2026-10-01T09:00:00Z")]);
+    d.exercises = [
+      { name: "a", start_at: "2026-10-01T06:00:00Z", duration_minutes: 1, source: "p", hc_id: "dx", detail: null },
+      { name: "b", start_at: "2026-10-01T06:00:00Z", duration_minutes: 2, source: "p", hc_id: "dx", detail: null },
+    ];
+    await persist(userId, { sync, days: [d] });
+    const { rows } = await db.query("SELECT start_at, value_num FROM records WHERE hc_id = 'dup1' ORDER BY start_at");
+    assert.deepEqual(rows.map((r) => r.value_num), [2, 3]);
+    const { rows: e } = await db.query("SELECT name FROM exercises WHERE hc_id = 'dx'");
+    assert.deepEqual(e.map((r) => r.name), ["b"]);
+  });
+
   test("requireAuth rejects a disabled user and takes role from the DB", async () => {
     const token = signAccess({ id: userId, role: "admin" }); // stale/forged role claim
     let res = await fetch(`${baseUrl}/api/me`, { headers: { Authorization: `Bearer ${token}` } });

@@ -192,6 +192,8 @@ Per POST, in one transaction: insert a `syncs` row, then for each day:
 4. Upsert `records` on `(user_id, type, start_at, hc_id)`.
 5. Upsert `day_source_metrics` on `(user_id, day, metric, source)`.
 
+Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in JS (last wins).
+
 `records` is the idempotent, native-granularity source of truth; `samples` is the
 older day-scoped copy kept for the current dashboard queries.
 
