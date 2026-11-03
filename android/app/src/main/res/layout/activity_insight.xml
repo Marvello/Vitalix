@@ -17,7 +17,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
-        android:textSize="13sp"
+        android:textAppearance="@style/Vitalix.Caption"
         android:alpha="0.6" />
 
     <ProgressBar
@@ -34,7 +34,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="48dp"
         android:gravity="center"
-        android:textSize="15sp"
+        android:textAppearance="@style/Vitalix.Body"
         android:alpha="0.7"
         android:visibility="gone" />
 
@@ -42,7 +42,7 @@
         android:id="@+id/rowFeedback"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="@dimen/space_12"
         android:orientation="horizontal"
         android:visibility="gone">
 
@@ -75,6 +75,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:lineSpacingMultiplier="1.25"
-            android:textSize="16sp" />
+            android:textAppearance="@style/Vitalix.Body" />
     </ScrollView>
 </LinearLayout>

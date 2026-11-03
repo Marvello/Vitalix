@@ -9,14 +9,14 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
+        android:padding="@dimen/space_24"
         android:gravity="center_horizontal">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="48dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/space_8"
             android:text="Welcome to Vitalix"
             android:textSize="24sp"
             android:textStyle="bold" />
@@ -24,15 +24,15 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="@dimen/space_32"
             android:text="Set up your profile to get started."
-            android:textSize="14sp"
+            android:textAppearance="@style/Vitalix.Body"
             android:gravity="center" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             android:hint="Name"
             app:boxBackgroundMode="outline">
             <com.google.android.material.textfield.TextInputEditText
@@ -45,7 +45,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             android:hint="Height (cm)"
             app:boxBackgroundMode="outline"
             app:suffixText="cm">
@@ -59,7 +59,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="@dimen/space_24"
             android:hint="Weight (kg)"
             app:boxBackgroundMode="outline"
             app:suffixText="kg">
@@ -74,8 +74,8 @@
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
-            android:textSize="13sp"
+            android:layout_marginBottom="@dimen/space_16"
+            android:textAppearance="@style/Vitalix.Caption"
             android:visibility="gone" />
 
         <Button

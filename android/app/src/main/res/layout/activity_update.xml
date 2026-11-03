@@ -15,14 +15,14 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="@dimen/space_24">
 
             <ImageView
                 android:id="@+id/iconUpdate"
                 android:layout_width="48dp"
                 android:layout_height="48dp"
                 android:layout_marginTop="48dp"
-                android:layout_marginBottom="24dp"
+                android:layout_marginBottom="@dimen/space_24"
                 android:src="@android:drawable/ic_dialog_info"
                 app:tint="?colorPrimary"
                 android:contentDescription="Update icon" />
@@ -34,7 +34,7 @@
                 android:text="@string/update_heading"
                 android:textAppearance="?textAppearanceHeadlineMedium"
                 android:textStyle="bold"
-                android:layout_marginBottom="4dp" />
+                android:layout_marginBottom="@dimen/space_4" />
 
             <TextView
                 android:id="@+id/txtVersion"
@@ -42,7 +42,7 @@
                 android:layout_height="wrap_content"
                 android:textAppearance="?textAppearanceBodySmall"
                 android:textColor="?android:textColorSecondary"
-                android:layout_marginBottom="24dp" />
+                android:layout_marginBottom="@dimen/space_24" />
 
             <ScrollView
                 android:id="@+id/scrollChangelog"
@@ -62,7 +62,7 @@
                 android:id="@+id/txtError"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
+                android:layout_marginTop="@dimen/space_16"
                 android:textColor="@color/error_red"
                 android:textAppearance="?textAppearanceBodySmall"
                 android:visibility="gone" />
@@ -75,8 +75,8 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp"
-        android:paddingBottom="24dp"
+        android:padding="@dimen/space_16"
+        android:paddingBottom="@dimen/space_24"
         android:background="?colorSurface"
         android:elevation="8dp">
 
@@ -84,7 +84,7 @@
             android:id="@+id/progressDownload"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/space_8"
             android:visibility="gone"
             app:indicatorColor="?colorPrimary"
             app:trackColor="?colorSurfaceVariant" />
@@ -93,7 +93,7 @@
             android:id="@+id/txtProgress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/space_8"
             android:textAppearance="?textAppearanceBodySmall"
             android:gravity="center"
             android:visibility="gone" />
@@ -103,16 +103,16 @@
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:text="@string/update_download"
-            android:textSize="16sp" />
+            android:textAppearance="@style/Vitalix.Body" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnNotNow"
             style="@style/Widget.Material3.Button.OutlinedButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/space_8"
             android:text="@string/update_not_now"
-            android:textSize="16sp" />
+            android:textAppearance="@style/Vitalix.Body" />
 
     </LinearLayout>
 

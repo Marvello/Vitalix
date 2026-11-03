@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="8dp"
+    android:layout_marginBottom="@dimen/space_8"
     app:cardCornerRadius="8dp"
     app:cardElevation="4dp">
 
@@ -23,14 +23,14 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:textSize="15sp"
+                android:textAppearance="@style/Vitalix.Body"
                 android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/txtStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textSize="13sp"
+                android:textAppearance="@style/Vitalix.Caption"
                 android:textStyle="bold" />
         </LinearLayout>
 
@@ -38,35 +38,35 @@
             android:id="@+id/txtWhen"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="13sp" />
+            android:layout_marginTop="@dimen/space_4"
+            android:textAppearance="@style/Vitalix.Caption" />
 
         <TextView
             android:id="@+id/txtPeriod"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
-            android:textSize="13sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
         <Button
             android:id="@+id/btnCancelRun"
             style="?attr/materialButtonOutlinedStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/space_8"
             android:minHeight="0dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
+            android:paddingTop="@dimen/space_4"
+            android:paddingBottom="@dimen/space_4"
             android:text="Stop"
-            android:textSize="12sp"
+            android:textAppearance="@style/Vitalix.Caption"
             android:visibility="gone" />
 
         <TextView
             android:id="@+id/txtMessage"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textSize="12sp"
+            android:layout_marginTop="@dimen/space_4"
+            android:textAppearance="@style/Vitalix.Caption"
             android:visibility="gone" />
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

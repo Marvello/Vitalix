@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp">
+    android:padding="@dimen/space_16">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -14,8 +14,8 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="24dp"
-            android:layout_marginBottom="4dp"
+            android:layout_marginTop="@dimen/space_24"
+            android:layout_marginBottom="@dimen/space_4"
             android:text="Vitalix"
             android:textColor="@color/vital_teal_text"
             android:textSize="28sp"
@@ -27,12 +27,12 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="20dp"
             android:text="Reset your password"
-            android:textSize="13sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -40,7 +40,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <com.google.android.material.textfield.TextInputLayout
                     style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
@@ -62,7 +62,7 @@
             android:id="@+id/btnSubmit"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="8dp"
+            android:layout_marginBottom="@dimen/space_8"
             android:backgroundTint="@color/vital_teal"
             android:text="Send reset link"
             android:textColor="@color/white" />
@@ -72,7 +72,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="@dimen/space_8"
             android:indeterminate="true"
             android:visibility="gone" />
 
@@ -80,8 +80,8 @@
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:layout_marginBottom="16dp"
+            android:layout_marginTop="@dimen/space_8"
+            android:layout_marginBottom="@dimen/space_16"
             android:textAlignment="center" />
 
         <TextView

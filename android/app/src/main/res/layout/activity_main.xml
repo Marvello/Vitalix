@@ -25,7 +25,7 @@
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
     
         android:clipToPadding="false"
-        android:padding="16dp">
+        android:padding="@dimen/space_16">
 
         <LinearLayout
         android:layout_width="match_parent"
@@ -36,7 +36,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="4dp"
+            android:layout_marginBottom="@dimen/space_4"
             android:text="Vitalix"
             android:textColor="@color/vital_teal_text"
             android:textSize="28sp"
@@ -48,7 +48,7 @@
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="20dp"
             android:text="Sync your Health Connect data to your server"
-            android:textSize="13sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
 
 
@@ -56,7 +56,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -65,10 +65,10 @@
                 android:layout_height="wrap_content"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:paddingStart="16dp"
-                android:paddingTop="8dp"
-                android:paddingEnd="16dp"
-                android:paddingBottom="8dp">
+                android:paddingStart="@dimen/space_16"
+                android:paddingTop="@dimen/space_8"
+                android:paddingEnd="@dimen/space_16"
+                android:paddingBottom="@dimen/space_8">
 
                 <CheckBox
                     android:id="@+id/checkAllMetrics"
@@ -81,14 +81,14 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="All metrics"
-                    android:textSize="16sp"
+                    android:textAppearance="@style/Vitalix.Body"
                     android:textStyle="bold" />
 
                 <TextView
                     android:id="@+id/txtSelectedTotal"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:textSize="13sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
@@ -96,7 +96,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -104,7 +104,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerActivity"
@@ -128,22 +128,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Activity"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countActivity"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronActivity"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -152,8 +152,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkActiveCalories"
@@ -253,7 +253,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -261,7 +261,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerBodyMeasurements"
@@ -285,22 +285,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Body Measurements"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countBodyMeasurements"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronBodyMeasurements"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -309,8 +309,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkBodyFat"
@@ -362,7 +362,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -370,7 +370,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerVitals"
@@ -394,22 +394,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Vitals"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countVitals"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronVitals"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -418,8 +418,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkBloodGlucose"
@@ -483,7 +483,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -491,7 +491,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerSleep"
@@ -515,22 +515,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Sleep"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countSleep"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronSleep"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -539,8 +539,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkSleepSession"
@@ -556,7 +556,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -564,7 +564,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerCycleTracking"
@@ -588,22 +588,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Cycle Tracking"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countCycleTracking"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronCycleTracking"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -612,8 +612,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkCervicalMucus"
@@ -665,7 +665,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -673,7 +673,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerNutrition"
@@ -697,22 +697,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Nutrition"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countNutrition"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronNutrition"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="\u25be"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -721,8 +721,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkHydration"
@@ -750,7 +750,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -758,7 +758,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <LinearLayout
                     android:id="@+id/headerWellness"
@@ -782,22 +782,22 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:text="Wellness"
-                        android:textSize="16sp"
+                        android:textAppearance="@style/Vitalix.Body"
                         android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/countWellness"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginEnd="8dp"
-                        android:textSize="13sp" />
+                        android:layout_marginEnd="@dimen/space_8"
+                        android:textAppearance="@style/Vitalix.Caption" />
 
                     <TextView
                         android:id="@+id/chevronWellness"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="▾"
-                        android:textSize="16sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
                 </LinearLayout>
 
                 <LinearLayout
@@ -806,8 +806,8 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:paddingStart="24dp"
-                    android:paddingEnd="24dp">
+                    android:paddingStart="@dimen/space_24"
+                    android:paddingEnd="@dimen/space_24">
 
                     <CheckBox
                         android:id="@+id/checkMindfulness"
@@ -823,7 +823,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -831,12 +831,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Options"
                     android:textStyle="bold" />
 
@@ -857,29 +857,29 @@
                     android:id="@+id/switchFullHistory"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="@dimen/space_12"
                     android:text="Full history (one-time backfill)" />
 
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="@dimen/space_4"
                     android:text="Ignores the day range and walks back until Health Connect runs out of data, uploading a slice at a time. Turns itself off once it finishes."
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
 
                 <com.google.android.material.switchmaterial.SwitchMaterial
                     android:id="@+id/switchSaferExport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="@dimen/space_12"
                     android:text="Safer export mode (slower)" />
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
+                    android:layout_marginTop="@dimen/space_4"
                     android:text="Reads in smaller chunks to avoid rate limits."
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -891,8 +891,8 @@
             android:id="@+id/txtStatus"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:layout_marginBottom="8dp"
+            android:layout_marginTop="@dimen/space_12"
+            android:layout_marginBottom="@dimen/space_8"
             android:text="Status: Idle"
             android:textAlignment="center" />
 
@@ -900,10 +900,10 @@
             android:id="@+id/txtLastSync"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             android:text="Last sync: Never"
             android:textAlignment="center"
-            android:textSize="12sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
 
 
@@ -921,9 +921,9 @@
         android:elevation="8dp"
         android:gravity="center"
         android:orientation="vertical"
-        android:paddingStart="16dp"
+        android:paddingStart="@dimen/space_16"
         android:paddingTop="10dp"
-        android:paddingEnd="16dp"
+        android:paddingEnd="@dimen/space_16"
         android:paddingBottom="10dp">
 
         <com.google.android.material.button.MaterialButton

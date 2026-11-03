@@ -1,0 +1,12 @@
+<resources>
+    <!-- Type scale. Page headings (24sp) and the brand mark (28sp) are set per screen. -->
+    <style name="Vitalix.Title" parent="TextAppearance.Material3.TitleLarge">
+        <item name="android:textSize">20sp</item>
+    </style>
+    <style name="Vitalix.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:textSize">15sp</item>
+    </style>
+    <style name="Vitalix.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textSize">12sp</item>
+    </style>
+</resources>

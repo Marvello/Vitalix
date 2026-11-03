@@ -9,12 +9,12 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="@dimen/space_16">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="4dp"
+            android:layout_marginBottom="@dimen/space_4"
             android:text="Settings"
             android:textSize="24sp"
             android:textStyle="bold" />
@@ -22,15 +22,15 @@
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             android:text="Where data is sent, and how often."
-            android:textSize="13sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
         <!-- Profile -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -38,20 +38,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
+                    android:layout_marginBottom="@dimen/space_12"
                     android:text="Profile"
-                    android:textSize="16sp"
+                    android:textAppearance="@style/Vitalix.Body"
                     android:textStyle="bold" />
 
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:hint="Name"
                     app:boxBackgroundMode="outline">
                     <com.google.android.material.textfield.TextInputEditText
@@ -64,7 +64,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:hint="Height (cm)"
                     app:boxBackgroundMode="outline"
                     app:suffixText="cm">
@@ -78,7 +78,7 @@
                 <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
+                    android:layout_marginBottom="@dimen/space_12"
                     android:hint="Weight (kg)"
                     app:boxBackgroundMode="outline"
                     app:suffixText="kg">
@@ -92,15 +92,15 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="BMI Scale"
-                    android:textSize="14sp" />
+                    android:textAppearance="@style/Vitalix.Body" />
 
                 <com.google.android.material.button.MaterialButtonToggleGroup
                     android:id="@+id/toggleBmiScale"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
+                    android:layout_marginBottom="@dimen/space_12"
                     app:singleSelection="true"
                     app:selectionRequired="true">
 
@@ -137,7 +137,7 @@
                     android:id="@+id/btnManualWeight"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
+                    android:layout_marginTop="@dimen/space_8"
                     android:text="Log weight manually"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
 
@@ -148,7 +148,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -156,12 +156,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Server"
                     android:textStyle="bold" />
 
@@ -178,7 +178,7 @@
                         android:layout_weight="1"
                         android:ellipsize="middle"
                         android:singleLine="true"
-                        android:textSize="14sp" />
+                        android:textAppearance="@style/Vitalix.Body" />
 
                     <Button
                         android:id="@+id/btnChangeServerUrl"
@@ -195,7 +195,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="@dimen/space_16"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -203,12 +203,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Auto-sync"
                     android:textStyle="bold" />
 
@@ -216,14 +216,14 @@
                     android:id="@+id/switchAutoSync"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Enable auto-sync" />
 
                 <TextView
                     android:id="@+id/txtAutoSyncState"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="12sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
@@ -232,7 +232,7 @@
             android:id="@+id/cardBattery"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/space_12"
             android:visibility="gone"
             app:cardBackgroundColor="?attr/colorErrorContainer">
 
@@ -240,12 +240,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Background sync at risk"
                     android:textColor="?attr/colorOnErrorContainer"
                     android:textStyle="bold" />
@@ -254,9 +254,9 @@
                     android:id="@+id/txtBatteryHint"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:textColor="?attr/colorOnErrorContainer"
-                    android:textSize="13sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
 
                 <Button
                     android:id="@+id/btnAllowBackground"
@@ -278,7 +278,7 @@
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="@dimen/space_12"
             app:cardCornerRadius="8dp"
             app:cardElevation="4dp">
 
@@ -286,12 +286,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="@dimen/space_16">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginBottom="8dp"
+                    android:layout_marginBottom="@dimen/space_8"
                     android:text="Account"
                     android:textStyle="bold" />
 
@@ -299,7 +299,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/account_export_hint"
-                    android:textSize="13sp" />
+                    android:textAppearance="@style/Vitalix.Caption" />
 
                 <Button
                     android:id="@+id/btnExportData"
@@ -323,10 +323,10 @@
             android:id="@+id/txtVersion"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="@dimen/space_24"
             android:gravity="center"
             android:textColor="?android:attr/textColorSecondary"
-            android:textSize="12sp" />
+            android:textAppearance="@style/Vitalix.Caption" />
 
     </LinearLayout>
 </ScrollView>
