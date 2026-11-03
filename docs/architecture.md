@@ -92,7 +92,7 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | Trigger | Window | Notes |
 |---------|--------|-------|
 | Manual | last *N* calendar days (form field, default 7) | |
-| Auto (`ExportWorker`), valid changes token | every local day an upserted record touches + yesterday + today, re-read in full; deletions sent as `deletedHcIds` | pages `getChanges` until `!hasMore` |
+| Auto (`ExportWorker`), valid changes token | every local day an upserted record touches + yesterday + today, re-read in full; deletions sent as `deletedHcIds` | pages `getChanges` until `!hasMore`; more than 31 changed days (`MAX_CHANGED_DAYS`) → window read since `lastSync` + fresh token, deletions still sent, SyncLog note "Older changes skipped — run Full history" |
 | Auto (`ExportWorker`), no valid token | back to the day of `lastSync`, minimum yesterday + today; takes a fresh token first | token missing/expired, `getChanges` failed, or granted types changed; Sync log shows *Sent · Full window*. Fails loudly if background read isn't granted |
 | Full history (`BackfillWorker`) | 30-day slices back to 10 years | retries throttled slices, then stops with a message |
 
@@ -201,7 +201,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 | `mapPayload.js` | Pure: payload JSON → row objects |
 | `persist.js` | One transaction per POST (see Ingest) |
 | `records.js` | Metric aggregation catalog, `/api/records` bucketing, per-source rollup |
-| `stats.js`, `chartData.js`, `dailyInsights.js`, `anomalies.js`, `digests.js`, `syncCheck.js` | Dashboard queries, chart series, AI cron, digest cron, stale-sync cron |
+| `stats.js`, `chartData.js`, `dailyInsights.js`, `anomalies.js`, `digests.js`, `push.js` (shared `pushToUser`: token lookup, multicast, dead-token prune, never throws), `syncCheck.js` | Dashboard queries, chart series, AI cron, digest cron, stale-sync cron |
 | `auth/*` | bcrypt passwords, JWT + hashed refresh/reset/invite tokens, `requireAuth`/`requireAdmin`, mailer |
 | `ai/*` | Prompt building, OpenAI-compatible client (120 s timeout), recommendation storage |
 | `firebase.js`, `zealot.js` | FCM sender; Zealot API (invite download link, update info) |
