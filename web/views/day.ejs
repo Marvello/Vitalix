@@ -68,7 +68,7 @@
     <thead><tr><th>Time</th><th>Kind</th><th>Value</th></tr></thead>
     <tbody>
     <% journal.forEach(function(j) { %>
-      <tr><td><%= j.logged_at.toISOString().slice(11, 16) %> UTC</td><td><%= j.kind %></td><td><%= j.value_text !== null ? j.value_text : j.value_num %></td></tr>
+      <tr><td><%= j.time %></td><td><%= j.kind %></td><td><%= j.value_text !== null ? j.value_text : j.value_num %></td></tr>
     <% }); %>
     </tbody>
   </table>

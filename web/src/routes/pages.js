@@ -91,10 +91,8 @@ const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   try {
     const days = RANGES[req.query.range] ? Number(req.query.range) : 30;
-    const to = new Date();
-    const from = new Date(to.getTime() - (days - 1) * 864e5);
-    const fromKey = toKey(from);
-    const toKeyStr = toKey(to);
+    const toKeyStr = todayIn(await userTimeZone(req.user.id));
+    const fromKey = shiftDay(toKeyStr, -(days - 1));
 
     const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user, savedLayout, bmiRows, bmiScale] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
@@ -492,12 +490,14 @@ pagesRouter.get("/insights/correlations", requireAuth, async (req, res) => {
   }
 });
 
-const JOURNAL_SQL = "SELECT kind, value_num, value_text, logged_at FROM journal_entries WHERE user_id = $1 AND day = $2 ORDER BY logged_at, id";
+// pg returns timestamptz as a string (db.js type parser), so format the local time in SQL.
+const JOURNAL_SQL = "SELECT kind, value_num, value_text, to_char(logged_at AT TIME ZONE $3, 'HH24:MI') AS time FROM journal_entries WHERE user_id = $1 AND day = $2 ORDER BY logged_at, id";
 
 pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
   try {
     // Default to the user's yesterday: insights exist only for days that have ended.
-    const today = todayIn(await userTimeZone(req.user.id));
+    const tz = await userTimeZone(req.user.id);
+    const today = todayIn(tz);
     const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day ?? "") ? req.query.day : shiftDay(today, -1);
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
     const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
@@ -510,7 +510,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       query("SELECT rule, value, baseline FROM anomaly_alerts WHERE user_id = $1 AND day = $2 ORDER BY id", [req.user.id, date]),
       query("SELECT period_start::text AS period_start, period_end::text AS period_end, text FROM ai_digests WHERE user_id = $1 AND kind = 'week' ORDER BY period_start DESC LIMIT 1", [req.user.id]),
       store.findUserById(req.user.id),
-      query(JOURNAL_SQL, [req.user.id, date]),
+      query(JOURNAL_SQL, [req.user.id, date, tz]),
     ]);
 
     const readiness = await readinessForDay(req.user.id, date);
@@ -560,11 +560,12 @@ pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
     const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
     if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
     const d = rows[0];
+    const tz = await userTimeZone(req.user.id);
     const [aggs, samples, ex, { rows: journal }] = await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
-      stats.dayReadings(req.user.id, req.params.date, await userTimeZone(req.user.id), { limit: 500 }),
+      stats.dayReadings(req.user.id, req.params.date, tz, { limit: 500 }),
       query("SELECT name,start_at,duration_minutes,source,detail FROM exercises WHERE day_id=$1", [d.id]),
-      query(JOURNAL_SQL, [req.user.id, req.params.date]),
+      query(JOURNAL_SQL, [req.user.id, req.params.date, tz]),
     ]);
     res.render("day", { day: d, aggregates: aggs.rows, samples, exercises: ex.rows, journal, date: req.params.date });
   } catch (err) {
