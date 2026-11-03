@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Docked action bar: stays put while the form scrolls beneath it. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/barSyncNow"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_gravity="bottom"
+    android:background="?attr/colorSurface"
+    android:elevation="8dp"
+    android:gravity="center"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/space_16"
+    android:paddingTop="10dp"
+    android:paddingEnd="@dimen/space_16"
+    android:paddingBottom="10dp">
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnSyncNow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:minWidth="220dp"
+        android:text="Sync now" />
+</LinearLayout>
