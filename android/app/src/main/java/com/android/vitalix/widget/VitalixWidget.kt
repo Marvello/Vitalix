@@ -31,10 +31,13 @@ class VitalixWidget : AppWidgetProvider() {
         fun build(context: Context): RemoteViews {
             val s = WidgetState.load(context)
             val v = RemoteViews(context.packageName, R.layout.widget_vitalix)
-            val status = WidgetState.statusLine(s).ifEmpty { context.getString(R.string.widget_no_sync) }
+            val empty = context.getString(R.string.widget_empty)
+            val status = WidgetState.statusLine(s, WidgetState.StatusText(
+                context.getString(R.string.widget_sent_at), context.getString(R.string.widget_partial_at),
+                context.getString(R.string.widget_failed_retry))).ifEmpty { context.getString(R.string.widget_no_sync) }
             v.setTextViewText(R.id.widget_status, status)
-            v.setTextViewText(R.id.widget_steps, s?.stepsToday?.let { NumberFormat.getIntegerInstance().format(it) } ?: "—")
-            v.setTextViewText(R.id.widget_sleep, WidgetState.sleepText(s?.sleepLastNightMin))
+            v.setTextViewText(R.id.widget_steps, s?.stepsToday?.let { NumberFormat.getIntegerInstance().format(it) } ?: empty)
+            v.setTextViewText(R.id.widget_sleep, WidgetState.sleepText(s?.sleepLastNightMin, context.getString(R.string.widget_sleep_value), empty))
             val insight = s?.insightReadyDay == LocalDate.now().minusDays(1).toString()
             v.setViewVisibility(R.id.widget_insight, if (insight) View.VISIBLE else View.GONE)
             v.setOnClickPendingIntent(R.id.widget_root, activity(context, 1, Intent(context, MainActivity::class.java)))

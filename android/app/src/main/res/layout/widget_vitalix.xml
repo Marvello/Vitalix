@@ -48,7 +48,7 @@
             android:id="@+id/widget_steps"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="—"
+            android:text="@string/widget_empty"
             android:textColor="@color/widget_text"
             android:textSize="18sp"
             android:textStyle="bold" />
@@ -67,7 +67,7 @@
             android:id="@+id/widget_sleep"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="—"
+            android:text="@string/widget_empty"
             android:textColor="@color/widget_text"
             android:textSize="18sp"
             android:textStyle="bold" />

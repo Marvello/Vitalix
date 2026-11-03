@@ -1,5 +1,6 @@
 package com.android.vitalix.widget
 
+import com.android.vitalix.SyncLog
 import com.android.vitalix.models.DailyHealthData
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -34,11 +35,20 @@ class WidgetStateTest {
 
     @Test fun textFormatting() {
         val at = java.time.Instant.parse("2026-11-03T14:05:00Z").toEpochMilli()
+        val t = WidgetState.StatusText("Sent · %1\$s", "Partial · %1\$s", "Failed (retry)")
         fun snap(st: String) = WidgetState.Snapshot(st, at, null, null, null)
-        assertEquals("Sent · 14:05", WidgetState.statusLine(snap("Sent"), ZoneOffset.UTC))
-        assertEquals("Partial · 14:05", WidgetState.statusLine(snap("Partial"), ZoneOffset.UTC))
-        assertEquals("Failed (retry)", WidgetState.statusLine(snap("Failed"), ZoneOffset.UTC))
-        assertEquals("7h 12m", WidgetState.sleepText(432))
-        assertEquals("—", WidgetState.sleepText(null))
+        assertEquals("Sent · 14:05", WidgetState.statusLine(snap("Sent"), t, ZoneOffset.UTC))
+        assertEquals("Partial · 14:05", WidgetState.statusLine(snap("Partial"), t, ZoneOffset.UTC))
+        assertEquals("Failed (retry)", WidgetState.statusLine(snap("Failed"), t, ZoneOffset.UTC))
+        assertEquals("", WidgetState.statusLine(null, t, ZoneOffset.UTC))
+        assertEquals("7h 12m", WidgetState.sleepText(432, "%1\$dh %2\$dm", "—"))
+        assertEquals("—", WidgetState.sleepText(null, "%1\$dh %2\$dm", "—"))
+    }
+
+    @Test fun statusOfMapsSyncOutcomes() {
+        assertEquals("Sent", WidgetState.statusOf(SyncLog.Status.SENT))
+        assertEquals("Partial", WidgetState.statusOf(SyncLog.Status.PARTIAL))
+        assertEquals("Failed", WidgetState.statusOf(SyncLog.Status.FAILED))
+        assertNull(WidgetState.statusOf(SyncLog.Status.RUNNING))
     }
 }

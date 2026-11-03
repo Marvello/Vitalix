@@ -1,6 +1,7 @@
 package com.android.vitalix.widget
 
 import android.content.Context
+import android.util.Log
 import com.android.vitalix.SyncLog
 import com.android.vitalix.models.DailyHealthData
 import java.time.Instant
@@ -57,8 +58,14 @@ object WidgetState {
         )
     }
 
+    private val LOCK = Any()
+
+    /** Entry points below never throw: a widget failure must not break a sync or a push. */
+    private fun safely(what: String, block: () -> Unit) =
+        runCatching { synchronized(LOCK) { block() } }.onFailure { Log.w("VitalixWidget", "$what failed", it) }
+
     /** After a successful read: new steps/sleep replace the old ones, status is set by the outcome. */
-    fun noteDays(ctx: Context, days: List<DailyHealthData>) {
+    fun noteDays(ctx: Context, days: List<DailyHealthData>) = safely("noteDays") {
         val fresh = fromDays(days, LocalDate.now(), "", 0L)
         val prev = load(ctx) ?: Snapshot("", 0L, null, null, null)
         save(ctx, prev.copy(
@@ -68,13 +75,13 @@ object WidgetState {
     }
 
     /** Records an outcome, keeping the last known steps/sleep, then redraws the widget. */
-    fun noteOutcome(ctx: Context, status: String) {
+    fun noteOutcome(ctx: Context, status: String) = safely("noteOutcome") {
         val prev = load(ctx)
         save(ctx, Snapshot(status, System.currentTimeMillis(), prev?.stepsToday, prev?.sleepLastNightMin, prev?.insightReadyDay))
         VitalixWidget.refresh(ctx)
     }
 
-    fun noteInsightReady(ctx: Context, day: String?) {
+    fun noteInsightReady(ctx: Context, day: String?) = safely("noteInsightReady") {
         val prev = load(ctx) ?: Snapshot("", 0L, null, null, null)
         save(ctx, prev.copy(insightReadyDay = day ?: LocalDate.now().minusDays(1).toString()))
         VitalixWidget.refresh(ctx)
@@ -90,12 +97,18 @@ object WidgetState {
 
     private val HHMM = DateTimeFormatter.ofPattern("HH:mm")
 
+    /** User-visible status templates (string resources); `%1$s` in the first two is HH:mm. */
+    data class StatusText(val sentAt: String, val partialAt: String, val failed: String)
+
     /** "Sent · 14:05", "Partial · 14:05", "Failed (retry)"; empty before the first sync. */
-    fun statusLine(s: Snapshot?, zone: ZoneId = ZoneId.systemDefault()): String = when {
+    fun statusLine(s: Snapshot?, t: StatusText, zone: ZoneId = ZoneId.systemDefault()): String = when {
         s == null || s.status.isEmpty() -> ""
-        s.status == "Failed" -> "Failed (retry)"
-        else -> "${s.status} · ${HHMM.format(Instant.ofEpochMilli(s.at).atZone(zone))}"
+        s.status == "Failed" -> t.failed
+        else -> (if (s.status == "Sent") t.sentAt else t.partialAt)
+            .format(HHMM.format(Instant.ofEpochMilli(s.at).atZone(zone)))
     }
 
-    fun sleepText(min: Int?): String = if (min == null) "—" else "${min / 60}h ${min % 60}m"
+    /** [fmt] takes hours then minutes, e.g. "%1$dh %2$dm"; [empty] when unknown. */
+    fun sleepText(min: Int?, fmt: String, empty: String): String =
+        if (min == null) empty else fmt.format(min / 60, min % 60)
 }
