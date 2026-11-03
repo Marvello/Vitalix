@@ -2,6 +2,7 @@ package com.android.vitalix
 
 import android.content.Context
 import android.os.Build
+import com.android.vitalix.widget.WidgetState
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
@@ -58,6 +59,7 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
                     // Only a clean, non-empty read moves the window forward: a
                     // throttled metric or an empty read gets re-read next run.
                     if (missed.isEmpty() && days.isNotEmpty()) settings.lastSync = System.currentTimeMillis()
+                    WidgetState.noteDays(applicationContext, days)
                     log.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,

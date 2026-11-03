@@ -79,4 +79,10 @@
     <string name="account_delete_confirm">Delete permanently</string>
     <string name="account_wrong_password">Wrong password</string>
     <string name="account_no_browser">No browser available to open the account page.</string>
+    <string name="widget_label">Vitalix</string>
+    <string name="widget_desc">Last sync, steps and sleep at a glance.</string>
+    <string name="widget_no_sync">Not synced yet</string>
+    <string name="widget_steps_label">steps</string>
+    <string name="widget_sleep_label">sleep</string>
+    <string name="widget_insight">Insight ready</string>
 </resources>

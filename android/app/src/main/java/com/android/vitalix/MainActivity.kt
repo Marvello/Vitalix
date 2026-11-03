@@ -22,7 +22,9 @@ import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.android.vitalix.auth.AuthClient
 import com.android.vitalix.auth.AuthStore
+import com.android.vitalix.models.DailyHealthData
 import com.android.vitalix.models.ExportConfig
+import com.android.vitalix.widget.WidgetState
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
@@ -681,8 +683,10 @@ class MainActivity : AppCompatActivity() {
             try {
                 healthConnectManager.setSaferExportMode(cfg.saferExportMode)
                 var daysSent = 0
+                var lastDays = emptyList<DailyHealthData>()
                 val result = withContext(Dispatchers.IO) {
                     val days = healthConnectManager.readHealthDataByDay(cfg)
+                    lastDays = days
                     daysSent = days.size
                     ServerForwarder.forwardChunked(
                         this@MainActivity, url, days,
@@ -706,6 +710,7 @@ class MainActivity : AppCompatActivity() {
                         settings.lastSync = System.currentTimeMillis()
                         updateLastSyncLabel()
                     }
+                    WidgetState.noteDays(this@MainActivity, lastDays)
                     syncLog.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,

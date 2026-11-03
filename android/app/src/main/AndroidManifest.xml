@@ -169,6 +169,18 @@
             android:theme="@style/Theme.Vitalix"
             android:windowSoftInputMode="adjustResize" />
 
+        <receiver
+            android:name=".widget.VitalixWidget"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_vitalix_info" />
+        </receiver>
+
         <service
             android:name=".VitalixFirebaseService"
             android:exported="false">

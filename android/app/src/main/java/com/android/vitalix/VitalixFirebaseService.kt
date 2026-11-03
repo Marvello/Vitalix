@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.android.vitalix.widget.WidgetState
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -25,6 +26,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         }
 
         if (data["type"] == "insight_ready") {
+            WidgetState.noteInsightReady(this, data["day"])
             showInsightNotification(data["day"])
             return
         }

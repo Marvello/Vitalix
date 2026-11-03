@@ -1,6 +1,7 @@
 package com.android.vitalix
 
 import android.content.Context
+import com.android.vitalix.widget.WidgetState
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -14,6 +15,8 @@ import java.time.ZoneId
  * and counts), so it stays outside the encrypted store.
  */
 class SyncLog(context: Context) {
+
+    private val appContext = context.applicationContext
 
     private val prefs = context.getSharedPreferences("vitalix_synclog", Context.MODE_PRIVATE)
 
@@ -62,18 +65,22 @@ class SyncLog(context: Context) {
         message: String? = null,
         from: String? = null,
         to: String? = null,
-    ) = synchronized(LOCK) {
-        write(entries().map { e ->
-            if (e.id != id) e
-            else e.copy(
-                finishedAt = System.currentTimeMillis(),
-                status = status,
-                days = days,
-                message = message,
-                from = from ?: e.from,
-                to = to ?: e.to,
-            )
-        })
+    ) {
+        synchronized(LOCK) {
+            write(entries().map { e ->
+                if (e.id != id) e
+                else e.copy(
+                    finishedAt = System.currentTimeMillis(),
+                    status = status,
+                    days = days,
+                    message = message,
+                    from = from ?: e.from,
+                    to = to ?: e.to,
+                )
+            })
+        }
+        // Every sync outcome (manual, auto, backfill) passes through here; mirror it on the widget.
+        WidgetState.statusOf(status)?.let { WidgetState.noteOutcome(appContext, it) }
     }
 
     /**
