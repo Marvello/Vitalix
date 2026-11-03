@@ -24,7 +24,7 @@ source of truth; update this doc when they change.
 | 015 | `records_identity_type` | `records` identity → `(user_id, type, start_at, hc_id)` |
 | 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
 | 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
-| 018 | `drop_samples` | drop `samples` (dashboard reads `records`). **Destructive: back up the DB before deploying.** |
+| 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`), then drops `samples`; back up first |
 
 ## Diagram
 

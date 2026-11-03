@@ -199,7 +199,7 @@ day detail, `/api/days/:date`, the sample count and the heart-rate split all rea
 it (`stats.dayReadings`, `readingDay` in `src/stats.js`). A reading's local day
 (user zone) is its `start_at`, except `sleepStage`, which belongs to the day its
 session ends, mirroring the phone's bucketing. The old `samples` table is gone
-(migration 018 — **back up the DB before deploying it**, it is a destructive drop).
+(migration 018 first copies sample-only readings into `records` as `legacy-sample:<id>`, then drops it — **back up the DB before deploying**).
 
 ### Endpoints
 
@@ -306,7 +306,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 
 ## 7. Known debt
 
-- Ingest tables are one `unnest` INSERT per day. Readings the phone sent without a Health Connect UID are no longer stored (`records` needs `hc_id`).
+- Ingest tables are one `unnest` INSERT per day. New readings without a Health Connect UID are not stored (`records` needs `hc_id`).
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
 - Sleep rows stored before the end-day fix have totals and stages on different

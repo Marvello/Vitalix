@@ -141,6 +141,31 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
     assert.deepEqual(Object.keys(r).sort(), ["end_at", "meta", "metric", "source", "start_at", "value_num", "value_secondary", "value_text"]);
   });
 
+  test("migration 018 copies sample-only readings into records, then drops samples", async () => {
+    const { readFileSync } = await import("node:fs");
+    const sql = readFileSync(new URL("../db/migrations/018_drop_samples.sql", import.meta.url), "utf8");
+    // migrate.js cannot stop at 017, so rebuild the pre-018 samples table and run the file directly.
+    await db.query(`CREATE TABLE samples (id bigserial PRIMARY KEY, day_id bigint NOT NULL REFERENCES health_days ON DELETE CASCADE,
+      metric text NOT NULL, start_at timestamptz NOT NULL, end_at timestamptz, value_num double precision,
+      value_secondary double precision, value_text text, source text, meta jsonb)`);
+    const { rows: [hd] } = await db.query(
+      "INSERT INTO health_days (user_id, day) VALUES ($1, '2020-01-01') RETURNING id", [userId]);
+    await db.query("INSERT INTO records (user_id, type, hc_id, start_at, value_num) VALUES ($1,'steps','m1','2020-01-01T08:00:00Z',5)", [userId]);
+    const { rows: ins } = await db.query(
+      `INSERT INTO samples (day_id, metric, start_at, end_at, value_num, source, meta) VALUES
+         ($1,'steps','2020-01-01T08:00:00Z',NULL,5,'pkg',NULL),
+         ($1,'weight','2020-01-01T09:00:00Z','2020-01-01T09:00:00Z',70.5,'pkg','{"a":1}') RETURNING id, metric`, [hd.id]);
+    const wid = ins.find((r) => r.metric === "weight").id;
+    await db.query(sql);
+    const { rows } = await db.query("SELECT type, hc_id, value_num, source, meta FROM records WHERE start_at::date = '2020-01-01' ORDER BY type");
+    assert.deepEqual(rows, [
+      { type: "steps", hc_id: "m1", value_num: 5, source: null, meta: null },
+      { type: "weight", hc_id: `legacy-sample:${wid}`, value_num: 70.5, source: "pkg", meta: { a: 1 } },
+    ]);
+    const { rows: t } = await db.query("SELECT to_regclass('samples') AS t");
+    assert.equal(t[0].t, null);
+  });
+
   test("requireAuth rejects a disabled user and takes role from the DB", async () => {
     const token = signAccess({ id: userId, role: "admin" }); // stale/forged role claim
     let res = await fetch(`${baseUrl}/api/me`, { headers: { Authorization: `Bearer ${token}` } });
