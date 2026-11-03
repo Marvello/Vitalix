@@ -97,3 +97,17 @@ test("todayIn follows the user's zone; shiftDay does calendar math", () => {
   assert.equal(todayIn("Not/AZone", now), "2026-10-05");
   assert.equal(shiftDay("2026-03-01", -1), "2026-02-28");
 });
+
+describe("buildPrompts readiness line", () => {
+  const base = { day: "2026-10-05", dayData: { steps: 1000 } };
+  test("adds the line, omitting missing parts", () => {
+    const { user } = buildPrompts({ ...base, readiness: { score: 72, parts: { hrv: 80, restingHr: 65, sleep: 70 } } });
+    assert.match(user, /^Readiness: 72\/100 \(HRV 80, resting HR 65, sleep 70\)$/m);
+    const two = buildPrompts({ ...base, readiness: { score: 60, parts: { hrv: 50, sleep: 100 } } }).user;
+    assert.match(two, /^Readiness: 60\/100 \(HRV 50, sleep 100\)$/m);
+  });
+  test("no line when readiness is null", () => {
+    assert.doesNotMatch(buildPrompts({ ...base, readiness: null }).user, /Readiness/);
+    assert.doesNotMatch(buildPrompts(base).user, /Readiness/);
+  });
+});

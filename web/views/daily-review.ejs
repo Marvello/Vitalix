@@ -94,6 +94,14 @@
       </div>
       <div class="metric-sub">7d avg: <%= baseline7d.resting_heart_rate ? Math.round(baseline7d.resting_heart_rate) + ' bpm' : '—' %></div>
     </div>
+
+    <% if (readiness) { %>
+    <div class="metric-box">
+      <div class="metric-title">Readiness</div>
+      <div class="metric-val"><%= readiness.score %> / 100</div>
+      <div class="metric-sub">vs your 28-day baseline</div>
+    </div>
+    <% } %>
   </div>
 </div>
 

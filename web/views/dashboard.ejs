@@ -197,6 +197,13 @@ body.editing .edit-controls{display:inline}
           <span><i style="background:#a78bfa"></i>REM</span>
           <span><i style="background:#cbd5e1"></i>Awake</span>
         </div>
+      <% } else if (card.key === 'readiness') { %>
+        <div class="bmi-value">
+          <span class="bmi-number"><%= cd.latest.score %></span>
+          <span class="bmi-trend">/ 100 on <%= cd.latest.day %> · <%= Object.entries(cd.latest.parts).map(function(e) { return ({hrv:'HRV',restingHr:'resting HR',sleep:'sleep'})[e[0]] + ' ' + e[1]; }).join(', ') %></span>
+        </div>
+        <div class="chart" id="chart-readiness"></div>
+        <div class="legend"><span><i style="background:#0FA9A0"></i>Readiness (vs your 28-day baseline)</span></div>
       <% } else if (card.key === 'hr_split') { %>
         <div class="chart" id="chart-hr-split"></div>
         <div class="legend">
@@ -741,6 +748,8 @@ function drawAll() {
     } else if (card.key === "sleep") {
       stackedChart("chart-sleep", cd.points, ["deep", "light", "rem", "awake"],
         ["#1e3a8a", "#3b82f6", "#a78bfa", "#cbd5e1"]);
+    } else if (card.key === "readiness") {
+      lineChart("chart-readiness", cd.points, null, 0);
     } else if (card.key === "hr_split") {
       splitBandChart("chart-hr-split", cd.points);
     } else if (card.type === "bmi") {

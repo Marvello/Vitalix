@@ -15,6 +15,8 @@ import { sendMail } from "../auth/mailer.js";
 import { resetEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 import { todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
+import { dailySeries, BASELINE_DAYS } from "../baseline.js";
+import { readinessSeries, readinessForDay } from "../readiness.js";
 
 const buildInfo = { version: config.buildVersion, date: config.buildDate };
 
@@ -131,6 +133,11 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
 
     const layoutMode = savedLayout ? "custom" : "default";
 
+    // Readiness is scored per day against the 28 days before it, so fetch that lead-in too.
+    const readinessRows = filterActive ? [] : readinessSeries(
+      await dailySeries(req.user.id, shiftDay(fromKey, -BASELINE_DAYS), toKeyStr), fromKey, toKeyStr);
+    const hasReadiness = readinessRows.length > 0;
+
     // Determine which special cards have data
     const hasSleep = !filterActive && rows.some((r) => r.sleep_duration_minutes != null);
     const hasHrSplit = !filterActive && hrRows.some((r) => r.scope === "active");
@@ -163,6 +170,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       if (bandKeysWithData.has(key)) return true;
       if (key === "sleep") return hasSleep;
       if (key === "hr_split") return hasHrSplit;
+      if (key === "readiness") return hasReadiness;
       if (key === "workouts") return hasWorkouts;
       if (key === "recent") return recent.length > 0;
       if (key === "bmi") return hasBmiCard;
@@ -179,6 +187,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       cardKeys = [
         ...shownDayMetrics.map((m) => m.column),
         ...(hasSleep ? ["sleep"] : []),
+        ...(hasReadiness ? ["readiness"] : []),
         ...(hasHrSplit ? ["hr_split"] : []),
         ...bandKeys.map((k) => `band:${k}`),
         ...(hasBmiCard ? ["bmi"] : []),
@@ -244,6 +253,13 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
     // Special charts
     if (hasSleep) {
       chartData.sleep = { points: sleepStages(rows, fromKey, toKeyStr) };
+    }
+    if (hasReadiness) {
+      chartData.readiness = {
+        key: "readiness",
+        points: fillDays(readinessRows.map((r) => ({ day: r.day, value: r.score })), fromKey, toKeyStr, "value"),
+        latest: readinessRows[readinessRows.length - 1],
+      };
     }
     if (hasHrSplit) {
       chartData.hr_split = { points: splitSeries(hrRows, fromKey, toKeyStr) };
@@ -450,6 +466,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       store.findUserById(req.user.id),
     ]);
 
+    const readiness = await readinessForDay(req.user.id, date);
     const dayData = todayRows[0] || {};
     const yesterdayData = yesterdayRows[0] || {};
     const recommendation = recRows[0] || null;
@@ -479,6 +496,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       dayData,
       deltas,
       baseline7d,
+      readiness,
       recommendation,
     });
   } catch (err) {

@@ -265,6 +265,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | Custom dashboard | `dashboard_layouts` | Add/remove/reorder cards |
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
 | Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
+| Readiness score | `readiness.js`, dashboard card, `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
 | In-app update | Zealot + FCM | Full-screen changelog (Android-only commits since the last release, built by the Fastfile), download, install |
 
@@ -286,6 +287,8 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
   cover < 80% of the night), workouts. `0`/null is "(not recorded)". The fixed
   system prompt forbids inventing data, reading calories burned as food, and
   diagnosis; output is 2–4 plain-text `- lead: sentence` lines.
+- **Readiness line**: when scorable, the prompt carries `Readiness: 72/100 (HRV 80, resting HR 65, sleep 70)`
+  (missing parts omitted; no line when `null`).
 - **Incomplete data**: if the day's last sync ran before local midnight or listed
   `failed_metrics`, the prompt is marked INCOMPLETE and a fixed "Data note" line
   is prepended to the stored text — not left to the model.

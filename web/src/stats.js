@@ -330,6 +330,7 @@ export const CARD_CATALOG = [
   { key: "energy_kcal",   label: "Energy",     category: "Nutrition", type: "bar"  },
   // Sleep & Recovery
   { key: "sleep",  label: "Sleep",  category: "Sleep & Recovery", type: "stacked" },
+  { key: "readiness", label: "Readiness", category: "Sleep & Recovery", type: "score" },
   // Workouts
   { key: "workouts",  label: "Workouts",                    category: "Workouts", type: "table" },
   { key: "hr_split",  label: "Heart rate — workout vs rest", category: "Workouts", type: "split_band" },

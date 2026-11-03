@@ -1,6 +1,7 @@
 import { query } from "../db.js";
 import { config } from "../config.js";
 import { generateCompletion } from "./llmClient.js";
+import { readinessForDay } from "../readiness.js";
 
 export const SYSTEM_PROMPT = [
   "You write a short daily health note for one person, from their own wearable data.",
@@ -79,7 +80,7 @@ export function coverageNote(coverage) {
  * coverage of its last sync → prompts. `hasData` false means there is nothing
  * worth sending to the model.
  */
-export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], coverage = null }) {
+export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], coverage = null, readiness = null }) {
   const note = coverageNote(coverage);
   const lines = [`Day: ${day} (${note ? "INCOMPLETE data" : "complete"})`];
   let hasData = false;
@@ -107,6 +108,11 @@ export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], 
     lines.push(line);
   }
 
+  if (readiness) {
+    const names = { hrv: "HRV", restingHr: "resting HR", sleep: "sleep" };
+    const parts = Object.entries(readiness.parts).map(([k, v]) => `${names[k]} ${v}`).join(", ");
+    lines.push(`Readiness: ${readiness.score}/100 (${parts})`);
+  }
   if (workouts.length) {
     hasData = true;
     lines.push(`Workouts: ${workouts.map((w) => `${w.name ?? "Workout"} ${hm(w.duration_minutes ?? 0)}`).join(", ")}`);
@@ -172,7 +178,7 @@ export async function generateRecommendation(userId, day) {
   const tz = await userTimeZone(userId);
   if (day >= todayIn(tz)) throw fail("DAY_INCOMPLETE", "Insights are generated for completed days only");
 
-  const [{ rows: dayRows }, { rows: pastDays }, { rows: workouts }, { rows: cov }] = await Promise.all([
+  const [{ rows: dayRows }, { rows: pastDays }, { rows: workouts }, { rows: cov }, readiness] = await Promise.all([
     query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [userId, day]),
     query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [userId, shiftDay(day, -7), day]),
     query(
@@ -190,13 +196,14 @@ export async function generateRecommendation(userId, day) {
        WHERE h.user_id = $1 AND h.day = $2`,
       [userId, day, tz],
     ),
+    readinessForDay(userId, day),
   ]);
 
   const coverage = cov[0]
     ? { partial: !!cov[0].partial, syncedThrough: cov[0].synced_through, failedMetrics: cov[0].failed_metrics ?? [] }
     : null;
   const dayData = dayRows[0] || {};
-  const { system, user, hasData, note } = buildPrompts({ day, dayData, pastDays, workouts, coverage });
+  const { system, user, hasData, note } = buildPrompts({ day, dayData, pastDays, workouts, coverage, readiness });
   if (!hasData) throw fail("NO_DATA", "No health data recorded for this day");
 
   const result = await generateCompletion(aiConfig, system, user);
