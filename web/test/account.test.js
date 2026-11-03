@@ -8,7 +8,25 @@ import { fileURLToPath } from "node:url";
 process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
 process.env.JWT_SECRET ??= "test-secret";
 const url = process.env.TEST_DATABASE_URL;
-const { csvField } = await import("../src/exportData.js");
+const { csvField, write, streamExport } = await import("../src/exportData.js");
+const { EventEmitter } = await import("node:events");
+
+test("write: a client that never drains is dropped after the timeout (response destroyed)", async () => {
+  const res = Object.assign(new EventEmitter(), {
+    destroyed: false, writableEnded: false,
+    write: () => false,
+    destroy() { this.destroyed = true; this.emit("close"); },
+  });
+  assert.equal(await write(res, "x", 20), false);
+  assert.equal(res.destroyed, true);
+  assert.equal(res.listenerCount("drain") + res.listenerCount("close"), 0, "listeners cleaned up");
+});
+
+test("write: drain before the timeout continues", async () => {
+  const res = Object.assign(new EventEmitter(), { destroyed: false, writableEnded: false, write: () => false, destroy() {} });
+  setTimeout(() => res.emit("drain"), 5);
+  assert.equal(await write(res, "x", 1000), true);
+});
 
 test("csvField quotes per RFC 4180 and neutralises formulas", () => {
   assert.equal(csvField(null), "");
@@ -107,6 +125,21 @@ describe("account export + deletion against Postgres", { skip: !url }, () => {
     assert.deepEqual(d.ai_recommendations.map((x) => x.recommendation_text), [`rec-u${A}`]);
     assert.deepEqual(d.ai_digests.map((x) => x.text), [`dig-u${A}`]);
     assert.deepEqual(d.anomaly_alerts.map((x) => x.rule), [`rule-u${A}`]);
+  });
+
+  test("streamExport holds no pooled connection while blocked on a stalled client", async () => {
+    const res = Object.assign(new EventEmitter(), {
+      destroyed: false, writableEnded: false,
+      write: () => false, // never drains
+      destroy() { this.destroyed = true; this.emit("close"); },
+    });
+    {
+      const p = streamExport(res, A, { drainTimeoutMs: 300 });
+      await new Promise((r) => setTimeout(r, 100)); // now parked on the drain wait
+      assert.equal(db.pool.totalCount - db.pool.idleCount, 0, "no client checked out during the wait");
+      assert.equal(await p, false);
+      assert.equal(res.destroyed, true);
+    }
   });
 
   test("export CSV: header + one row per day, own rows only", async () => {

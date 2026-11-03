@@ -1,6 +1,8 @@
-import { pool } from "./db.js";
+import { pool, query } from "./db.js";
 
 const PAGE = 5000;
+/** A client that stops reading for this long loses its export (response destroyed). */
+export const DRAIN_TIMEOUT_MS = 60_000;
 // Row -> JSON object, minus ownership/internal columns (ids that only matter to the server).
 const J = (alias, ...drop) => `to_jsonb(${alias})${drop.map((c) => ` - '${c}'`).join("")} AS j`;
 
@@ -19,16 +21,20 @@ const RECORDS_SQL = `SELECT ${J("t", "user_id")}, t.id AS _id FROM records t WHE
 // Order of keys in the output document.
 const ORDER = ["health_days", "day_aggregates", "records", "exercises", "journal", "ai_recommendations", "ai_digests", "anomaly_alerts"];
 
-/** res.write that honours backpressure; resolves false once the client is gone. */
-async function write(res, chunk) {
+/** res.write that honours backpressure; resolves false once the client is gone or stalls past `timeoutMs`. */
+export async function write(res, chunk, timeoutMs = DRAIN_TIMEOUT_MS) {
   if (res.destroyed || res.writableEnded) return false;
   if (res.write(chunk)) return true;
-  await new Promise((resolve) => {
-    const done = () => { res.off("drain", done); res.off("close", done); resolve(); };
-    res.once("drain", done);
-    res.once("close", done);
+  const drained = await new Promise((resolve) => {
+    const finish = (ok) => { clearTimeout(timer); res.off("drain", onDrain); res.off("close", onClose); resolve(ok); };
+    const onDrain = () => finish(true);
+    const onClose = () => finish(false);
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    res.once("drain", onDrain);
+    res.once("close", onClose);
   });
-  return !res.destroyed;
+  if (!drained) res.destroy();
+  return drained && !res.destroyed;
 }
 
 /**
@@ -36,38 +42,36 @@ async function write(res, chunk) {
  * rows are read; secrets (password hash, token hashes, fcm tokens) never are.
  * Returns false if the client disconnected before the end.
  */
-export async function streamExport(res, userId, { exportedAt = new Date() } = {}) {
-  const client = await pool.connect();
-  try {
-    const u = (await client.query(
-      "SELECT email, timezone, profile_height_m, bmi_scale FROM users WHERE id = $1", [userId])).rows[0];
-    const user = { email: u.email, timezone: u.timezone, profile: { height_m: u.profile_height_m, bmi_scale: u.bmi_scale } };
-    if (!await write(res, `{"exportedAt":${JSON.stringify(exportedAt.toISOString())},"user":${JSON.stringify(user)}`)) return false;
+export async function streamExport(res, userId, { exportedAt = new Date(), drainTimeoutMs = DRAIN_TIMEOUT_MS } = {}) {
+  // No held connection: each statement borrows from the pool and returns it before any
+  // write can block on a slow client (no transaction, so no snapshot is needed).
+  const send = (chunk) => write(res, chunk, drainTimeoutMs);
+  const u = (await query(
+    "SELECT email, timezone, profile_height_m, bmi_scale FROM users WHERE id = $1", [userId])).rows[0];
+  const user = { email: u.email, timezone: u.timezone, profile: { height_m: u.profile_height_m, bmi_scale: u.bmi_scale } };
+  if (!await send(`{"exportedAt":${JSON.stringify(exportedAt.toISOString())},"user":${JSON.stringify(user)}`)) return false;
 
-    for (const key of ORDER) {
-      if (!await write(res, `,${JSON.stringify(key)}:[`)) return false;
-      if (key === "records") {
-        let after = 0, first = true;
-        for (;;) {
-          const { rows } = await client.query(RECORDS_SQL, [userId, after]);
-          if (rows.length === 0) break;
-          const body = rows.map((r) => JSON.stringify(r.j)).join(",");
-          if (!await write(res, (first ? "" : ",") + body)) return false;
-          first = false;
-          after = rows[rows.length - 1]._id;
-          if (rows.length < PAGE) break;
-        }
-      } else {
-        const { rows } = await client.query(TABLES.find(([k]) => k === key)[1], [userId]);
-        if (!await write(res, rows.map((r) => JSON.stringify(r.j)).join(","))) return false;
+  for (const key of ORDER) {
+    if (!await send(`,${JSON.stringify(key)}:[`)) return false;
+    if (key === "records") {
+      let after = 0, first = true;
+      for (;;) {
+        const { rows } = await query(RECORDS_SQL, [userId, after]);
+        if (rows.length === 0) break;
+        const body = rows.map((r) => JSON.stringify(r.j)).join(",");
+        if (!await send((first ? "" : ",") + body)) return false;
+        first = false;
+        after = rows[rows.length - 1]._id;
+        if (rows.length < PAGE) break;
       }
-      if (!await write(res, "]")) return false;
+    } else {
+      const { rows } = await query(TABLES.find(([k]) => k === key)[1], [userId]);
+      if (!await send(rows.map((r) => JSON.stringify(r.j)).join(","))) return false;
     }
-    await write(res, "}");
-    return true;
-  } finally {
-    client.release();
+    if (!await send("]")) return false;
   }
+  await send("}");
+  return true;
 }
 
 /** RFC 4180 field; text starting with = + - @ (or tab/CR) is prefixed with ' against formula injection. */
