@@ -4,6 +4,7 @@ import { query } from "../db.js";
 import { config } from "../config.js";
 import { generateRecommendation, todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
 import { rateLimit } from "../rateLimit.js";
+import { DIGEST_KINDS } from "../ai/digest.js";
 
 export const aiRouter = Router();
 
@@ -50,4 +51,17 @@ aiRouter.get("/api/ai/recommendations/:day", requireAuth, async (req, res) => {
   );
   if (rows.length === 0) return res.status(404).json({ error: "not found" });
   res.json({ day: rows[0].day, text: rows[0].recommendation_text, created_at: rows[0].created_at });
+});
+
+// Latest stored weekly or monthly digest (app's digest_ready screen, /daily-review).
+aiRouter.get("/api/ai/digests/latest", requireAuth, async (req, res) => {
+  const kind = req.query.kind;
+  if (!DIGEST_KINDS.includes(kind)) return res.status(400).json({ error: "kind must be week or month" });
+  const { rows } = await query(
+    `SELECT period_start::text AS period_start, period_end::text AS period_end, text
+     FROM ai_digests WHERE user_id = $1 AND kind = $2 ORDER BY period_start DESC LIMIT 1`,
+    [req.user.id, kind],
+  );
+  if (rows.length === 0) return res.status(404).json({ error: "no digest yet" });
+  res.json({ kind, ...rows[0] });
 });

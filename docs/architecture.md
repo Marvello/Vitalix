@@ -23,7 +23,7 @@ Companion docs:
 │ ServerForwarder (JSON, chunks)│  Bearer JWT    │  Postgres 18                 │
 │ ExportWorker / Backfill / UI  │                │  EJS dashboard, admin, AI    │
 └───────────────────────────────┘ ◀───────────── └──────────────────────────────┘
-          ▲  FCM push (no_sync, insight_ready, anomaly, app_update) │
+          ▲  FCM push (no_sync, insight_ready, digest_ready, anomaly, app_update) │
           └──────────────── Firebase ◀──────────────────────┘
                      Zealot (APK hosting) ──webhook──▶ /api/webhooks/zealot
 ```
@@ -36,7 +36,9 @@ Deployment: one receiver replica + Postgres on the homelab k3s cluster behind
 cloudflared (`common-tech/homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
 CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05, which also runs the anomaly check — append
 ` ; curl -fsS --max-time 880 -X POST http://vitalix-app:3000/api/admin/run-anomaly-check -H "x-cron-token: $CRON_SECRET"`
-to the folded `>-` command after the insights curl; `;` rather than `&&` so the anomaly check still runs if insights fails); `web/docker-compose.yml` is
+to the folded `>-` command after the insights curl; `;` rather than `&&` so the anomaly check still runs if insights fails). The same `:05` job also runs the digests — append
+` ; curl -fsS --max-time 880 -X POST http://vitalix-app:3000/api/admin/run-digests -H "x-cron-token: $CRON_SECRET"`
+after the anomaly curl (hourly is right: each run only picks users past 08:00 local on their Monday / 1st with no digest row yet); `web/docker-compose.yml` is
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
 
@@ -177,7 +179,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 | `mapPayload.js` | Pure: payload JSON → row objects |
 | `persist.js` | One transaction per POST (see Ingest) |
 | `records.js` | Metric aggregation catalog, `/api/records` bucketing, per-source rollup |
-| `stats.js`, `chartData.js`, `dailyInsights.js`, `anomalies.js`, `syncCheck.js` | Dashboard queries, chart series, AI cron, stale-sync cron |
+| `stats.js`, `chartData.js`, `dailyInsights.js`, `anomalies.js`, `digests.js`, `syncCheck.js` | Dashboard queries, chart series, AI cron, digest cron, stale-sync cron |
 | `auth/*` | bcrypt passwords, JWT + hashed refresh/reset/invite tokens, `requireAuth`/`requireAdmin`, mailer |
 | `ai/*` | Prompt building, OpenAI-compatible client (120 s timeout), recommendation storage |
 | `firebase.js`, `zealot.js` | FCM sender; Zealot API (invite download link, update info) |
@@ -217,10 +219,12 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | GET | `/dashboard`, `/dashboard/:date`, `/daily-review` | user (cookie) | Charts, day detail, daily review + AI insight |
 | POST/PUT/DELETE | `/dashboard/layout…` | user | Custom card order |
 | GET/POST | `/api/ai/recommendations…` | user | Latest / by day / generate (rate limited) |
+| GET | `/api/ai/digests/latest?kind=week\|month` | user | Latest weekly / monthly digest `{kind, period_start, period_end, text}`; 400 on another kind, 404 if none (§5b) |
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
 | POST | `/api/admin/run-anomaly-check` | `x-cron-token` | Hourly cron (same `:05` job): personal-baseline alerts for each user's local yesterday after 08:00 local (§5), stored in `anomaly_alerts`, push `anomaly` once per (user, day, rule) |
+| POST | `/api/admin/run-digests` | `x-cron-token` | Hourly cron (same `:05` job): weekly digest on the user's local Monday, monthly on the 1st, after 08:00 local (§5b), stored in `ai_digests`, push `digest_ready` once per (user, kind, period) |
 | POST | `/api/admin/run-daily-insights` | `x-cron-token` | Hourly cron: per-user insight after 08:00 local (§5a), push `insight_ready` |
 | POST | `/api/webhooks/zealot` | `?token=` (Zealot can't send headers) | New build → push `app_update` to `app-updates-beta` / `app-updates` by `release_type` |
 
@@ -297,6 +301,30 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
   `failed_metrics`, the prompt is marked INCOMPLETE and a fixed "Data note" line
   is prepended to the stored text — not left to the model.
 - Output is cleaned (headings, bold, emoji) before storing; temperature 0.3.
+
+### 5b. Digests
+
+- **Periods** (`ai/digest.js`, `periodFor` / `isDue`, string/UTC date math on the
+  user's local date, so a Jakarta Monday is a Monday even while UTC is Sunday):
+  week = the previous Mon–Sun, due when the local date is a Monday; month = the
+  previous calendar month, due on the 1st. The previous period for comparison is
+  the same-length period right before it.
+- **When it runs**: the `:05` CronJob also calls `POST /api/admin/run-digests`
+  (`digests.js`). A user is picked once past **08:00 local** (`GENERATE_HOUR`) when
+  `isDue` and no `ai_digests` row exists for `(user, kind, period_start)`. The
+  unique key makes hourly re-runs free: no second LLM call, no second push. The
+  push (`{type: digest_ready, kind, start}`) is sent only after a successful
+  generate; `AI_UNCONFIGURED` stops the run, `NO_DATA` skips the user.
+- **Prompt** (`buildDigestPrompts`, pure): per metric (resting HR, HRV, sleep,
+  steps, active kcal, readiness) the period average, previous-period average, %
+  change (omitted when the previous average is missing or 0) and "N of M days
+  recorded"; best and worst day by readiness; workout count and minutes. Same
+  no-invented-data / no-diagnosis rules as the daily note (shared in
+  `SHARED_RULES`); output is 3–5 `- lead: sentence` lines.
+- **Surfaces**: `GET /api/ai/digests/latest?kind=` serves the newest row;
+  `/daily-review` shows the latest weekly digest; the app's push opens
+  `InsightActivity` with a `digestKind` extra (title "Week of <start>" /
+  "<Month YYYY>"), notification on the `insights` channel.
 
 ---
 

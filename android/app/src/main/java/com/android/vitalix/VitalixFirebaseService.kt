@@ -29,6 +29,11 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             return
         }
 
+        if (data["type"] == "digest_ready") {
+            showDigestNotification(data["kind"])
+            return
+        }
+
         if (data["type"] == "anomaly") {
             showAnomalyNotification(data["day"], data["rule"], data["value"], data["baseline"])
             return
@@ -126,6 +131,30 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         getSystemService(NotificationManager::class.java).notify(INSIGHT_NOTIFICATION_ID, notification)
     }
 
+    private fun showDigestNotification(kind: String?) {
+        val title = digestTitle(kind) ?: return // unknown kind: stay silent
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        val pending = PendingIntent.getActivity(
+            this, 0,
+            InsightActivity.intent(this, digestKind = kind).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, INSIGHTS_CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_menu_info_details)
+            .setContentTitle(title)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        // Own id per kind so a weekly and a monthly summary don't replace each other or the daily insight.
+        getSystemService(NotificationManager::class.java).notify(DIGEST_NOTIFICATION_BASE + if (kind == "month") 1 else 0, notification)
+    }
+
     private fun showAnomalyNotification(day: String?, rule: String?, value: String?, baseline: String?) {
         val body = anomalyText(rule, value, baseline) ?: return // unknown rule: stay silent
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -157,6 +186,13 @@ class VitalixFirebaseService : FirebaseMessagingService() {
     }
 
     companion object {
+        /** Push `kind` -> notification title; null for an unknown kind. */
+        fun digestTitle(kind: String?): String? = when (kind) {
+            "week" -> "Your weekly summary is ready"
+            "month" -> "Your monthly summary is ready"
+            else -> null
+        }
+
         /** Rule + push values -> (string resource, format args); null for an unknown rule. */
         fun anomalyCopy(rule: String?, value: String, baseline: String): Pair<Int, List<String>>? = when (rule) {
             "rhr_up" -> R.string.alert_rhr_up to listOf(value, baseline)
@@ -167,6 +203,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         }
 
         private const val ANOMALY_NOTIFICATION_BASE = 4400
+        private const val DIGEST_NOTIFICATION_BASE = 4310
         private const val ALERTS_CHANNEL = "alerts"
         private const val TAG = "VitalixFCM"
         private const val NOTIFICATION_ID = 4300

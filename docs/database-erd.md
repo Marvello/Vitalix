@@ -26,6 +26,7 @@ source of truth; update this doc when they change.
 | 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
 | 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`), then drops `samples`; back up first |
 | 019 | `anomaly_alerts` | personal-baseline anomaly alerts, unique `(user_id, day, rule)` |
+| 020 | `ai_digests` | weekly / monthly AI digests, unique `(user_id, kind, period_start)` |
 
 ## Diagram
 
@@ -42,6 +43,7 @@ erDiagram
     users ||--o{ fcm_tokens : "has"
     users ||--o{ ai_recommendations : "has"
     users ||--o{ anomaly_alerts : "has"
+    users ||--o{ ai_digests : "has"
 
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
@@ -205,6 +207,21 @@ erDiagram
         double baseline "NULL for spo2_low, bp_high"
         timestamptz created_at
     }
+
+    ai_digests {
+        bigserial id PK
+        bigint user_id FK "CASCADE"
+        text kind "week | month, UK(user_id, kind, period_start)"
+        date period_start
+        date period_end
+        text text
+        jsonb metrics_snapshot
+        text provider
+        text model
+        integer prompt_tokens
+        integer completion_tokens
+        timestamptz created_at
+    }
 ```
 
 ## Table reference
@@ -275,6 +292,12 @@ Written by `/api/ai/recommendations/generate` and the daily-insights cron.
 One row per `(user_id, day, rule)` raised by the anomaly cron (`rhr_up`, `hrv_drop`,
 `spo2_low`, `bp_high`). The unique key is the push dedup (`ON CONFLICT DO NOTHING
 RETURNING id`); `baseline` is NULL for the fixed-threshold rules.
+
+### `ai_digests`
+One weekly (previous Mon–Sun) or monthly (previous calendar month) digest per
+`(user_id, kind, period_start)`: LLM text, the prompt it was built from in
+`metrics_snapshot`, provider/model, token counts. The unique key is the cron's
+dedup (one generate, one `digest_ready` push per period). Written by `digests.js`.
 
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern

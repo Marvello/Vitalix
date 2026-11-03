@@ -458,12 +458,13 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
     const from7d = toKey(new Date(new Date(date).getTime() - 7 * 864e5));
 
-    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }, { rows: alerts }, user] = await Promise.all([
+    const [{ rows: todayRows }, { rows: yesterdayRows }, { rows: past7dRows }, { rows: recRows }, { rows: alerts }, { rows: digestRows }, user] = await Promise.all([
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, date]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, yesterdayDate]),
       query("SELECT * FROM health_days WHERE user_id = $1 AND day >= $2 AND day < $3", [req.user.id, from7d, date]),
       query("SELECT * FROM ai_recommendations WHERE user_id = $1 AND day = $2", [req.user.id, date]).catch(() => ({ rows: [] })),
       query("SELECT rule, value, baseline FROM anomaly_alerts WHERE user_id = $1 AND day = $2 ORDER BY id", [req.user.id, date]),
+      query("SELECT period_start::text AS period_start, period_end::text AS period_end, text FROM ai_digests WHERE user_id = $1 AND kind = 'week' ORDER BY period_start DESC LIMIT 1", [req.user.id]),
       store.findUserById(req.user.id),
     ]);
 
@@ -500,6 +501,7 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
       readiness,
       recommendation,
       alerts,
+      digest: digestRows[0] || null,
     });
   } catch (err) {
     console.error("GET /daily-review failed", err);

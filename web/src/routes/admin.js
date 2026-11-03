@@ -8,6 +8,7 @@ import { getInstallUrl } from "../zealot.js";
 import { runSyncCheck } from "../syncCheck.js";
 import { runDailyInsights } from "../dailyInsights.js";
 import { runAnomalyCheck } from "../anomalies.js";
+import { runDigests } from "../digests.js";
 
 export const adminRouter = Router();
 
@@ -35,6 +36,19 @@ adminRouter.post("/api/admin/run-anomaly-check", async (req, res) => {
   } catch (e) {
     console.error("anomaly check failed", e.message);
     res.status(500).json({ error: "anomaly check failed" });
+  }
+});
+
+// Hourly cron: weekly (Monday) and monthly (1st) AI digests for users past 08:00 local.
+adminRouter.post("/api/admin/run-digests", async (req, res) => {
+  if (!config.cronSecret || req.headers["x-cron-token"] !== config.cronSecret) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  try {
+    res.json(await runDigests());
+  } catch (e) {
+    console.error("digests failed", e.message);
+    res.status(500).json({ error: "digests failed" });
   }
 });
 
