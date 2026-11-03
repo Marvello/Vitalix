@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vitalix — Correlations</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.preset-list{list-style:none;padding:0;margin:0}
+.preset-list li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+.preset-list .stat{color:var(--muted);white-space:nowrap}
+.scatter{width:100%;height:auto;max-width:640px}
+.scatter text{fill:var(--muted);font-size:11px}
+.range a{margin-right:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="topbar">
+  <div>
+    <h1>Vitalix</h1>
+    <p class="sub"><%= email || "Signed in" %></p>
+  </div>
+  <nav>
+    <a href="/dashboard">Dashboard</a>
+    <a href="/daily-review">Daily Review</a>
+    <a href="/insights/correlations">Correlations</a>
+    <% if (userRole === "admin") { %><a href="/admin">Admin</a><% } %>
+    <form method="post" action="/logout"><button type="submit">Log out</button></form>
+  </nav>
+</div>
+
+<h2>Correlations</h2>
+<p class="range">Window:
+  <% [30, 90, 180].forEach(function (d) { %>
+    <a href="?x=<%= encodeURIComponent(sel.x) %>&y=<%= encodeURIComponent(sel.y) %>&lag=<%= sel.lag %>&days=<%= d %>"><%= d === days ? "[" + d + " days]" : d + " days" %></a>
+  <% }) %>
+</p>
+
+<div class="card">
+  <ul class="preset-list">
+    <% presets.forEach(function (p) { %>
+    <li>
+      <a href="?x=<%= encodeURIComponent(p.x) %>&y=<%= encodeURIComponent(p.y) %>&lag=<%= p.lag %>&days=<%= days %>"><%= p.label %></a>
+      <span class="stat"><%= p.r == null ? "not enough data" : "r " + p.r.toFixed(2) + " · n " + p.n %></span>
+    </li>
+    <% }) %>
+  </ul>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <h3><%= label %></h3>
+  <% if (r == null) { %>
+    <p>Not enough data: needs at least 10 paired days with variation (have <%= n %>).</p>
+  <% } else { %>
+    <p>r <%= r.toFixed(2) %> over <%= n %> days: <b><%= strengthLabel %></b> relationship.</p>
+  <% } %>
+  <%
+    var W = 640, H = 360, L = 48, B = 32, T = 12, R = 12;
+    var xs = points.map(function (p) { return p[0]; }), ys = points.map(function (p) { return p[1]; });
+    var x0 = Math.min.apply(null, xs), x1 = Math.max.apply(null, xs), y0 = Math.min.apply(null, ys), y1 = Math.max.apply(null, ys);
+    var sx = function (v) { return L + (x1 === x0 ? 0.5 : (v - x0) / (x1 - x0)) * (W - L - R); };
+    var sy = function (v) { return H - B - (y1 === y0 ? 0.5 : (v - y0) / (y1 - y0)) * (H - B - T); };
+    var fmt = function (v) { return Math.round(v * 10) / 10; };
+  %>
+  <% if (points.length) { %>
+  <svg class="scatter" viewBox="0 0 <%= W %> <%= H %>" role="img" aria-label="Scatter of <%= label %>">
+    <line x1="<%= L %>" y1="<%= H - B %>" x2="<%= W - R %>" y2="<%= H - B %>" stroke="currentColor" opacity=".3"/>
+    <line x1="<%= L %>" y1="<%= T %>" x2="<%= L %>" y2="<%= H - B %>" stroke="currentColor" opacity=".3"/>
+    <text x="<%= L %>" y="<%= H - 14 %>"><%= fmt(x0) %></text>
+    <text x="<%= W - R %>" y="<%= H - 14 %>" text-anchor="end"><%= fmt(x1) %></text>
+    <text x="<%= L - 6 %>" y="<%= H - B %>" text-anchor="end"><%= fmt(y0) %></text>
+    <text x="<%= L - 6 %>" y="<%= T + 10 %>" text-anchor="end"><%= fmt(y1) %></text>
+    <text x="<%= (L + W - R) / 2 %>" y="<%= H - 2 %>" text-anchor="middle"><%= sel.x %></text>
+    <% points.forEach(function (p) { %>
+    <circle cx="<%= sx(p[0]).toFixed(1) %>" cy="<%= sy(p[1]).toFixed(1) %>" r="3.5" fill="#0FA9A0" fill-opacity=".7"><title><%= fmt(p[0]) %>, <%= fmt(p[1]) %></title></circle>
+    <% }) %>
+  </svg>
+  <% } %>
+  <p class="sub">Correlation, not cause.</p>
+</div>
+</div>
+</body>
+</html>

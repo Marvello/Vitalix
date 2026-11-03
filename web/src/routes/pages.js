@@ -16,6 +16,7 @@ import { resetEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
 import { todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
 import { dailySeries, BASELINE_DAYS } from "../baseline.js";
+import { PRESETS, METRICS, pairSeries, pearson, strength } from "../correlate.js";
 import { readinessSeries, readinessForDay } from "../readiness.js";
 
 const buildInfo = { version: config.buildVersion, date: config.buildDate };
@@ -457,6 +458,37 @@ pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
   } catch (err) {
     console.error("DELETE /dashboard/layout failed", err);
     res.status(500).json({ error: "reset failed" });
+  }
+});
+
+pagesRouter.get("/insights/correlations", requireAuth, async (req, res) => {
+  const { x, y, lag, days } = req.query;
+  const bad = (v) => v !== undefined && typeof v !== "string";
+  if ([x, y, lag, days].some(bad) || (x === undefined) !== (y === undefined)) return res.status(400).send("Bad query");
+  const sel = x === undefined ? { x: PRESETS[0].x, y: PRESETS[0].y, lag: PRESETS[0].lag } : { x, y, lag: Number(lag ?? 1) };
+  const nDays = Number(days ?? 90);
+  if (!METRICS.includes(sel.x) || !METRICS.includes(sel.y) || ![0, 1].includes(sel.lag) || ![30, 90, 180].includes(nDays))
+    return res.status(400).send("Bad query");
+  try {
+    // to = today is enough for lag 1: the last x day (today - 1) pairs with today; today itself has no later y.
+    const today = todayIn(await userTimeZone(req.user.id));
+    const rows = await dailySeries(req.user.id, shiftDay(today, 1 - nDays), today);
+    const stat = (p) => {
+      const pairs = pairSeries(rows, p.x, p.y, p.lag);
+      return { pairs, res: pearson(pairs.map((q) => q[0]), pairs.map((q) => q[1])) };
+    };
+    const presets = PRESETS.map((p) => ({ ...p, ...stat(p).res }));
+    const cur = stat(sel);
+    const points = cur.pairs.filter(([a, b]) => Number.isFinite(a) && Number.isFinite(b));
+    const user = await store.findUserById(req.user.id);
+    res.render("correlations", {
+      email: user?.email, userRole: user?.role, presets, sel, days: nDays, points,
+      label: PRESETS.find((p) => p.x === sel.x && p.y === sel.y && p.lag === sel.lag)?.label || `${sel.x} → ${sel.y}`,
+      r: cur.res?.r ?? null, n: cur.res?.n ?? points.length, strengthLabel: cur.res ? strength(cur.res.r) : null,
+    });
+  } catch (err) {
+    console.error("GET /insights/correlations failed", err);
+    res.status(500).redirect("/dashboard");
   }
 });
 
