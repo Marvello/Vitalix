@@ -52,7 +52,7 @@ test("hour bucket groups with date_trunc and aggregates", () => {
 test("types filter is parameterized when provided", () => {
   const q = buildRecordsQuery({ userId: 1, from: "a", to: "b", bucket: "day", types: ["steps", "heartRate"] });
   assert.match(q.text, /type = ANY/);
-  assert.deepEqual(q.values.at(-1), ["steps", "heartRate"]);
+  assert.deepEqual(q.values[3], ["steps", "heartRate"]);
 });
 
 test("bucketed query also aggregates value_secondary (bloodPressure diastolic)", () => {
@@ -125,4 +125,20 @@ test("rollupSourceMetrics skips text metrics and null values, coalesces null sou
   assert.equal(rows.length, 1);
   assert.equal(rows[0].source, "(unknown)");
   assert.equal(rows[0].value_num, 10);
+});
+
+test("day bucket truncates in the user's zone", () => {
+  for (const bucket of ["minute", "hour", "day"]) {
+    const q = buildRecordsQuery({ userId: 1, from: "2026-07-01", to: "2026-07-31", bucket, tz: "Asia/Jakarta" });
+    assert.match(q.text, new RegExp(`date_trunc\\('${bucket}', start_at AT TIME ZONE \\$\\d\\)`));
+    assert.ok(q.values.includes("Asia/Jakarta"));
+  }
+  const raw = buildRecordsQuery({ userId: 1, from: "a", to: "b", bucket: "raw", tz: "Asia/Jakarta" });
+  assert.doesNotMatch(raw.text, /AT TIME ZONE/);
+  assert.ok(!raw.values.includes("Asia/Jakarta"));
+});
+
+test("tz defaults to UTC", () => {
+  const q = buildRecordsQuery({ userId: 1, from: "a", to: "b", bucket: "day" });
+  assert.ok(q.values.includes("UTC"));
 });

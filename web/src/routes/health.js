@@ -3,6 +3,7 @@ import { requireAuth } from "../auth/middleware.js";
 import { mapPayload, PAYLOAD_SCHEMA_VERSION } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
+import { userTimeZone } from "../ai/recommendations.js";
 import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../records.js";
 
 export const router = Router();
@@ -92,7 +93,8 @@ router.get("/api/records", requireAuth, async (req, res) => {
   const types = typeof req.query.types === "string" && req.query.types.length
     ? req.query.types.split(",") : null;
   try {
-    const q = buildRecordsQuery({ userId: req.user.id, from, to, types, bucket });
+    const tz = await userTimeZone(req.user.id);
+    const q = buildRecordsQuery({ userId: req.user.id, from, to, types, bucket, tz });
     const { rows } = await query(q.text, q.values);
     res.json(bucket === "raw" ? { bucket, rows, truncated: rows.length === RAW_LIMIT }
                               : { bucket, rows: rows.map(shapeBucketRow) });

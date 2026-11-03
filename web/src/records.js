@@ -29,10 +29,11 @@ export const BUCKETS = new Set(["raw", "minute", "hour", "day", "week"]);
 export const RAW_LIMIT = 5000;
 
 /**
- * Builds a parameterized query for GET /api/records.
+ * Builds a parameterized query for GET /api/records. Buckets are cut in `tz`
+ * (IANA name, the user's local day); `raw` rows are ungrouped and ignore it.
  * @returns {{ text: string, values: any[] }}
  */
-export function buildRecordsQuery({ userId, from, to, types, bucket }) {
+export function buildRecordsQuery({ userId, from, to, types, bucket, tz = "UTC" }) {
   if (!BUCKETS.has(bucket)) throw new Error(`invalid bucket: ${bucket}`);
   const values = [userId, from, to];
   let typeClause = "";
@@ -50,9 +51,12 @@ export function buildRecordsQuery({ userId, from, to, types, bucket }) {
     };
   }
   // date_trunc unit is from the validated allowlist above, never user text.
+  // The zone is a bind parameter; bucket_start is a local (zone-less) timestamp.
+  values.push(tz);
+  const zone = `$${values.length}`;
   return {
     text: `SELECT type,
-                  date_trunc('${bucket}', start_at) AS bucket_start,
+                  date_trunc('${bucket}', start_at AT TIME ZONE ${zone}) AS bucket_start,
                   count(*)::int AS count,
                   sum(value_num) AS sum,
                   min(value_num) AS min,

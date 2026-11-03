@@ -303,8 +303,6 @@ older day-scoped copy kept for the current dashboard queries.
 - `samples` duplicates `records`; ingest is one INSERT per row.
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
-- `/api/records` buckets by UTC day while `health_days` uses the phone's local date
-  (`users.timezone` now exists to fix this).
 - Sleep rows stored before the end-day fix have totals and stages on different
   days until a full-history backfill re-sends them.
 - Android lint reports RestrictedApi uses of Health Connect's `*_INT_TO_STRING_MAP`.
