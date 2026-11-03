@@ -102,6 +102,11 @@ describe("journal routes against Postgres", { skip: !url }, () => {
     assert.equal((await call(tokA, "GET", "/api/journal?from=bad")).status, 400);
   });
 
+  test("array query params are 400, not 500", async () => {
+    assert.equal((await call(tokA, "GET", "/api/journal?from=2026-11-03&from=2026-11-04")).status, 400);
+    assert.equal((await call(tokA, "GET", "/api/journal?from=2026-11-03&to=2026-11-03&to=2026-11-04")).status, 400);
+  });
+
   test("Jakarta 18:30Z lands on next local day in the DB", async () => {
     const r = await call(tokA, "POST", "/api/journal", { kind: "note", value_text: "late", logged_at: "2026-11-03T18:30:00Z" });
     assert.equal((await r.json()).day, "2026-11-04");

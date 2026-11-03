@@ -15,7 +15,7 @@ const COLS = "id, day::text AS day, kind, value_num, value_text, logged_at";
 journalRouter.get("/api/journal", requireAuth, async (req, res) => {
   const today = todayIn(await userTimeZone(req.user.id));
   const { from = today, to = from } = req.query;
-  if (!DAY.test(from) || !DAY.test(to)) return res.status(400).json({ error: "from/to must be YYYY-MM-DD" });
+  if (typeof from !== "string" || typeof to !== "string" || !DAY.test(from) || !DAY.test(to)) return res.status(400).json({ error: "from/to must be YYYY-MM-DD" });
   const { rows } = await query(
     `SELECT ${COLS} FROM journal_entries WHERE user_id = $1 AND day BETWEEN $2 AND $3 ORDER BY logged_at, id`,
     [req.user.id, from, to],
