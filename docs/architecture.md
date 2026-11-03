@@ -302,7 +302,7 @@ older day-scoped copy kept for the current dashboard queries.
 
 ## 7. Known debt
 
-- `samples` duplicates `records`; ingest is one INSERT per row.
+- `samples` duplicates `records`; `samples` ingest is still one INSERT per row (table is dropped in a later task); the other ingest tables are one `unnest` INSERT per day.
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
 - Sleep rows stored before the end-day fix have totals and stages on different
