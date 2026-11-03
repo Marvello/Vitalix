@@ -5,5 +5,23 @@
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/pulse_green</item>
         <item name="colorOnSecondary">@color/black</item>
+        <item name="android:colorBackground">@color/bg_app</item>
+        <item name="colorSurface">@color/bg_surface</item>
+        <item name="colorOnBackground">@color/text_primary</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorOutline">@color/outline_subtle</item>
+        <item name="colorOutlineVariant">@color/outline_subtle</item>
+        <item name="colorPrimaryContainer">#FF0B4F4B</item>
+        <item name="colorOnPrimaryContainer">#FFB8F0EB</item>
+        <item name="colorError">@color/error_red</item>
+        <item name="colorErrorContainer">#FF4A1F24</item>
+        <item name="colorOnErrorContainer">#FFFFDAD6</item>
+        <item name="colorSurfaceContainerLowest">@color/bg_app</item>
+        <item name="colorSurfaceContainerLow">@color/bg_surface</item>
+        <item name="colorSurfaceContainer">@color/bg_surface</item>
+        <item name="colorSurfaceContainerHigh">@color/bg_surface</item>
+        <item name="colorSurfaceContainerHighest">@color/bg_surface</item>
+        <item name="colorSurfaceVariant">@color/bg_surface</item>
     </style>
 </resources>

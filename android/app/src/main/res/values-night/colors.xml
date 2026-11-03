@@ -4,4 +4,16 @@
     <color name="widget_accent">#FF34D399</color>
     <color name="widget_text">#FFF5F8FA</color>
     <color name="widget_subtext">#FF94A3B8</color>
+
+    <!-- App palette (dark). Contrast on bg_app / bg_surface: text_primary 15.8/14.1,
+         text_secondary 8.5/7.6, teal text 8.9/7.9, error 6.7/6.0. Fills (vital_teal) unchanged. -->
+    <color name="bg_app">#FF0F1417</color>
+    <color name="bg_surface">#FF172024</color>
+    <color name="text_primary">#FFE6EEF0</color>
+    <color name="text_secondary">#FF9FB3B8</color>
+    <color name="outline_subtle">#FF2E3B40</color>
+    <color name="vital_teal_text">#FF34C7BD</color>
+    <color name="error_red">#FFF87171</color>
+    <color name="warning_amber">#FFF59E0B</color>
+    <color name="success_green">#FF4ADE80</color>
 </resources>

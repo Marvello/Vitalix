@@ -18,6 +18,14 @@
     <color name="warning_amber">#B45309</color>
     <color name="success_green">#166534</color>
 
+    <!-- App surfaces and text. Light = the Material 3 baseline the app already showed;
+         values-night/colors.xml overrides the same names. -->
+    <color name="bg_app">#FFFEF7FF</color>
+    <color name="bg_surface">#FFFEF7FF</color>
+    <color name="text_primary">#FF1D1B20</color>
+    <color name="text_secondary">#FF49454F</color>
+    <color name="outline_subtle">#FFCAC4D0</color>
+
     <!-- Home-screen widget surfaces; values-night/colors.xml flips them. -->
     <color name="widget_bg">#FFFFFFFF</color>
     <color name="widget_accent">#0B7A73</color>

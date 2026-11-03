@@ -30,7 +30,7 @@ class JournalActivity : AppCompatActivity() {
         applySystemBarsPadding()
 
         for (n in 1..5) {
-            b.rowMood.addView(Button(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
+            b.rowMood.addView(com.google.android.material.button.MaterialButton(this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle).apply {
                 text = n.toString()
                 layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
                 setOnClickListener { add("mood", num = n) }
