@@ -1,6 +1,6 @@
 import { query as dbQuery } from "./db.js";
 import { messaging as defaultMessaging } from "./firebase.js";
-import { deadTokens } from "./syncCheck.js";
+import { pushToUser } from "./push.js";
 import { GENERATE_HOUR } from "./dailyInsights.js";
 import { BASELINE_DAYS, dailySeries, stats } from "./baseline.js";
 
@@ -51,7 +51,6 @@ export function detectAnomalies({ today, recent, history }) {
 }
 
 const shift = (day, n) => new Date(Date.parse(day) + n * 864e5).toISOString().slice(0, 10);
-const TOKENS_SQL = "SELECT array_agg(token) AS tokens FROM fcm_tokens WHERE user_id = $1";
 const INSERT_SQL = `INSERT INTO anomaly_alerts (user_id, day, rule, value, baseline)
   VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, day, rule) DO NOTHING RETURNING id`;
 
@@ -71,26 +70,16 @@ export async function runAnomalyCheck({ query = dbQuery, messaging = defaultMess
     const recent = [0, 1, 2].map((i) => byDay.get(shift(firstRecent, i))).filter(Boolean);
     const history = series.filter((r) => r.day < firstRecent);
 
-    let tokens;
     for (const a of detectAnomalies({ today, recent, history })) {
       const ins = await query(INSERT_SQL, [id, day, a.rule, a.value, a.baseline]);
       if (!ins.rows.length) continue;
       alerts++;
-      if (!messaging) continue;
-      tokens ??= (await query(TOKENS_SQL, [id])).rows[0]?.tokens ?? [];
-      if (!tokens.length) continue;
       const data = {
         type: "anomaly", day, rule: a.rule,
         value: a.text ?? String(Math.round(a.value)),
         baseline: a.baseline == null ? "" : String(Math.round(a.baseline)),
       };
-      const resp = await messaging.sendEachForMulticast({ tokens, data });
-      const dead = deadTokens(tokens, resp);
-      if (dead.length) {
-        await query("DELETE FROM fcm_tokens WHERE token = ANY($1)", [dead]);
-        tokens = tokens.filter((t) => !dead.includes(t));
-      }
-      if (resp.successCount > 0) pushed++;
+      if ((await pushToUser({ query, messaging }, id, data)).sent) pushed++;
     }
   }
   return { candidates: rows.length, alerts, pushed };

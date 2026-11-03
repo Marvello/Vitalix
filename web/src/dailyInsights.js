@@ -1,7 +1,7 @@
 import { query as dbQuery } from "./db.js";
 import { messaging as defaultMessaging } from "./firebase.js";
 import { generateRecommendation as defaultGenerate } from "./ai/recommendations.js";
-import { deadTokens } from "./syncCheck.js";
+import { pushToUser } from "./push.js";
 
 // The worker runs hourly; each user is picked once it is past GENERATE_HOUR in
 // their own zone (UTC when unknown), for their yesterday, if they have data for
@@ -19,8 +19,6 @@ export const PENDING_USERS_SQL = `
     AND EXTRACT(HOUR FROM n.local_now) >= ${GENERATE_HOUR}
     AND EXISTS (SELECT 1 FROM health_days h WHERE h.user_id = u.id AND h.day = y.day)
     AND NOT EXISTS (SELECT 1 FROM ai_recommendations r WHERE r.user_id = u.id AND r.day = y.day)`;
-
-const TOKENS_SQL = "SELECT array_agg(token) AS tokens FROM fcm_tokens WHERE user_id = $1";
 
 // Generates yesterday's insight for each pending user, then pushes an
 // "insight_ready" nudge to their devices. Deps injected for testing.
@@ -49,15 +47,7 @@ export async function runDailyInsights({
       continue; // don't push when we have no fresh insight
     }
 
-    if (!messaging) continue;
-    const { rows: tok } = await query(TOKENS_SQL, [id]);
-    const tokens = tok[0]?.tokens;
-    if (!tokens?.length) continue;
-
-    const resp = await messaging.sendEachForMulticast({ tokens, data: { type: "insight_ready", day } });
-    const dead = deadTokens(tokens, resp);
-    if (dead.length) await query("DELETE FROM fcm_tokens WHERE token = ANY($1)", [dead]);
-    if (resp.successCount > 0) pushed++;
+    if ((await pushToUser({ query, messaging }, id, { type: "insight_ready", day })).sent) pushed++;
   }
 
   return { candidates: rows.length, generated, pushed, failed, skipped };

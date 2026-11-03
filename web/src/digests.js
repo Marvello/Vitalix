@@ -1,6 +1,6 @@
 import { query as dbQuery } from "./db.js";
 import { messaging as defaultMessaging } from "./firebase.js";
-import { deadTokens } from "./syncCheck.js";
+import { pushToUser } from "./push.js";
 import { GENERATE_HOUR } from "./dailyInsights.js";
 import { DIGEST_KINDS, generateDigest as defaultGenerate, isDue, periodFor } from "./ai/digest.js";
 
@@ -15,7 +15,6 @@ export const PENDING_DIGEST_USERS_SQL = `
     AND EXTRACT(HOUR FROM n.local_now) >= ${GENERATE_HOUR}`;
 
 const EXISTS_SQL = "SELECT 1 FROM ai_digests WHERE user_id = $1 AND kind = $2 AND period_start = $3";
-const TOKENS_SQL = "SELECT array_agg(token) AS tokens FROM fcm_tokens WHERE user_id = $1";
 
 // Hourly: for each user whose local date makes a digest due (Monday / the 1st) and
 // who has none for that period yet, generate it and push `digest_ready` once.
@@ -49,13 +48,7 @@ export async function runDigests({
         continue; // no fresh digest, no push
       }
 
-      if (!messaging) continue;
-      const tokens = (await query(TOKENS_SQL, [id])).rows[0]?.tokens;
-      if (!tokens?.length) continue;
-      const resp = await messaging.sendEachForMulticast({ tokens, data: { type: "digest_ready", kind, start } });
-      const dead = deadTokens(tokens, resp);
-      if (dead.length) await query("DELETE FROM fcm_tokens WHERE token = ANY($1)", [dead]);
-      if (resp.successCount > 0) pushed++;
+      if ((await pushToUser({ query, messaging }, id, { type: "digest_ready", kind, start })).sent) pushed++;
     }
   }
   return { candidates, generated, pushed, failed };

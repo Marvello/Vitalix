@@ -84,8 +84,11 @@ describe("runAnomalyCheck", () => {
       if (text.includes("FROM health_days h")) {
         calls.series.push(params);
         const rows = [
-          ...rhrHist(28).map((r, i) => ({ day: `h${i}`, ...r })),
-          { day: "2026-09-10", restingHr: 60, hrv: 50, spo2Min: 85, bpSys: 150, bpDia: 95 },
+          // real ISO days: 2026-08-11 .. 2026-09-07 (the 28-day history) so statistical rules run
+          ...rhrHist(28).map((r, i) => ({ day: new Date(Date.UTC(2026, 7, 11 + i)).toISOString().slice(0, 10), ...r })),
+          { day: "2026-09-08", restingHr: 70, hrv: 50 },
+          { day: "2026-09-09", restingHr: 70, hrv: 50 },
+          { day: "2026-09-10", restingHr: 70, hrv: 50, spo2Min: 85, bpSys: 150, bpDia: 95 },
         ];
         return { rows };
       }
@@ -112,15 +115,17 @@ describe("runAnomalyCheck", () => {
   test("stores alerts, pushes string data once; second run pushes nothing", async () => {
     const { deps: d, calls } = deps();
     const r1 = await runAnomalyCheck(d);
-    assert.deepEqual(r1, { candidates: 1, alerts: 2, pushed: 2 });
+    assert.deepEqual(r1, { candidates: 1, alerts: 3, pushed: 3 });
     const bp = calls.pushed.find((p) => p.rule === "bp_high");
     assert.deepEqual(bp, { type: "anomaly", day: "2026-09-10", rule: "bp_high", value: "150/95", baseline: "" });
+    const rhr = calls.pushed.find((p) => p.rule === "rhr_up");
+    assert.deepEqual(rhr, { type: "anomaly", day: "2026-09-10", rule: "rhr_up", value: "70", baseline: "60" });
     const sp = calls.pushed.find((p) => p.rule === "spo2_low");
     assert.equal(sp.value, "85");
     for (const p of calls.pushed) for (const v of Object.values(p)) assert.equal(typeof v, "string");
     const r2 = await runAnomalyCheck(d);
     assert.deepEqual(r2, { candidates: 1, alerts: 0, pushed: 0 });
-    assert.equal(calls.pushed.length, 2);
+    assert.equal(calls.pushed.length, 3);
   });
 
   test("history window is the 28 days before the 3 recent days", async () => {
@@ -132,7 +137,16 @@ describe("runAnomalyCheck", () => {
   test("null messaging still stores alerts", async () => {
     const { deps: d, calls } = deps({ messaging: false });
     const r = await runAnomalyCheck(d);
-    assert.deepEqual(r, { candidates: 1, alerts: 2, pushed: 0 });
-    assert.equal(calls.inserts.length, 2);
+    assert.deepEqual(r, { candidates: 1, alerts: 3, pushed: 0 });
+    assert.equal(calls.inserts.length, 3);
+  });
+
+  test("an FCM throw is logged and does not abort the run", async () => {
+    const { deps: d } = deps();
+    d.messaging = { sendEachForMulticast: async () => { throw new Error("fcm down"); } };
+    const log = console.error; console.error = () => {};
+    try {
+      assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 3, pushed: 0 });
+    } finally { console.error = log; }
   });
 });
