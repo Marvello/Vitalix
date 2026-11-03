@@ -284,7 +284,9 @@ older day-scoped copy kept for the current dashboard queries.
 - Android: `cd android && ./gradlew testProductionDebugUnitTest` (JVM; HC behind
   `FakeRecordReader`). No instrumented tests yet.
 - CI: `.github/workflows/web.yml` tests and publishes the web image on `main`.
-  Android has no CI; releases go through fastlane.
+  `.github/workflows/android.yml` runs `testProductionDebugUnitTest` + `assembleProductionDebug`
+  (Temurin 21, unsigned, no secrets; `google-services.json` is committed) on PRs and `main`
+  pushes touching `android/`. Releases still go through fastlane.
 
 ## 7. Known debt
 
