@@ -35,8 +35,8 @@ controls. Nothing goes to a third-party data path. The receiver is multi-user
 Deployment: one receiver replica + Postgres on the homelab k3s cluster behind
 cloudflared (`common-tech/homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
 CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05, which also runs the anomaly check — append
-`curl -fsS --max-time 880 -X POST "$BASE/api/admin/run-anomaly-check" -H "x-cron-token: $CRON_SECRET"`
-to its command, next to the insights curl, where `$BASE` is `http://vitalix-app:3000`); `web/docker-compose.yml` is
+` ; curl -fsS --max-time 880 -X POST http://vitalix-app:3000/api/admin/run-anomaly-check -H "x-cron-token: $CRON_SECRET"`
+to the folded `>-` command after the insights curl; `;` rather than `&&` so the anomaly check still runs if insights fails); `web/docker-compose.yml` is
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
 
