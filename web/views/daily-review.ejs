@@ -105,6 +105,16 @@
   </div>
 </div>
 
+<% const ALERTS = { rhr_up: ["Resting HR above baseline 3 days", "bpm"], hrv_drop: ["HRV well below baseline", "ms"], spo2_low: ["Blood oxygen low overnight", "%"], bp_high: ["Blood pressure high", "mmHg"] }; %>
+<% if (alerts.length) { %>
+<div class="card">
+  <h2 style="margin-top:0">Alerts (<%= date %>)</h2>
+  <% alerts.forEach(function (a) { var l = ALERTS[a.rule] || [a.rule, ""]; %>
+    <div class="metric-sub"><strong><%= l[0] %></strong>: <%= Math.round(a.value) %> <%= l[1] %><%= a.baseline == null ? '' : ' vs baseline ' + Math.round(a.baseline) %></div>
+  <% }) %>
+</div>
+<% } %>
+
 <div class="card ai-card">
   <div class="ai-header">
     <div class="ai-header-left">

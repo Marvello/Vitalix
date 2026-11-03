@@ -29,6 +29,11 @@ class VitalixFirebaseService : FirebaseMessagingService() {
             return
         }
 
+        if (data["type"] == "anomaly") {
+            showAnomalyNotification(data["day"], data["rule"], data["value"], data["baseline"])
+            return
+        }
+
         if (data["type"] == "app_update") {
             val version = data["version"] ?: "new version"
             val downloadUrl = data["download_url"] ?: return
@@ -121,7 +126,48 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         getSystemService(NotificationManager::class.java).notify(INSIGHT_NOTIFICATION_ID, notification)
     }
 
+    private fun showAnomalyNotification(day: String?, rule: String?, value: String?, baseline: String?) {
+        val body = anomalyText(rule, value, baseline) ?: return // unknown rule: stay silent
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(ALERTS_CHANNEL, "Alerts", NotificationManager.IMPORTANCE_DEFAULT)
+            )
+        }
+        val pending = PendingIntent.getActivity(
+            this, 0,
+            InsightActivity.intent(this, day).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val notification = NotificationCompat.Builder(this, ALERTS_CHANNEL)
+            .setSmallIcon(android.R.drawable.ic_dialog_alert)
+            .setContentTitle(getString(R.string.alert_title))
+            .setContentText(body)
+            .setAutoCancel(true)
+            .setContentIntent(pending)
+            .build()
+        // One notification per rule so same-day alerts don't replace each other.
+        getSystemService(NotificationManager::class.java).notify(ANOMALY_NOTIFICATION_BASE + (rule.hashCode() and 0xff), notification)
+    }
+
+    private fun anomalyText(rule: String?, value: String?, baseline: String?): String? {
+        val (res, args) = anomalyCopy(rule, value.orEmpty(), baseline.orEmpty()) ?: return null
+        return getString(res, *args.toTypedArray())
+    }
+
     companion object {
+        /** Rule + push values -> (string resource, format args); null for an unknown rule. */
+        fun anomalyCopy(rule: String?, value: String, baseline: String): Pair<Int, List<String>>? = when (rule) {
+            "rhr_up" -> R.string.alert_rhr_up to listOf(value, baseline)
+            "hrv_drop" -> R.string.alert_hrv_drop to listOf(value, baseline)
+            "spo2_low" -> R.string.alert_spo2_low to listOf(value)
+            "bp_high" -> R.string.alert_bp_high to listOf(value)
+            else -> null
+        }
+
+        private const val ANOMALY_NOTIFICATION_BASE = 4400
+        private const val ALERTS_CHANNEL = "alerts"
         private const val TAG = "VitalixFCM"
         private const val NOTIFICATION_ID = 4300
         private const val NO_SYNC_NOTIFICATION_ID = 4301

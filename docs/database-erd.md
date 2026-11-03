@@ -25,6 +25,7 @@ source of truth; update this doc when they change.
 | 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
 | 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
 | 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`), then drops `samples`; back up first |
+| 019 | `anomaly_alerts` | personal-baseline anomaly alerts, unique `(user_id, day, rule)` |
 
 ## Diagram
 
@@ -40,6 +41,7 @@ erDiagram
     users ||--o| dashboard_layouts : "has"
     users ||--o{ fcm_tokens : "has"
     users ||--o{ ai_recommendations : "has"
+    users ||--o{ anomaly_alerts : "has"
 
     syncs ||--o{ health_days : "sync_id (SET NULL)"
 
@@ -193,6 +195,16 @@ erDiagram
         integer completion_tokens
         timestamptz created_at
     }
+
+    anomaly_alerts {
+        bigserial id PK
+        bigint user_id FK "CASCADE"
+        date day "UK(user_id, day, rule)"
+        text rule
+        double value
+        double baseline "NULL for spo2_low, bp_high"
+        timestamptz created_at
+    }
 ```
 
 ## Table reference
@@ -258,6 +270,11 @@ unregistered are pruned when a push fails.
 Cached daily insight per `(user_id, day)`: the LLM text plus the
 `metrics_snapshot` it was generated from, provider/model, and token counts.
 Written by `/api/ai/recommendations/generate` and the daily-insights cron.
+
+### `anomaly_alerts`
+One row per `(user_id, day, rule)` raised by the anomaly cron (`rhr_up`, `hrv_drop`,
+`spo2_low`, `bp_high`). The unique key is the push dedup (`ON CONFLICT DO NOTHING
+RETURNING id`); `baseline` is NULL for the fixed-threshold rules.
 
 ### `records`
 **Raw per-reading store at native Health Connect granularity** — the modern

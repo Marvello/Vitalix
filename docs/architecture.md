@@ -23,7 +23,7 @@ Companion docs:
 │ ServerForwarder (JSON, chunks)│  Bearer JWT    │  Postgres 18                 │
 │ ExportWorker / Backfill / UI  │                │  EJS dashboard, admin, AI    │
 └───────────────────────────────┘ ◀───────────── └──────────────────────────────┘
-          ▲  FCM push (no_sync, insight_ready, app_update)   │
+          ▲  FCM push (no_sync, insight_ready, anomaly, app_update) │
           └──────────────── Firebase ◀──────────────────────┘
                      Zealot (APK hosting) ──webhook──▶ /api/webhooks/zealot
 ```
@@ -34,7 +34,9 @@ controls. Nothing goes to a third-party data path. The receiver is multi-user
 
 Deployment: one receiver replica + Postgres on the homelab k3s cluster behind
 cloudflared (`common-tech/homeserver/k8s/vitalix/vitalix.yaml`, which also holds the two
-CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05); `web/docker-compose.yml` is
+CronJobs: `vitalix-sync-check` hourly at :00, `vitalix-daily-insights` hourly at :05, which also runs the anomaly check — append
+`curl -fsS --max-time 880 -X POST "$BASE/api/admin/run-anomaly-check" -H "x-cron-token: $CRON_SECRET"`
+to its command, next to the insights curl, where `$BASE` is `http://vitalix-app:3000`); `web/docker-compose.yml` is
 the local/stand-alone equivalent. The app ships through Zealot (beta and
 production channels) via fastlane — never hand-bump `version.properties`.
 
@@ -175,7 +177,7 @@ Node 24, Express 5, `pg`, EJS. No ORM: all ingest SQL lives in `persist.js`.
 | `mapPayload.js` | Pure: payload JSON → row objects |
 | `persist.js` | One transaction per POST (see Ingest) |
 | `records.js` | Metric aggregation catalog, `/api/records` bucketing, per-source rollup |
-| `stats.js`, `chartData.js`, `dailyInsights.js`, `syncCheck.js` | Dashboard queries, chart series, AI cron, stale-sync cron |
+| `stats.js`, `chartData.js`, `dailyInsights.js`, `anomalies.js`, `syncCheck.js` | Dashboard queries, chart series, AI cron, stale-sync cron |
 | `auth/*` | bcrypt passwords, JWT + hashed refresh/reset/invite tokens, `requireAuth`/`requireAdmin`, mailer |
 | `ai/*` | Prompt building, OpenAI-compatible client (120 s timeout), recommendation storage |
 | `firebase.js`, `zealot.js` | FCM sender; Zealot API (invite download link, update info) |
@@ -218,6 +220,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
+| POST | `/api/admin/run-anomaly-check` | `x-cron-token` | Hourly cron (same `:05` job): personal-baseline alerts for each user's local yesterday after 08:00 local (§5), stored in `anomaly_alerts`, push `anomaly` once per (user, day, rule) |
 | POST | `/api/admin/run-daily-insights` | `x-cron-token` | Hourly cron: per-user insight after 08:00 local (§5a), push `insight_ready` |
 | POST | `/api/webhooks/zealot` | `?token=` (Zealot can't send headers) | New build → push `app_update` to `app-updates-beta` / `app-updates` by `release_type` |
 
@@ -266,6 +269,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
 | Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
 | Readiness score | `readiness.js`, dashboard card, `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
+| Anomaly alerts | `anomalies.js`, `anomaly_alerts`, `/daily-review`, `VitalixFirebaseService` | Against the previous 28 days (statistical rules need ≥ 14): `rhr_up` (resting HR ≥ mean + max(sd, 3) on each of the last 3 days), `hrv_drop` (HRV ≤ mean − 2·sd, sd > 0), `spo2_low` (min < 90), `bp_high` (sys ≥ 140 or dia ≥ 90). Push `{type: anomaly, day, rule, value, baseline}` (strings; bp value = `sys/dia`), channel `alerts`, tap opens `InsightActivity` |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
 | In-app update | Zealot + FCM | Full-screen changelog (Android-only commits since the last release, built by the Fastfile), download, install |
 

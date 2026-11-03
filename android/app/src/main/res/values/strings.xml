@@ -49,4 +49,9 @@
     <string name="update_cancel">Cancel</string>
     <string name="update_retry">Retry</string>
     <string name="update_not_now">Not now</string>
+    <string name="alert_title">Vitalix alert</string>
+    <string name="alert_rhr_up">Resting heart rate above baseline for 3 days (%1$s vs %2$s bpm)</string>
+    <string name="alert_hrv_drop">HRV well below baseline (%1$s vs %2$s ms)</string>
+    <string name="alert_spo2_low">Blood oxygen dipped to %1$s%% overnight</string>
+    <string name="alert_bp_high">Blood pressure averaged %1$s mmHg</string>
 </resources>

@@ -7,6 +7,7 @@ import { config } from "../config.js";
 import { getInstallUrl } from "../zealot.js";
 import { runSyncCheck } from "../syncCheck.js";
 import { runDailyInsights } from "../dailyInsights.js";
+import { runAnomalyCheck } from "../anomalies.js";
 
 export const adminRouter = Router();
 
@@ -21,6 +22,19 @@ adminRouter.post("/api/admin/run-daily-insights", async (req, res) => {
   } catch (e) {
     console.error("daily insights failed", e.message);
     res.status(500).json({ error: "daily insights failed" });
+  }
+});
+
+// Hourly cron: personal-baseline anomaly alerts for each user's local yesterday.
+adminRouter.post("/api/admin/run-anomaly-check", async (req, res) => {
+  if (!config.cronSecret || req.headers["x-cron-token"] !== config.cronSecret) {
+    return res.status(401).json({ error: "unauthorized" });
+  }
+  try {
+    res.json(await runAnomalyCheck());
+  } catch (e) {
+    console.error("anomaly check failed", e.message);
+    res.status(500).json({ error: "anomaly check failed" });
   }
 });
 
