@@ -29,7 +29,7 @@ test("only sleep -> null; 6 history days -> null; <2 parts never scores", () => 
   assert.equal(readinessScore({ today: { hrv: 50, restingHr: 60, sleepMin: 480 }, history: history(6) }), null);
 });
 
-test("6 history days still lets one statistical part pair with sleep only if that metric has 7", () => {
+test("a metric with under 7 history days is dropped; the other statistical part still pairs with sleep", () => {
   const h = history(10).map((r, i) => (i < 5 ? { ...r, restingHr: null } : r)); // restingHr n=5
   const r = readinessScore({ today: { hrv: 50, restingHr: 60, sleepMin: 240 }, history: h });
   assert.deepEqual(r.parts, { hrv: 50, sleep: 50 });

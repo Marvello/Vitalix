@@ -235,9 +235,13 @@ Readings without a Health Connect UID (older app builds) are stored under a synt
 
 `records` is the idempotent, native-granularity source of truth; the dashboard
 day detail, `/api/days/:date`, the sample count and the heart-rate split all read
-it (`stats.dayReadings`, `readingDay` in `src/stats.js`). A reading's local day
-(user zone) is its `start_at`, except `sleepStage`, which belongs to the day its
-session ends, mirroring the phone's bucketing. The old `samples` table is gone
+it (`stats.dayReadings`). A reading's local day (user zone) is its `start_at`,
+except `sleepStage`, which belongs to the day its session ends, mirroring the
+phone's bucketing. That rule lives once in `src/readingDay.js` (window function
+over sleep rows only) and is shared by the stats queries and the `/api/records`
+`day`/`week` buckets; `minute`/`hour` buckets stay `start_at`-based. Request
+paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
+`userTimeZone()` is for crons. The old `samples` table is gone
 (migration 018 first copies sample-only readings into `records` as `legacy-sample:<id>`, one per user/type/start/source, then drops it — **back up the DB before deploying**).
 
 ### Endpoints
@@ -326,7 +330,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 | Custom dashboard | `dashboard_layouts` | Add/remove/reorder cards |
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
 | Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
-| Readiness score | `readiness.js`, dashboard card, `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
+| Readiness score | `readiness.js`, dashboard card (finished days only: latest = last completed local day, today excluded), `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
 | Anomaly alerts | `anomalies.js`, `anomaly_alerts`, `/daily-review`, `VitalixFirebaseService` | Against the previous 28 days (statistical rules need ≥ 14): `rhr_up` (resting HR ≥ mean + max(sd, 3) on each of the last 3 days), `hrv_drop` (HRV ≤ mean − 2·sd, sd > 0), `spo2_low` (min < 90), `bp_high` (sys ≥ 140 or dia ≥ 90). Push `{type: anomaly, day, rule, value, baseline}` (strings; bp value = `sys/dia`), channel `alerts`, tap opens `InsightActivity` |
 | Correlation explorer | `correlate.js`, `/insights/correlations` | Pairs metrics by date (lag 1 = y on the next day; gaps never shift pairs); Pearson r needs ≥ 10 pairs and non-zero variance, else "not enough data". |r| < 0.2 none, < 0.4 weak, < 0.6 moderate, else strong; always labelled "Correlation, not cause." |
 | Journal | `journal.js`, `routes/journal.js`, `journal_entries`, `JournalActivity`, `/dashboard/:date`, `/daily-review` | Manual mood / caffeine / alcohol / symptom / medication / note. Feeds the AI prompt as one line (`Journal: mood 2/5; caffeine 4 cups; symptom: headache`: mood averaged, caffeine/alcohol summed, zero sums omitted, symptom/medication text one line capped at 60 chars; **notes are never sent to the LLM**) and `dailySeries` (`mood` avg, `caffeine`/`alcohol` sums; rows still come from `health_days`, so journal-only days do not appear) |

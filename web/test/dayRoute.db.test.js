@@ -21,6 +21,7 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     tok = (await import("../src/auth/tokens.js")).signAccess({ id, role: "user" });
     const { pagesRouter } = await import("../src/routes/pages.js");
     const app = express();
+    app.locals.now = () => new Date("2026-11-03T18:30:00Z");
     app.set("view engine", "ejs");
     app.set("views", path.join(path.dirname(fileURLToPath(import.meta.url)), "../views"));
     app.use(express.json()).use(cookieParser()).use(pagesRouter);
@@ -35,8 +36,13 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     assert.match(await r.text(), /<td>01:30<\/td><td>mood<\/td>/);
   });
 
-  test("/dashboard range ends on the user's local today", async () => {
+  test("/dashboard range ends on the user's local today, not UTC today", async () => {
+    // 18:30Z on 11-03 is 01:30 on 11-04 in Jakarta, while UTC is still 11-03.
     const r = await fetch(`${base}/dashboard?range=7`, { headers: { Authorization: `Bearer ${tok}` } });
     assert.equal(r.status, 200);
+    const html = await r.text();
+    const days = [...new Set(html.match(/\b2026-1[01]-\d\d\b/g))].sort();
+    assert.equal(days.at(-1), "2026-11-04");
+    assert.ok(days.includes("2026-10-29") && !days.includes("2026-10-28"), days.join(","));
   });
 });

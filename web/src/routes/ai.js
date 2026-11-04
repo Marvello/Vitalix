@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
 import { query } from "../db.js";
 import { config } from "../config.js";
-import { generateRecommendation, todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
+import { generateRecommendation, todayIn, shiftDay } from "../ai/recommendations.js";
 import { rateLimit } from "../rateLimit.js";
 import { DIGEST_KINDS } from "../ai/digest.js";
 
@@ -15,7 +15,7 @@ aiRouter.post("/api/ai/recommendations/generate", requireAuth, generateLimit, as
   const day = req.body?.day;
   if (day !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.status(400).json({ error: "day must be YYYY-MM-DD" });
   try {
-    const target = day ?? shiftDay(todayIn(await userTimeZone(req.user.id)), -1);
+    const target = day ?? shiftDay(todayIn(req.user.timezone), -1);
     const { text } = await generateRecommendation(req.user.id, target);
     res.json({ success: true, text });
   } catch (err) {

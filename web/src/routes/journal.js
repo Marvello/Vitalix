@@ -2,7 +2,7 @@ import { Router } from "express";
 import { requireAuth } from "../auth/middleware.js";
 import { query } from "../db.js";
 import { rateLimit } from "../rateLimit.js";
-import { todayIn, userTimeZone } from "../ai/recommendations.js";
+import { todayIn } from "../ai/recommendations.js";
 import { validateEntry } from "../journal.js";
 
 export const journalRouter = Router();
@@ -13,7 +13,7 @@ const COLS = "id, day::text AS day, kind, value_num, value_text, logged_at";
 
 // Entries for [from, to] (YYYY-MM-DD, inclusive); both default to the user's today.
 journalRouter.get("/api/journal", requireAuth, async (req, res) => {
-  const today = todayIn(await userTimeZone(req.user.id));
+  const today = todayIn(req.user.timezone);
   const { from = today, to = from } = req.query;
   if (typeof from !== "string" || typeof to !== "string" || !DAY.test(from) || !DAY.test(to)) return res.status(400).json({ error: "from/to must be YYYY-MM-DD" });
   const { rows } = await query(
@@ -24,7 +24,7 @@ journalRouter.get("/api/journal", requireAuth, async (req, res) => {
 });
 
 journalRouter.post("/api/journal", requireAuth, postLimit, async (req, res) => {
-  const v = validateEntry(req.body, await userTimeZone(req.user.id));
+  const v = validateEntry(req.body, req.user.timezone);
   if (!v.ok) return res.status(400).json({ error: v.error });
   const e = v.entry;
   const { rows } = await query(

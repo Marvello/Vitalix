@@ -2,6 +2,8 @@
 // the metric->aggregation catalog, kept free of the DB client so it is
 // unit-testable without Postgres.
 
+import { readingsWithDay } from "./readingDay.js";
+
 const SUM = ["steps", "distance", "activeCalories", "totalCalories", "floorsClimbed",
   "elevationGained", "wheelchairPushes", "hydration", "nutrition",
   "mindfulness", "intermenstrualBleeding"];
@@ -50,14 +52,22 @@ export function buildRecordsQuery({ userId, from, to, types, bucket, tz = "UTC" 
       values,
     };
   }
-  // date_trunc unit is from the validated allowlist above, never user text.
-  // The zone is a bind parameter; 3-arg date_trunc (PG14+) returns a timestamptz,
-  // so bucket_start is a true instant (the zone's local midnight for `day`).
+  // The unit comes from the validated allowlist above, never user text; the zone
+  // is a bind parameter. minute/hour cut start_at with 3-arg date_trunc (PG14+,
+  // a true instant). day/week cut the reading's LOCAL day (sleep stages: the day
+  // the session ends, see readingDay.js) and convert back to the zone's midnight.
   values.push(tz);
   const zone = `$${values.length}`;
+  const byDay = bucket === "day" || bucket === "week";
+  const bucketExpr = byDay
+    ? `(date_trunc('${bucket}', day::timestamp) AT TIME ZONE ${zone})`
+    : `date_trunc('${bucket}', start_at, ${zone})`;
+  const source = byDay
+    ? `${readingsWithDay({ tz: zone, from: "$2::timestamptz - interval '2 days'", to: "$3::timestamptz + interval '5 days'" })} rd`
+    : "records";
   return {
     text: `SELECT type,
-                  date_trunc('${bucket}', start_at, ${zone}) AS bucket_start,
+                  ${bucketExpr} AS bucket_start,
                   count(*)::int AS count,
                   sum(value_num) AS sum,
                   min(value_num) AS min,
@@ -68,7 +78,7 @@ export function buildRecordsQuery({ userId, from, to, types, bucket, tz = "UTC" 
                   avg(value_secondary) AS avg2,
                   (array_agg(value_num ORDER BY start_at DESC))[1] AS last,
                   (array_agg(value_text ORDER BY start_at DESC))[1] AS last_text
-           FROM records ${where}
+           FROM ${source} ${where}
            GROUP BY type, bucket_start
            ORDER BY bucket_start, type`,
     values,

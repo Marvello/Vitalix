@@ -1,26 +1,19 @@
 import { query } from "./db.js";
-import { userTimeZone } from "./ai/recommendations.js";
+import { readingsWithDay } from "./readingDay.js";
 
 /**
  * records of $1 (user) with a `day` column = the local day (tz) the phone put the
  * reading on, restricted to days from..to (SQL placeholders, e.g. "$2", "$3").
- * HealthConnectManager buckets by start, except every stage of a sleep session
- * goes to the day the SESSION ends; stages share the session's hc_id, so that day
- * is the latest stage end per (user, hc_id). The one place this rule lives.
- * The inner start_at window lets the (user_id, type, start_at) index prune; it
- * assumes sessions shorter than ~36h (2 days of slack each side for zones, plus
- * 2 more after `to` so a session's later stages are still seen by the max()).
- * ponytail: the window function runs over every type in the window, not just sleep.
+ * The day rule (sleep sessions land on the day they end) lives in readingDay.js.
+ * The start_at window lets the
+ * (user_id, type, start_at) index prune: 2 days of slack before `from` for zones,
+ * and 5 days after `to` so a session's later stages are still seen.
  */
 const readingsInDays = (from, to, tz) => `(
-  SELECT * FROM (
-    SELECT *, (CASE WHEN type = 'sleepStage'
-                    THEN max(coalesce(end_at, start_at)) OVER (PARTITION BY user_id, type, hc_id)
-                    ELSE start_at END AT TIME ZONE ${tz})::date AS day
-      FROM records
-     WHERE user_id = $1 AND start_at >= ${from}::date - 2 AND start_at < ${to}::date + 5
-  ) w WHERE day BETWEEN ${from} AND ${to}
+  SELECT * FROM ${readingsWithDay({ tz, from: `${from}::date - 2`, to: `${to}::date + 5` })} w
+   WHERE day BETWEEN ${from} AND ${to}
 ) rd`;
+
 
 /** Readings of one local day (dashboard day detail and /api/days/:date). */
 export async function dayReadings(userId, day, tz, { limit = null } = {}) {
@@ -119,7 +112,7 @@ export async function aggregateRows(userId, from, to) {
 }
 
 /** Range totals and averages, computed in SQL so a long range stays one round-trip. */
-export async function summary(userId, from, to) {
+export async function summary(userId, from, to, tz) {
   const { rows } = await query(
     `SELECT count(*)::int                       AS days,
             coalesce(sum(steps), 0)::bigint     AS total_steps,
@@ -141,7 +134,6 @@ export async function summary(userId, from, to) {
       WHERE hd.user_id = $1 AND hd.day BETWEEN $2 AND $3`,
     [userId, from, to]
   );
-  const tz = await userTimeZone(userId);
   const { rows: samples } = await query(
     `SELECT count(*)::bigint AS samples
        FROM ${readingsInDays("$2", "$3", "$4")}`,
@@ -169,8 +161,7 @@ export async function availableMetrics(userId, from, to) {
  * sleep and sitting included — which is why it is labelled non-workout rather
  * than resting heart rate proper (that is its own recorded metric).
  */
-export async function heartRateSplit(userId, from, to) {
-  const tz = await userTimeZone(userId);
+export async function heartRateSplit(userId, from, to, tz) {
   const { rows } = await query(
     `WITH hr AS (
        SELECT day, start_at, value_num

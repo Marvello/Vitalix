@@ -127,10 +127,11 @@ test("rollupSourceMetrics skips text metrics and null values, coalesces null sou
   assert.equal(rows[0].value_num, 10);
 });
 
-test("day bucket truncates in the user's zone", () => {
-  for (const bucket of ["minute", "hour", "day"]) {
+test("buckets are cut in the user's zone (minute/hour on start_at, day/week on the local day)", () => {
+  for (const bucket of ["minute", "hour", "day", "week"]) {
     const q = buildRecordsQuery({ userId: 1, from: "2026-07-01", to: "2026-07-31", bucket, tz: "Asia/Jakarta" });
-    assert.match(q.text, new RegExp(`date_trunc\\('${bucket}', start_at, \\$\\d\\)`));
+    const byDay = bucket === "day" || bucket === "week";
+    assert.match(q.text, byDay ? new RegExp(`date_trunc\\('${bucket}', day::timestamp\\) AT TIME ZONE \\$\\d`) : new RegExp(`date_trunc\\('${bucket}', start_at, \\$\\d\\)`));
     assert.ok(q.values.includes("Asia/Jakarta"));
   }
   const raw = buildRecordsQuery({ userId: 1, from: "a", to: "b", bucket: "raw", tz: "Asia/Jakarta" });

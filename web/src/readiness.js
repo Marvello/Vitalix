@@ -2,6 +2,7 @@ import { stats, BASELINE_DAYS, dailySeries } from "./baseline.js";
 
 const MIN_HISTORY_DAYS = 7;
 const WEIGHTS = { hrv: 0.4, restingHr: 0.3, sleep: 0.3 };
+export const READINESS_PART_LABELS = { hrv: "HRV", restingHr: "resting HR", sleep: "sleep" };
 const clamp = (x) => Math.min(100, Math.max(0, x));
 const shift = (day, n) => new Date(Date.parse(`${day}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
@@ -31,11 +32,16 @@ export function readinessScore({ today, history }) {
 
 /** Score for each row of `rows` with from <= day <= to; history is picked by date, not index. */
 export function readinessSeries(rows, from, to) {
+  const byDay = new Map(rows.map((r) => [r.day, r]));
   const out = [];
   for (const today of rows) {
     if (today.day < from || today.day > to) continue;
-    const start = shift(today.day, -BASELINE_DAYS);
-    const r = readinessScore({ today, history: rows.filter((h) => h.day < today.day && h.day >= start) });
+    const history = [];
+    for (let i = BASELINE_DAYS; i >= 1; i--) {
+      const h = byDay.get(shift(today.day, -i));
+      if (h) history.push(h);
+    }
+    const r = readinessScore({ today, history });
     if (r) out.push({ day: today.day, ...r });
   }
   return out;

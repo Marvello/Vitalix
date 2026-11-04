@@ -4,7 +4,7 @@ import { verify, DUMMY_HASH } from "../auth/passwords.js";
 import { clearAuthCookies } from "./auth.js";
 import { query, withTransaction } from "../db.js";
 import { rateLimit } from "../rateLimit.js";
-import { todayIn, userTimeZone } from "../ai/recommendations.js";
+import { todayIn } from "../ai/recommendations.js";
 import { streamExport, healthDaysCsv } from "../exportData.js";
 
 export const accountRouter = Router();
@@ -62,7 +62,7 @@ accountRouter.post("/account/delete", requireAuth, deleteLimit, async (req, res)
 });
 
 async function attachment(req, res, ext, type) {
-  const day = todayIn(await userTimeZone(req.user.id));
+  const day = todayIn(req.user.timezone);
   res.set({ "Content-Type": type, "Content-Disposition": `attachment; filename="vitalix-export-${day}.${ext}"`, "Cache-Control": "no-store" });
 }
 

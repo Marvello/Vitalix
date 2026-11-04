@@ -3,7 +3,6 @@ import { requireAuth } from "../auth/middleware.js";
 import { mapPayload, PAYLOAD_SCHEMA_VERSION, MAX_DELETED_HC_IDS } from "../mapPayload.js";
 import { persist } from "../persist.js";
 import { query, ping } from "../db.js";
-import { userTimeZone } from "../ai/recommendations.js";
 import { dayReadings } from "../stats.js";
 import { buildRecordsQuery, shapeBucketRow, BUCKETS, RAW_LIMIT } from "../records.js";
 
@@ -84,7 +83,7 @@ router.get("/api/days/:date", requireAuth, async (req, res) => {
     const day = rows[0];
     const [aggregates, samples, exercises] = await Promise.all([
       query("SELECT metric, min, max, avg FROM day_aggregates WHERE day_id = $1", [day.id]),
-      dayReadings(req.user.id, req.params.date, await userTimeZone(req.user.id)),
+      dayReadings(req.user.id, req.params.date, req.user.timezone),
       query("SELECT name, start_at, duration_minutes FROM exercises WHERE day_id = $1", [day.id]),
     ]);
     res.json({ ...day, aggregates: aggregates.rows, samples: samples.map(({ source, meta, ...r }) => r), exercises: exercises.rows });
@@ -102,7 +101,7 @@ router.get("/api/records", requireAuth, async (req, res) => {
   const types = typeof req.query.types === "string" && req.query.types.length
     ? req.query.types.split(",") : null;
   try {
-    const tz = await userTimeZone(req.user.id);
+    const tz = req.user.timezone;
     const q = buildRecordsQuery({ userId: req.user.id, from, to, types, bucket, tz });
     const { rows } = await query(q.text, q.values);
     res.json(bucket === "raw" ? { bucket, rows, truncated: rows.length === RAW_LIMIT }

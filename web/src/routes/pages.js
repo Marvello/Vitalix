@@ -14,10 +14,10 @@ import {
 import { sendMail } from "../auth/mailer.js";
 import { resetEmail } from "../auth/emailTemplates.js";
 import { config } from "../config.js";
-import { todayIn, shiftDay, userTimeZone } from "../ai/recommendations.js";
+import { todayIn, shiftDay } from "../ai/recommendations.js";
 import { dailySeries, BASELINE_DAYS } from "../baseline.js";
 import { PRESETS, METRICS, pairSeries, pearson, strength } from "../correlate.js";
-import { readinessSeries, readinessForDay } from "../readiness.js";
+import { readinessSeries, readinessForDay, READINESS_PART_LABELS } from "../readiness.js";
 
 const buildInfo = { version: config.buildVersion, date: config.buildDate };
 
@@ -91,17 +91,19 @@ const RANGES = { 7: "7 days", 30: "30 days", 90: "90 days", 365: "1 year" };
 pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
   try {
     const days = RANGES[req.query.range] ? Number(req.query.range) : 30;
-    const toKeyStr = todayIn(await userTimeZone(req.user.id));
+    const tz = req.user.timezone;
+    const toKeyStr = todayIn(tz, req.app.locals.now?.() ?? new Date()); // app.locals.now: test clock
+    const lastDoneDay = shiftDay(toKeyStr, -1); // readiness card shows finished days only
     const fromKey = shiftDay(toKeyStr, -(days - 1));
 
     const [rows, aggs, totals, metrics, cover, workouts, hrRows, recent, user, savedLayout, bmiRows, bmiScale] = await Promise.all([
       stats.dailyRows(req.user.id, fromKey, toKeyStr),
       stats.aggregateRows(req.user.id, fromKey, toKeyStr),
-      stats.summary(req.user.id, fromKey, toKeyStr),
+      stats.summary(req.user.id, fromKey, toKeyStr, tz),
       stats.availableMetrics(req.user.id, fromKey, toKeyStr),
       stats.coverage(req.user.id, fromKey, toKeyStr),
       stats.exerciseBreakdown(req.user.id, fromKey, toKeyStr),
-      stats.heartRateSplit(req.user.id, fromKey, toKeyStr),
+      stats.heartRateSplit(req.user.id, fromKey, toKeyStr, tz),
       stats.recentDays(req.user.id, 14),
       store.findUserById(req.user.id),
       stats.getLayout(req.user.id),
@@ -134,7 +136,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
 
     // Readiness is scored per day against the 28 days before it, so fetch that lead-in too.
     const readinessRows = filterActive ? [] : readinessSeries(
-      await dailySeries(req.user.id, shiftDay(fromKey, -BASELINE_DAYS), toKeyStr), fromKey, toKeyStr);
+      await dailySeries(req.user.id, shiftDay(fromKey, -BASELINE_DAYS), lastDoneDay), fromKey, lastDoneDay);
     const hasReadiness = readinessRows.length > 0;
 
     // Determine which special cards have data
@@ -299,6 +301,7 @@ pagesRouter.get("/dashboard", requireAuth, async (req, res) => {
       email: user?.email,
       userRole: user?.role,
       range: days,
+      readinessPartLabels: READINESS_PART_LABELS,
       ranges: RANGES,
       tiles: filterActive ? [] : visibleTiles(summaryTiles(totals)),
       totals: filterActive && !selectedSources.length ? {} : totals,
@@ -469,7 +472,7 @@ pagesRouter.get("/insights/correlations", requireAuth, async (req, res) => {
     return res.status(400).send("Bad query");
   try {
     // to = today is enough for lag 1: the last x day (today - 1) pairs with today; today itself has no later y.
-    const today = todayIn(await userTimeZone(req.user.id));
+    const today = todayIn(req.user.timezone);
     const rows = await dailySeries(req.user.id, shiftDay(today, 1 - nDays), today);
     const stat = (p) => {
       const pairs = pairSeries(rows, p.x, p.y, p.lag);
@@ -496,7 +499,7 @@ const JOURNAL_SQL = "SELECT kind, value_num, value_text, to_char(logged_at AT TI
 pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
   try {
     // Default to the user's yesterday: insights exist only for days that have ended.
-    const tz = await userTimeZone(req.user.id);
+    const tz = req.user.timezone;
     const today = todayIn(tz);
     const date = /^\d{4}-\d{2}-\d{2}$/.test(req.query.day ?? "") ? req.query.day : shiftDay(today, -1);
     const yesterdayDate = toKey(new Date(new Date(date).getTime() - 864e5));
@@ -560,7 +563,7 @@ pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
     const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
     if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
     const d = rows[0];
-    const tz = await userTimeZone(req.user.id);
+    const tz = req.user.timezone;
     const [aggs, samples, ex, { rows: journal }] = await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
       stats.dayReadings(req.user.id, req.params.date, tz, { limit: 500 }),

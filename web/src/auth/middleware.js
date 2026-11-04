@@ -2,6 +2,7 @@ import { verifyAccess, signAccess } from "./tokens.js";
 import * as store from "./store.js";
 import { query } from "../db.js";
 import { setAuthCookies } from "../routes/auth.js";
+import { validZone } from "../ai/recommendations.js";
 
 function extractToken(req) {
   const h = req.get("authorization") || "";
@@ -34,7 +35,7 @@ export async function requireAuth(req, res, next) {
   let user = null;
   if (claims) {
     try {
-      const { rows } = await query("SELECT role, disabled_at FROM users WHERE id = $1", [Number(claims.sub)]);
+      const { rows } = await query("SELECT role, disabled_at, timezone FROM users WHERE id = $1", [Number(claims.sub)]);
       user = rows[0] && !rows[0].disabled_at ? rows[0] : null;
     } catch (err) {
       console.error("[auth] user lookup failed:", err.message);
@@ -46,7 +47,7 @@ export async function requireAuth(req, res, next) {
     if (!req.path.startsWith("/api/") && req.accepts(["html", "json"]) === "html") return res.redirect("/login");
     return res.status(401).json({ error: "unauthorized" });
   }
-  req.user = { id: Number(claims.sub), role: user.role };
+  req.user = { id: Number(claims.sub), role: user.role, timezone: validZone(user.timezone) };
   next();
 }
 

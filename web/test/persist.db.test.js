@@ -198,6 +198,39 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
     assert.deepEqual(Object.keys(r).sort(), ["end_at", "meta", "metric", "source", "start_at", "value_num", "value_secondary", "value_text"]);
   });
 
+  test("a sleep and a non-sleep row in one day query: window runs over sleep only, rows keep their own day", async () => {
+    const stats = await import("../src/stats.js");
+    await db.query("DELETE FROM records WHERE start_at >= '2026-11-01'");
+    await db.query(`INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_text, value_num) VALUES
+      ($1,'sleepStage','mx-s','2026-11-07T15:00:00Z','2026-11-07T23:00:00Z','deep',NULL),
+      ($1,'steps','mx-st','2026-11-07T16:00:00Z','2026-11-07T16:05:00Z',NULL,10)`, [userId]);
+    const ids = async (d) => (await stats.dayReadings(userId, d, "Asia/Jakarta")).map((r) => r.metric);
+    assert.deepEqual(await ids("2026-11-07"), ["steps"]); // 23:00 local on the 7th
+    assert.deepEqual(await ids("2026-11-08"), ["sleepStage"]); // session ends 06:00 on the 8th
+  });
+
+  test("/api/records day and week buckets put a sleep session on its end day (Asia/Jakarta)", async () => {
+    const { buildRecordsQuery } = await import("../src/records.js");
+    await db.query("DELETE FROM records WHERE start_at >= '2026-11-01'");
+    // 22:00 local 11-04 -> 06:00 local 11-05, two stages of one session; a step at 23:00 local 11-04
+    await db.query(`INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_text, value_num) VALUES
+      ($1,'sleepStage','bk','2026-11-04T15:00:00Z','2026-11-04T16:30:00Z','light',NULL),
+      ($1,'sleepStage','bk','2026-11-04T16:30:00Z','2026-11-04T23:00:00Z','deep',NULL),
+      ($1,'steps','bk-st','2026-11-04T16:00:00Z','2026-11-04T16:05:00Z',NULL,10)`, [userId]);
+    const run = async (bucket, from = "2026-11-04T00:00:00Z", to = "2026-11-04T20:00:00Z") => {
+      const q = buildRecordsQuery({ userId, from, to, bucket, tz: "Asia/Jakarta" });
+      return (await db.query(q.text, q.values)).rows.map((r) => [r.type, new Date(r.bucket_start).toISOString(), r.count]);
+    };
+    // 11-05 local midnight = 11-04T17:00Z; 11-04 local midnight = 11-03T17:00Z
+    assert.deepEqual(await run("day"), [["steps", "2026-11-03T17:00:00.000Z", 1], ["sleepStage", "2026-11-04T17:00:00.000Z", 2]]);
+    // the range only covers the first stage's start; the session end is still found beyond `to`
+    assert.deepEqual(await run("day", "2026-11-04T14:00:00Z", "2026-11-04T16:00:00Z"), [["sleepStage", "2026-11-04T17:00:00.000Z", 1]]);
+    // week: Monday 2026-11-02 local midnight = 11-01T17:00Z (11-04 and 11-05 are both Wed/Thu)
+    assert.deepEqual((await run("week")).map((r) => r[1]), ["2026-11-01T17:00:00.000Z", "2026-11-01T17:00:00.000Z"]);
+    // hour stays start_at based
+    assert.equal((await run("hour")).filter((r) => r[0] === "sleepStage").length, 2);
+  });
+
   test("migration 018 copies sample-only readings into records, then drops samples", async () => {
     const { readFileSync } = await import("node:fs");
     const sql = readFileSync(new URL("../db/migrations/018_drop_samples.sql", import.meta.url), "utf8");

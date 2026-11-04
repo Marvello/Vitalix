@@ -1,7 +1,7 @@
 import { query } from "../db.js";
 import { config } from "../config.js";
 import { generateCompletion } from "./llmClient.js";
-import { readinessForDay } from "../readiness.js";
+import { readinessForDay, READINESS_PART_LABELS } from "../readiness.js";
 
 // Rules shared by the daily note and the digests, so both stay equally strict.
 export const SHARED_RULES = {
@@ -137,8 +137,7 @@ export function buildPrompts({ day, dayData = {}, pastDays = [], workouts = [], 
   }
 
   if (readiness) {
-    const names = { hrv: "HRV", restingHr: "resting HR", sleep: "sleep" };
-    const parts = Object.entries(readiness.parts).map(([k, v]) => `${names[k]} ${v}`).join(", ");
+    const parts = Object.entries(readiness.parts).map(([k, v]) => `${READINESS_PART_LABELS[k]} ${v}`).join(", ");
     lines.push(`Readiness: ${readiness.score}/100 (${parts})`);
   }
   const jl = journalLine(journal);
@@ -183,10 +182,13 @@ export function todayIn(tz, now = new Date()) {
 export const shiftDay = (day, n) =>
   new Date(Date.parse(`${day}T00:00:00Z`) + n * 864e5).toISOString().slice(0, 10);
 
+/** The zone if it is a valid IANA name, else UTC (pure; requireAuth uses it for req.user.timezone). */
+export const validZone = (tz) => (tz && validTimeZone(tz) ? tz : "UTC");
+
+/** DB lookup for crons and background work; request paths use req.user.timezone. */
 export async function userTimeZone(userId) {
   const { rows } = await query("SELECT timezone FROM users WHERE id = $1", [userId]);
-  const tz = rows[0]?.timezone;
-  return tz && validTimeZone(tz) ? tz : "UTC";
+  return validZone(rows[0]?.timezone);
 }
 
 function fail(code, message) {
