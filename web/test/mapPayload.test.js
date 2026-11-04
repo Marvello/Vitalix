@@ -127,6 +127,12 @@ test("UID-less samples get a deterministic nouid: id that depends on the reading
   assert.notEqual(map(r), map({ ...r, value: 11 }));
   assert.notEqual(map(r), map({ ...r, source: "other" }));
   assert.equal(map({ ...r, hcId: "real" }), "real");
+  // same instant, different spelling
+  assert.equal(map(r), map({ ...r, start: "2026-07-01T08:00:00.000Z", end: "2026-07-01T09:00:00.000Z" }));
+  // would collide under a "|" join: text "a|b"+source null vs text "a"+source "b"
+  const t = { metric: "mindfulness", start: "2026-07-01T08:00:00Z" };
+  assert.notEqual(map({ ...t, text: "a|b" }), map({ ...t, text: "a", source: "b" }));
+  assert.notEqual(map({ ...t, text: "a|" , source: "b" }), map({ ...t, text: "a", source: "|b" }));
 });
 
 test("non-object meta is stored as null", () => {

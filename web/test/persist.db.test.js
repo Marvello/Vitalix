@@ -220,16 +220,27 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
       `INSERT INTO samples (day_id, metric, start_at, value_num, source) VALUES
          ($1,'heartRate','2020-01-01T10:00:00Z',60,'a'), ($1,'heartRate','2020-01-01T10:00:00Z',61,'b'),
          ($2,'heartRate','2020-01-01T10:00:00Z',60,'a') RETURNING id, source`, [hd.id, hd2.id]);
+    // An existing record with another source (or NULL vs a source) is a different reading: still copied.
+    // The same NULL source on both sides is the same reading: skipped (NULL-safe match).
+    await db.query(`INSERT INTO records (user_id, type, hc_id, start_at, value_num, source) VALUES
+      ($1,'steps','x1','2020-01-01T11:00:00Z',1,'y'), ($1,'steps','x2','2020-01-01T12:00:00Z',1,'z'),
+      ($1,'steps','x3','2020-01-01T13:00:00Z',1,NULL)`, [userId]);
+    await db.query(`INSERT INTO samples (day_id, metric, start_at, value_num, source) VALUES
+      ($1,'steps','2020-01-01T11:00:00Z',1,'x'), ($1,'steps','2020-01-01T12:00:00Z',1,NULL),
+      ($1,'steps','2020-01-01T13:00:00Z',1,NULL)`, [hd.id]);
     const aid = Math.min(...hrs.filter((r) => r.source === "a").map((r) => Number(r.id)));
     const bid = hrs.find((r) => r.source === "b").id;
     await db.query(sql);
-    const { rows } = await db.query("SELECT type, hc_id, value_num, source, meta FROM records WHERE start_at::date = '2020-01-01' ORDER BY type, source");
+    const { rows } = await db.query("SELECT type, hc_id, value_num, source, meta FROM records WHERE start_at >= '2020-01-01' AND start_at < '2020-01-01T11:00:00Z' ORDER BY type, source");
     assert.deepEqual(rows, [
       { type: "heartRate", hc_id: `legacy-sample:${aid}`, value_num: 60, source: "a", meta: null },
       { type: "heartRate", hc_id: `legacy-sample:${bid}`, value_num: 61, source: "b", meta: null },
       { type: "steps", hc_id: "m1", value_num: 5, source: "pkg", meta: null },
       { type: "weight", hc_id: `legacy-sample:${wid}`, value_num: 70.5, source: "pkg", meta: { a: 1 } },
     ]);
+    const { rows: cp } = await db.query(
+      "SELECT start_at, count(*)::int AS n FROM records WHERE start_at >= '2020-01-01T11:00:00Z' AND start_at < '2020-01-01T14:00:00Z' GROUP BY start_at ORDER BY start_at");
+    assert.deepEqual(cp.map((r) => r.n), [2, 2, 1]);
     const { rows: t } = await db.query("SELECT to_regclass('samples') AS t");
     assert.equal(t[0].t, null);
   });

@@ -78,8 +78,10 @@ function mapAggregates(day) {
 // Readings from builds without a Health Connect UID still need the records key:
 // a deterministic id over the whole reading makes re-sends idempotent.
 function noUid(metric, r) {
-  const parts = [metric, r.start, r.end, r.value, r.value2, r.text, r.source].map((v) => v ?? "");
-  return `nouid:${createHash("sha1").update(parts.join("|")).digest("hex")}`;
+  // JSON keeps field boundaries unambiguous; instants are normalised so ":00Z" and ":00.000Z" agree.
+  const iso = (t) => { if (t == null) return null; const d = new Date(t); return Number.isNaN(d.getTime()) ? t : d.toISOString(); };
+  const parts = [metric, iso(r.start), iso(r.end), r.value ?? null, r.value2 ?? null, r.text ?? null, r.source ?? null];
+  return `nouid:${createHash("sha1").update(JSON.stringify(parts)).digest("hex")}`;
 }
 
 const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
