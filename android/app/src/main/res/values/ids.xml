@@ -1,3 +1,4 @@
 <resources>
     <item name="tag_busy_spinner" type="id" />
+    <item name="tag_busy_prev_icon" type="id" />
 </resources>

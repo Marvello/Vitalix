@@ -104,8 +104,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/space_8"
-            android:text="Log in"
-            android:textColor="@color/white" />
+            android:text="Log in" />
 
         <com.google.android.material.progressindicator.CircularProgressIndicator
             android:id="@+id/progressLogin"

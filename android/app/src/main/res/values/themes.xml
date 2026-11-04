@@ -17,7 +17,7 @@
 
     <!-- Filled buttons use button_primary; accents (progress, switches) keep colorPrimary. -->
     <style name="Widget.Vitalix.Button" parent="Widget.Material3.Button">
-        <item name="backgroundTint">@color/button_primary</item>
+        <item name="backgroundTint">@color/button_primary_bg</item>
     </style>
 
     <style name="Theme.Vitalix" parent="Base.Theme.Vitalix" />

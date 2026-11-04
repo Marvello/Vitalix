@@ -29,7 +29,7 @@ A bridge that exports Google Fit data and forwards it to your own server. Privac
 | Role | Hex | Use |
 |------|-----|-----|
 | Vital Teal (primary) | `#0FA9A0` | gradient start, logo, progress/switch accents. Not a button fill (white on it is 2.9:1) |
-| Button Teal | `#0B7A73` | filled primary buttons with white text (5.2:1); text/links on light backgrounds (4.9:1). Android: `button_primary` |
+| Button Teal | `#0B7A73` | filled primary buttons with white text (5.2:1); text/links on light backgrounds (4.9:1; night text variant `#34C7BD`). Android: `button_primary` |
 | Pulse Green (accent) | `#34D399` | gradient end, success/sync states |
 | Heart Coral | `#FF6B81` | logo heart only; use sparingly as a health accent |
 | Deep Ink | `#0E1B2B` | headings, body text on light backgrounds |
