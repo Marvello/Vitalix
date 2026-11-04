@@ -49,7 +49,17 @@ test("Bearer requests are exempt; webhook and cron routes are unaffected", async
     assert.equal((await call(s.base, "/account/export.json", "GET", { ...evil, Authorization: "Bearer abc" })).status, 200);
     assert.equal((await call(s.base, "/api/webhooks/zealot?token=x", "POST", evil)).status, 200);
     assert.equal((await call(s.base, "/api/admin/run-digests", "POST", evil)).status, 200);
+    assert.equal((await call(s.base, "/api/admin/run-other", "POST", evil)).status, 403, "only the four exact cron paths");
     assert.equal((await call(s.base, "/api/admin/invites", "POST", evil)).status, 403, "other admin routes stay guarded");
+  } finally { s.close(); }
+});
+
+test("unparseable APP_BASE_URL fails closed when Origin is present", async () => {
+  const s = await serve({ baseUrl: () => "not a url" });
+  try {
+    assert.equal((await call(s.base, "/login", "POST", { Origin: APP })).status, 403);
+    assert.equal((await call(s.base, "/login", "POST")).status, 200);
+    assert.equal((await call(s.base, "/account/export.json", "GET", { "Sec-Fetch-Site": "same-site" })).status, 403);
   } finally { s.close(); }
 });
 

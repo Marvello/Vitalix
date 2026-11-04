@@ -288,9 +288,9 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
   and the export downloads (`GET /account/export*`), a request is refused with 403 (JSON on `/api`,
   plain `Forbidden` elsewhere) when `Sec-Fetch-Site: cross-site`, or when `Origin` is present and its
   origin (scheme+host+port) differs from `APP_BASE_URL` (unset: from the request's own protocol+host,
-  proxy-aware). Requests with neither header pass (curl, old clients). Exempt: any request with
-  `Authorization: Bearer` (the app; a browser cannot attach it cross-site), `/api/webhooks/*` (token in
-  the URL) and `/api/admin/run-*` (header secret) — neither uses cookies. GETs other than the exports
+  proxy-aware). Requests with neither header pass (curl, old clients). The export GETs also refuse `Sec-Fetch-Site: same-site`; an unparseable `APP_BASE_URL` fails closed when `Origin` is present. Exempt: any request with
+  `Authorization: Bearer` (the app; a browser cannot attach it cross-site) — invariant: `requireAuth` authenticates a Bearer request by that token only and never falls back to the access/refresh cookies, so junk Bearer gives 401 — `/api/webhooks/*` (token in
+  the URL) and the four exact `/api/admin/run-*` cron paths (header secret) — neither uses cookies. GETs other than the exports
   are untouched, so the OIDC callback redirect from the IdP still works. SameSite=Lax stays as the
   second layer.
 - Exports: the whole `export.json` stream is capped at `EXPORT_DEADLINE_MS` (15 min) on top of the

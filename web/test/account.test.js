@@ -81,8 +81,8 @@ describe("account export + deletion against Postgres", { skip: !testDb }, () => 
     app.set("view engine", "ejs");
     app.set("views", path.join(path.dirname(fileURLToPath(import.meta.url)), "../views"));
     app.locals.now = () => clock ?? new Date();
-    app.use(express.json()).use(express.urlencoded({ extended: false })).use(cookieParser())
-      .use(sameOrigin({ baseUrl: () => APP })).use(accountRouter);
+    app.use(cookieParser()).use(sameOrigin({ baseUrl: () => APP }))
+      .use(express.json()).use(express.urlencoded({ extended: false })).use(accountRouter);
     server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
@@ -187,7 +187,7 @@ describe("account export + deletion against Postgres", { skip: !testDb }, () => 
       const atAbort = n;
       await new Promise((r) => setTimeout(r, 1200)); // a full export needs ~13 queries * 60ms
       assert.ok(n <= atAbort + 1, `queries kept running after abort: ${atAbort} -> ${n}`);
-      assert.ok(n < 12, `expected an early stop, ran ${n} queries`);
+      assert.ok(n < 8, `expected an early stop (full export = 13 queries), ran ${n}`);
     } finally { db.pool.query = real; }
   });
 
@@ -220,6 +220,7 @@ describe("account export + deletion against Postgres", { skip: !testDb }, () => 
   test("same-origin check on cookie-auth: cross-site export/delete refused, Bearer and header-less pass", async () => {
     const [A, B] = [await mkUser(), await mkUser()]; // export limit is 3/hour per user
     const cookie = { Cookie: `access=${A.tok}` };
+    const refresh = await (await import("../src/auth/store.js")).issueRefresh(A.id);
     const get = (h) => fetch(`${base}/account/export-days.csv`, { headers: h });
     assert.equal((await get({ ...cookie, "Sec-Fetch-Site": "cross-site" })).status, 403);
     assert.equal((await get({ ...cookie, Origin: "https://evil.example" })).status, 403);
@@ -227,6 +228,10 @@ describe("account export + deletion against Postgres", { skip: !testDb }, () => 
     assert.equal((await get({ ...cookie, "Sec-Fetch-Site": "same-origin" })).status, 200);
     assert.equal((await get(cookie)).status, 200, "no Origin / Sec-Fetch-Site (curl, old clients)");
     assert.equal((await get({ ...auth(B.tok), Origin: "https://evil.example", "Sec-Fetch-Site": "cross-site" })).status, 200, "Bearer is exempt");
+    assert.equal((await get({ ...cookie, "Sec-Fetch-Site": "same-site" })).status, 403, "sibling subdomain on exports");
+    const junk = await fetch(`${base}/account/export-days.csv`, { headers: { Accept: "application/json", Authorization: "Bearer junk", Cookie: `refresh=${refresh}`, Origin: "https://evil.example" } });
+    assert.equal(junk.status, 401, "junk Bearer must not fall back to the refresh cookie");
+    assert.equal(junk.headers.get("set-cookie"), null);
     const post = await fetch(`${base}/account/delete`, { method: "POST", redirect: "manual",
       headers: { ...cookie, Origin: "https://evil.example", "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ email: A.email, password: "correct horse" }) });

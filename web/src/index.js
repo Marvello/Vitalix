@@ -29,10 +29,10 @@ app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "../views"));
 app.locals.ssoEnabled = oidcEnabled; // login view shows "Sign in with Authentik"
 app.use(express.static(path.join(__dirname, "../public")));
+app.use(cookieParser());
+app.use(sameOrigin()); // D2: before body parsing and every router, so cross-site bodies are never parsed
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-app.use(sameOrigin()); // before every router: D2 same-origin check on cookie-auth writes + exports
 
 const MIN = 60 * 1000;
 const email = (req) => (typeof req.body?.email === "string" ? req.body.email.toLowerCase() : "");

@@ -25,7 +25,10 @@ export async function requireAuth(req, res, next) {
   const token = extractToken(req);
   let claims = token ? verifyAccess(token) : null;
 
-  if (!claims) {
+  // A Bearer request is authenticated by that token or not at all: no cookie refresh
+  // (sameOrigin exempts Bearer requests, so they must never run as the cookie user).
+  const bearer = (req.get("authorization") || "").startsWith("Bearer ");
+  if (!claims && !bearer) {
     claims = await tryRefresh(req, res);
   }
 
