@@ -109,5 +109,14 @@
 - [ ] Browser check (#21 #36): run local server against the test DB with seeded data, view readiness card and correlation scatter in Chrome, screenshot.
 - [ ] Final whole-branch review; fix wave; merge per user.
 
-## Review
-_(filled on completion)_
+## Review (2026-11-04)
+
+All 9 tasks done via subagent-driven development (implementer + spec/quality review per task, fix loops on 8 of 9), then a whole-branch review (opus), one fix wave, and one targeted dialog-contrast fix (P4).
+
+- Verification at final head: web 239/239 with TEST_DATABASE_URL, run twice (0 skipped, ~10 s, parallel per-file DBs); android unit tests + install green; lint = 19 known RestrictedApi errors only.
+- Browser (Chrome, local seeded server): readiness card renders on the last finished day; correlation explorer renders presets, "not enough data", footnote and scatter; login passes the same-origin check.
+- Emulator: widget preview, fallback sync path (31-day cap) end-to-end against a local server, busy/disabled buttons, login + dialog contrast light/dark, Journal dark, Update screen.
+- Not verified on device: widget on a real home screen + midnight alarm firing; dark widget; Insight feedback buttons (needs login); Sync now busy state (Forgot's button used instead).
+- Bugs caught in review: alert retry double-push on overlapping runs; stack-trace leak via default error handler (prod NODE_ENV=development); junk Bearer falling back to cookie auth; export holding a pooled DB connection; midnight alarm forgetting earlier widgets; disabled-button tint; case-sensitive export guard; dialog/link contrast.
+- Outside this repo (not done): set NODE_ENV=production in common-tech/homeserver/k8s/vitalix/vitalix.yaml (also makes auth cookies Secure).
+- Remaining can-wait minors are listed in the final review triage (test hygiene, perf notes, docs nits).
