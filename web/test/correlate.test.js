@@ -9,7 +9,7 @@ process.env.DATABASE_URL ||= "postgres://x";
 const { pool } = await import("../src/db.js");
 pool.query = async () => ({ rows: [{ role: "user", disabled_at: null, timezone: "UTC" }] });
 
-const { pearson, pairSeries } = await import("../src/correlate.js");
+const { pearson, pairSeries, strength } = await import("../src/correlate.js");
 const { pagesRouter } = await import("../src/routes/pages.js");
 const { signAccess } = await import("../src/auth/tokens.js");
 
@@ -23,9 +23,26 @@ describe("pearson", () => {
   });
   test("9 pairs -> null", () => assert.equal(pearson(seq(9), seq(9)), null));
   test("constant series -> null", () => assert.equal(pearson(seq(12), seq(12).map(() => 5)), null));
+  test("constant series with float noise -> null", () => {
+    assert.equal(pearson(seq(12), seq(12).map(() => 0.1)), null);
+    assert.equal(pearson(seq(12), seq(12).map((i) => 0.1 + (i % 2) * 1e-17 + 1e5)), null);
+  });
+  test("near-perfect line never exceeds 1", () => {
+    const xs = seq(30).map((i) => i / 3 + 100), ys = xs.map((x) => 0.1 * x + 0.3);
+    const { r } = pearson(xs, ys);
+    assert.ok(r <= 1 && r >= -1);
+    assert.ok(pearson(xs, ys.map((v) => -v)).r >= -1);
+  });
   test("non-finite pairs are dropped", () => {
     const xs = [...seq(10), null], ys = [...seq(10), 3];
     assert.equal(pearson(xs, ys).n, 10);
+  });
+});
+
+describe("strength", () => {
+  test("thresholds at 0.2/0.4/0.6 exact and just below, either sign", () => {
+    const cases = [[0.19999, "none"], [0.2, "weak"], [0.39999, "weak"], [0.4, "moderate"], [0.59999, "moderate"], [0.6, "strong"], [1, "strong"], [0, "none"]];
+    for (const [r, want] of cases) { assert.equal(strength(r), want, String(r)); assert.equal(strength(-r), want, String(-r)); }
   });
 });
 

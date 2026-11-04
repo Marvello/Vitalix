@@ -92,11 +92,12 @@ const clip = (t) => String(t).replace(/\s+/g, " ").trim().slice(0, 60);
 export function journalLine(entries) {
   const num = (kind) => entries.filter((e) => e.kind === kind && e.value_num != null).map((e) => Number(e.value_num));
   const sum = (a) => a.reduce((x, y) => x + y, 0);
+  const fmt = (v) => String(Math.round(v * 10) / 10);
   const parts = [];
   const mood = num("mood");
   if (mood.length) parts.push(`mood ${Math.round(sum(mood) / mood.length)}/5`);
-  if (sum(num("caffeine")) > 0) parts.push(`caffeine ${sum(num("caffeine"))} cups`);
-  if (sum(num("alcohol")) > 0) parts.push(`alcohol ${sum(num("alcohol"))} drinks`);
+  if (sum(num("caffeine")) > 0) parts.push(`caffeine ${fmt(sum(num("caffeine")))} cups`);
+  if (sum(num("alcohol")) > 0) parts.push(`alcohol ${fmt(sum(num("alcohol")))} drinks`);
   for (const kind of ["symptom", "medication"]) {
     for (const e of entries) if (e.kind === kind && clip(e.value_text ?? "")) parts.push(`${kind}: ${clip(e.value_text)}`);
   }

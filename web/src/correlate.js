@@ -22,7 +22,7 @@ export function pairSeries(rows, xKey, yKey, lag) {
   return out;
 }
 
-/** Pearson r over pairs where both are finite numbers; null when n < 10 or either variance is 0. */
+/** Pearson r over pairs where both are finite numbers; null when n < 10 or either variance is (numerically) 0; r is clamped to [-1, 1]. */
 export function pearson(xs, ys) {
   const p = xs.map((x, i) => [x, ys[i]]).filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y));
   const n = p.length;
@@ -31,8 +31,9 @@ export function pearson(xs, ys) {
   const my = p.reduce((s, [, y]) => s + y, 0) / n;
   let sxy = 0, sxx = 0, syy = 0;
   for (const [x, y] of p) { sxy += (x - mx) * (y - my); sxx += (x - mx) ** 2; syy += (y - my) ** 2; }
-  if (sxx === 0 || syy === 0) return null;
-  return { r: sxy / Math.sqrt(sxx * syy), n };
+  // Relative epsilon: float noise on a constant series must not read as variance.
+  if (sxx <= 1e-12 * n * Math.max(1, mx * mx) || syy <= 1e-12 * n * Math.max(1, my * my)) return null;
+  return { r: Math.max(-1, Math.min(1, sxy / Math.sqrt(sxx * syy))), n };
 }
 
 export function strength(r) {

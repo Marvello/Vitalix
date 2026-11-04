@@ -24,6 +24,7 @@
 .ai-header h3{margin:0}
 .ai-content{line-height:1.6;white-space:pre-wrap}
 .thumbs{display:flex;gap:8px;margin-top:12px}
+.thumbs[hidden]{display:none}
 .thumbs button{background:transparent;color:inherit;border:1px solid var(--line)}
 .thumbs button.on{background:var(--teal);color:#fff;border-color:var(--teal)}
 .disclaimer{font-size:11px;color:var(--muted);margin-top:12px;font-style:italic}
@@ -142,12 +143,11 @@
     <%- recommendation ? recommendation.recommendation_text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>') : (canGenerate ? "Click 'Generate Insights' to receive personalized health and habit coaching based on your metrics." : "Insights are available once this day has ended.") %>
   </div>
 
-  <% if (recommendation) { %>
-  <div class="thumbs" id="thumbs" data-value="<%= recommendation.feedback || 0 %>">
+  <%# Always rendered; hidden until a recommendation exists (Generate reveals it). %>
+  <div class="thumbs" id="thumbs" data-value="<%= recommendation ? recommendation.feedback || 0 : 0 %>"<%- recommendation ? '' : ' hidden' %>>
     <button type="button" id="thumb-up" aria-label="Helpful" title="Helpful" onclick="sendFeedback(1)">Helpful</button>
     <button type="button" id="thumb-down" aria-label="Not helpful" title="Not helpful" onclick="sendFeedback(-1)">Not helpful</button>
   </div>
-  <% } %>
 
   <div class="disclaimer">
     Vitalix AI Insights are generated automatically for motivational fitness & habit coaching. They do not constitute medical advice.
@@ -201,6 +201,8 @@ async function generateRecommendation() {
     var data = await res.json();
     if (data.text) {
       content.innerHTML = renderMd(data.text);
+      paintThumbs(0);
+      document.getElementById('thumbs').hidden = false;
     } else if (data.error) {
       content.textContent = data.error;
     } else {

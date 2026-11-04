@@ -462,7 +462,7 @@ pagesRouter.delete("/dashboard/layout", requireAuth, async (req, res) => {
   }
 });
 
-pagesRouter.get("/insights/correlations", requireAuth, async (req, res) => {
+pagesRouter.get("/insights/correlations", requireAuth, async (req, res, next) => {
   const { x, y, lag, days } = req.query;
   const bad = (v) => v !== undefined && typeof v !== "string";
   if ([x, y, lag, days].some(bad) || (x === undefined) !== (y === undefined)) return res.status(400).send("Bad query");
@@ -488,8 +488,7 @@ pagesRouter.get("/insights/correlations", requireAuth, async (req, res) => {
       r: cur.res?.r ?? null, n: cur.res?.n ?? points.length, strengthLabel: cur.res ? strength(cur.res.r) : null,
     });
   } catch (err) {
-    console.error("GET /insights/correlations failed", err);
-    res.status(500).redirect("/dashboard");
+    next(err); // default handler renders the 500 page
   }
 });
 
@@ -560,17 +559,20 @@ pagesRouter.get("/daily-review", requireAuth, async (req, res) => {
 
 pagesRouter.get("/dashboard/:date", requireAuth, async (req, res) => {
   try {
-    const { rows } = await query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]);
-    if (rows.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
-    const d = rows[0];
     const tz = req.user.timezone;
-    const [aggs, samples, ex, { rows: journal }] = await Promise.all([
+    const [{ rows }, { rows: journal }] = await Promise.all([
+      query("SELECT * FROM health_days WHERE user_id = $1 AND day = $2", [req.user.id, req.params.date]),
+      query(JOURNAL_SQL, [req.user.id, req.params.date, tz]),
+    ]);
+    const d = rows[0];
+    // A day with only journal entries still renders (empty health sections); 404 only when there is nothing at all.
+    if (!d && journal.length === 0) return res.status(404).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });
+    const [aggs, samples, ex] = d ? await Promise.all([
       query("SELECT metric,min,max,avg FROM day_aggregates WHERE day_id=$1", [d.id]),
       stats.dayReadings(req.user.id, req.params.date, tz, { limit: 500 }),
       query("SELECT name,start_at,duration_minutes,source,detail FROM exercises WHERE day_id=$1", [d.id]),
-      query(JOURNAL_SQL, [req.user.id, req.params.date, tz]),
-    ]);
-    res.render("day", { day: d, aggregates: aggs.rows, samples, exercises: ex.rows, journal, date: req.params.date });
+    ]) : [{ rows: [] }, [], { rows: [] }];
+    res.render("day", { day: d || null, aggregates: aggs.rows, samples, exercises: ex.rows, journal, date: req.params.date });
   } catch (err) {
     console.error("GET /dashboard/:date failed", err);
     res.status(500).render("day", { day: null, samples: [], aggregates: [], exercises: [], journal: [], date: req.params.date });

@@ -7,7 +7,7 @@
 <h2><%= date %></h2>
 
 <% if (!day) { %>
-  <p class="empty">No data for this day.</p>
+  <p class="empty">No health data for this day.</p>
 <% } else { %>
 
   <h2>Summary</h2>
@@ -60,6 +60,8 @@
   </div>
   <% } %>
 
+<% } %>
+
   <h2>Journal</h2>
   <% if (journal.length === 0) { %>
     <p class="empty">No journal entries.</p>
@@ -74,6 +76,7 @@
   </table>
   <% } %>
 
+<% if (day) { %>
   <h2>Exercises</h2>
   <% if (exercises.length === 0) { %>
     <p class="empty">No exercises.</p>

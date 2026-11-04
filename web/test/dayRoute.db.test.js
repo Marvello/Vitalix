@@ -20,6 +20,8 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     await db.query(`INSERT INTO health_days (user_id, day, resting_heart_rate, sleep_duration_minutes)
       SELECT $1, d::date, 55 + (d::date - '2026-10-20'::date) % 3, 420 FROM generate_series('2026-10-20'::date, '2026-11-03', '1 day') d`, [id]);
     await db.query("UPDATE health_days SET resting_heart_rate = 60, sleep_duration_minutes = 400 WHERE user_id = $1 AND day = '2026-11-04'", [id]);
+    // journal-only day: no health_days row
+    await db.query("INSERT INTO journal_entries (user_id, day, kind, value_num, logged_at) VALUES ($1, '2026-10-10', 'mood', 3, '2026-10-10T05:00:00Z')", [id]);
     // 18:30Z = 01:30 next day in Jakarta
     await db.query("INSERT INTO journal_entries (user_id, day, kind, value_num, logged_at) VALUES ($1, '2026-11-04', 'mood', 4, '2026-11-03T18:30:00Z')", [id]);
     tok = (await import("../src/auth/tokens.js")).signAccess({ id, role: "user" });
@@ -38,6 +40,17 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     const r = await fetch(`${base}/dashboard/2026-11-04`, { headers: { Authorization: `Bearer ${tok}` } });
     assert.equal(r.status, 200);
     assert.match(await r.text(), /<td>01:30<\/td><td>mood<\/td>/);
+  });
+
+  test("/dashboard/:date renders a journal-only day (no health_days row)", async () => {
+    const r = await fetch(`${base}/dashboard/2026-10-10`, { headers: { Authorization: `Bearer ${tok}` } });
+    assert.equal(r.status, 200);
+    assert.match(await r.text(), /<td>12:00<\/td><td>mood<\/td>/);
+  });
+
+  test("/dashboard/:date is 404 when there is neither health data nor journal", async () => {
+    const r = await fetch(`${base}/dashboard/2026-10-09`, { headers: { Authorization: `Bearer ${tok}` } });
+    assert.equal(r.status, 404);
   });
 
   test("/dashboard range ends on the user's local today, not UTC today", async () => {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 process.env.DATABASE_URL ??= "postgres://x";
 process.env.JWT_SECRET ??= "test-secret";
-const { buildPrompts, cleanOutput, coverageNote, todayIn, shiftDay } = await import("../src/ai/recommendations.js");
+const { buildPrompts, cleanOutput, coverageNote, todayIn, shiftDay, journalLine } = await import("../src/ai/recommendations.js");
 
 const past = [
   { steps: 9000, sleep_duration_minutes: 420, total_calories: 2000 },
@@ -109,5 +109,15 @@ describe("buildPrompts readiness line", () => {
   test("no line when readiness is null", () => {
     assert.doesNotMatch(buildPrompts({ ...base, readiness: null }).user, /Readiness/);
     assert.doesNotMatch(buildPrompts(base).user, /Readiness/);
+  });
+});
+
+describe("journalLine rounding", () => {
+  const line = (kind, ...vals) => journalLine(vals.map((v) => ({ kind, value_num: v })));
+  test("caffeine/alcohol rounded to 1 decimal, trailing .0 dropped", () => {
+    assert.equal(line("caffeine", 2), "Journal: caffeine 2 cups");
+    assert.equal(line("caffeine", 1.5), "Journal: caffeine 1.5 cups");
+    assert.equal(line("caffeine", 1.25), "Journal: caffeine 1.3 cups");
+    assert.equal(line("alcohol", 0.1, 0.2), "Journal: alcohol 0.3 drinks"); // 0.30000000000000004
   });
 });
