@@ -142,12 +142,18 @@ class SettingsActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 val result = withContext(Dispatchers.IO) { deleteAccount(applicationContext, pw) }
                 when (result) {
-                    is DeleteResult.Deleted -> {
+                    // Deleted, or the session died (401 after a failed refresh): either way, back to login.
+                    is DeleteResult.Deleted, is DeleteResult.SignedOut -> {
                         dialog.dismiss()
+                        if (result is DeleteResult.SignedOut) {
+                            Toast.makeText(this@SettingsActivity, R.string.account_signed_out, Toast.LENGTH_LONG).show()
+                        }
                         AuthStore(this@SettingsActivity).clear()
                         startActivity(Intent(this@SettingsActivity, LoginActivity::class.java)
                             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
                     }
+                    is DeleteResult.NoServer -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, R.string.account_no_server, Toast.LENGTH_LONG).show() }
+                    is DeleteResult.Unreachable -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, R.string.account_unreachable, Toast.LENGTH_LONG).show() }
                     is DeleteResult.WrongPassword -> { confirm.isEnabled = true; password.error = getString(R.string.account_wrong_password) }
                     is DeleteResult.Refused -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }
                     is DeleteResult.Failed -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }

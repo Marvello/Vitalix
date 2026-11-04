@@ -13,10 +13,8 @@ import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 
 /**
@@ -34,9 +32,11 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
 
         val zone = ZoneId.systemDefault()
         val today = LocalDate.now(zone)
-        val windowCfg = settings.readConfig().copy(daysBack = daysToRead(settings.lastSync, today))
         val log = SyncLog(applicationContext)
-        val (from, to) = SyncLog.trailingWindow(windowCfg.daysBack)
+        // Logged range before planning: the window since lastSync (capped); the token
+        // path overwrites it with the days it actually read.
+        val (from, to) = SyncLog.trailingWindow(
+            SyncDecision.daysToRead(settings.lastSync, today, zone).coerceAtMost(SyncDecision.MAX_FALLBACK_DAYS))
         val runId = log.start(SyncLog.Kind.AUTO, from, to)
 
         return try {
@@ -50,47 +50,42 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
             val granted = manager.grantedRecordTypes()
             val typesKey = SyncSettings.typesKey(granted.map { it.simpleName.orEmpty() })
             val plan = ChangesPlanner.planFrom(manager.changes, settings.changesToken(typesKey), zone, today)
-            val days: List<DailyHealthData>
-            val nextToken: String?
-            if (plan.fallback) {
-                // Token taken before the read, so changes made during it are not lost.
-                nextToken = manager.newChangesToken(granted)
-                days = manager.readHealthDataByDay(windowCfg)
-            } else {
-                nextToken = plan.nextToken
-                days = manager.readDays(windowCfg, plan.days)
-            }
-            val deletedIds = plan.deletedIds
+            val decision = SyncDecision.decide(plan, settings.lastSync, today, zone)
+            val windowCfg = settings.readConfig().copy(daysBack = decision.daysBack)
+            val fallback = decision.mode == SyncDecision.Mode.FALLBACK
+            // Fallback: token taken before the read, so changes made during it are not lost.
+            val nextToken = if (decision.takeFreshToken) manager.newChangesToken(granted) else decision.nextToken
+            val days: List<DailyHealthData> =
+                if (fallback) manager.readHealthDataByDay(windowCfg) else manager.readDays(windowCfg, decision.days)
+            val deletedIds = decision.deletedIds
             val meta = PayloadMeta(
                 appVersion = appVersion(),
                 device = Build.MODEL,
-                rangeDays = if (plan.fallback) windowCfg.daysBack else plan.days.size,
+                rangeDays = if (fallback) decision.daysBack else decision.days.size,
                 profileHeightM = settings.userHeightCm?.let { it / 100.0 },
                 bmiScale = settings.resolvedBmiScale(),
                 failedMetrics = manager.lastFailedMetrics,
             )
+            // Nothing read and nothing deleted: forwardChunked sends no request.
             ServerForwarder.forwardChunked(applicationContext, url, days, meta, deletedHcIds = deletedIds).fold(
                 onSuccess = { deleted ->
                     val missed = manager.lastFailedMetrics
-                    // Only a clean, non-empty send moves lastSync and the token forward:
-                    // a throttled metric or an empty read gets re-read next run.
-                    if (missed.isEmpty() && (days.isNotEmpty() || deletedIds.isNotEmpty())) {
-                        settings.lastSync = System.currentTimeMillis()
-                        if (nextToken != null) settings.saveChangesToken(nextToken, typesKey)
-                    }
+                    val commit = decision.commit(readAnyDays = days.isNotEmpty(), clean = missed.isEmpty())
+                    if (commit.saveLastSync) settings.lastSync = System.currentTimeMillis()
+                    if (commit.saveToken && nextToken != null) settings.saveChangesToken(nextToken, typesKey)
                     WidgetState.noteDays(applicationContext, days)
                     log.finish(
                         runId,
                         if (missed.isEmpty()) SyncLog.Status.SENT else SyncLog.Status.PARTIAL,
                         days = days.size,
                         message = listOfNotNull(
-                            "full window".takeIf { plan.fallback },
-                            applicationContext.getString(R.string.sync_older_skipped).takeIf { plan.truncated },
+                            "full window".takeIf { fallback },
+                            decision.note?.let { applicationContext.getString(it) },
                             "$deleted deleted".takeIf { deleted > 0 },
                             "could not read ${missed.joinToString(", ")}".takeIf { missed.isNotEmpty() },
                         ).joinToString("; ").ifEmpty { null }?.replaceFirstChar { it.uppercase() },
-                        from = plan.days.firstOrNull()?.toString(),
-                        to = plan.days.lastOrNull()?.toString(),
+                        from = decision.days.firstOrNull()?.toString(),
+                        to = decision.days.lastOrNull()?.toString(),
                     )
                     Result.success()
                 },
@@ -128,17 +123,6 @@ class ExportWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx
     }
 
     companion object {
-        /**
-         * Calendar days to read, today included: back to the last sync's day, and
-         * never less than yesterday + today — a wearable often hands over last
-         * night's data hours after midnight.
-         */
-        fun daysToRead(lastSyncMs: Long, today: LocalDate, zone: ZoneId = ZoneId.systemDefault()): Int {
-            if (lastSyncMs == 0L) return 2
-            val lastDay = Instant.ofEpochMilli(lastSyncMs).atZone(zone).toLocalDate()
-            return (ChronoUnit.DAYS.between(lastDay, today).toInt() + 1).coerceAtLeast(2)
-        }
-
         const val NAME = "vitalix_auto_export"
 
         /** Fixed auto-sync cadence: every 4h = 6 runs/day. */

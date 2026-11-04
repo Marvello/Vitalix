@@ -78,6 +78,9 @@
     <string name="account_password_hint">Password</string>
     <string name="account_delete_confirm">Delete permanently</string>
     <string name="account_wrong_password">Wrong password</string>
+    <string name="account_no_server">No server configured</string>
+    <string name="account_unreachable">Couldn\'t reach the server</string>
+    <string name="account_signed_out">Session expired — sign in again</string>
     <string name="account_no_browser">No browser available to open the account page.</string>
     <string name="widget_label">Vitalix</string>
     <string name="widget_desc">Last sync, steps and sleep at a glance.</string>
@@ -91,4 +94,5 @@
     <string name="widget_failed_retry">Failed (retry)</string>
     <string name="widget_sleep_value">%1$dh %2$dm</string>
     <string name="sync_older_skipped">Older changes skipped — run Full history</string>
+    <string name="sync_older_days_skipped">Older days skipped — run Full history</string>
 </resources>

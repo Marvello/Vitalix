@@ -75,11 +75,12 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | `health/ChangesSource`, `health/ChangesPlanner` | HC Changes API (`getChangesToken`/`getChanges`) behind a fakeable interface; the planner turns change pages into days to re-read + deleted UIDs, or `fallback` |
 | `health/RecordReader` | Paged HC reads with throttle retry; bisects around records the SDK can't construct; `SecurityException` → `PermanentlyUnavailable` |
 | `ServerForwarder` | Builds the payload, splits into 7-day chunks (re-split above 512 KB), POSTs via `AuthedHttp` |
-| `ExportWorker` | Periodic auto-sync, every 4 h, network-constrained, exponential backoff |
+| `ExportWorker` | Periodic auto-sync, every 4 h, network-constrained, exponential backoff; executes `SyncDecision` |
+| `SyncDecision` | Pure auto-sync decision: token vs fallback mode, days/window to read, deletions, note, and what a successful send may persist (token, `lastSync`) |
 | `BackfillWorker` | One-off full history as a foreground `dataSync` worker: 30-day slices walking back up to 10 years, stops after 6 empty slices |
 | `SyncLog` / `SyncLogActivity` | Last 200 runs (manual/auto/full) with status *Sent · Partial · Failed* |
 | `BatteryGuardian` | Doze exemption + OEM app-killer guidance so the worker actually fires |
-| `auth/AuthClient`, `AuthStore`, `AuthedHttp` | Login/signup/forgot/refresh calls; tokens in `SecurePrefs`; OkHttp authenticator refreshes on 401 (serialized) |
+| `auth/AuthClient`, `AuthStore`, `AuthedHttp` | Login/signup/forgot/refresh calls; account deletion (`AccountApi.delete`: no server URL → "No server configured", 401 after a failed refresh → session cleared + login, network error → "Couldn't reach the server", other HTTP → "Request failed (code)"); tokens in `SecurePrefs`; OkHttp authenticator refreshes on 401 (serialized) |
 | `security/SecurePrefs` | Tink AES-256-GCM over plain prefs, keyset wrapped by an Android Keystore key. Excluded from backup/transfer |
 | `OnboardingActivity`, `SettingsActivity` | Profile (name, height, weight, BMI scale); height/weight also written to Health Connect |
 | `UpdateManager`, `UpdateActivity` | Zealot "latest release" check on open, APK download (Zealot origin only) and install |
@@ -92,8 +93,8 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | Trigger | Window | Notes |
 |---------|--------|-------|
 | Manual | last *N* calendar days (form field, default 7) | |
-| Auto (`ExportWorker`), valid changes token | every local day an upserted record touches + yesterday + today, re-read in full; deletions sent as `deletedHcIds` | pages `getChanges` until `!hasMore`; more than 31 changed days (`MAX_CHANGED_DAYS`) → window read since `lastSync` + fresh token, deletions still sent, SyncLog note "Older changes skipped — run Full history" |
-| Auto (`ExportWorker`), no valid token | back to the day of `lastSync`, minimum yesterday + today; takes a fresh token first | token missing/expired, `getChanges` failed, or granted types changed; Sync log shows *Sent · Full window*. Fails loudly if background read isn't granted |
+| Auto (`ExportWorker`), valid changes token | every local day an upserted record touches + yesterday + today, re-read in full; deletions sent as `deletedHcIds` | pages `getChanges` until `!hasMore`; more than 31 changed days (`MAX_CHANGED_DAYS`) → fallback window read + fresh token, deletions still sent, SyncLog note "Older changes skipped — run Full history". Nothing read and nothing deleted → no POST, token advances, `lastSync` doesn't |
+| Auto (`ExportWorker`), no valid token | back to the day of `lastSync`, minimum yesterday + today, **capped at 31 days** (today included); takes a fresh token first | token missing/expired, `getChanges` failed, or granted types changed; Sync log shows *Sent · Full window*. A clamped window adds the note "Older days skipped — run Full history". Fails loudly if background read isn't granted |
 | Full history (`BackfillWorker`) | 30-day slices back to 10 years | retries throttled slices, then stops with a message |
 
 Invariants:
@@ -102,7 +103,9 @@ Invariants:
   a partial total for the oldest day.
 - **`lastSync` advances only on a clean, non-empty read.** A throttled metric or
   an empty read is re-read on the next run. The changes token advances under the
-  same rule (non-empty = days or deletions sent).
+  same rule (non-empty = days or deletions sent), with one exception: a clean
+  token-mode run that read nothing and has no deletions advances the token only
+  (its changes touched only empty days), never `lastSync`.
 - **Changes token = granted type set.** Stored in `SyncSettings` as
   `changes_token` + `changes_types` (sorted record simple names, comma-joined). If
   the currently granted set differs, the token is treated as absent → window read.

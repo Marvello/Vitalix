@@ -21,10 +21,10 @@ class SyncWindowTest {
 
     @Test
     fun `auto sync reads back to the last sync's day, at least yesterday`() {
-        assertEquals(2, ExportWorker.daysToRead(0L, today, zone))
-        assertEquals(2, ExportWorker.daysToRead(ms(2026, 10, 5, 8), today, zone))
-        assertEquals(2, ExportWorker.daysToRead(ms(2026, 10, 4, 23), today, zone))
+        assertEquals(2, SyncDecision.daysToRead(0L, today, zone))
+        assertEquals(2, SyncDecision.daysToRead(ms(2026, 10, 5, 8), today, zone))
+        assertEquals(2, SyncDecision.daysToRead(ms(2026, 10, 4, 23), today, zone))
         // 47h gap: old code truncated to 1 day (24h) and lost the rest.
-        assertEquals(3, ExportWorker.daysToRead(ms(2026, 10, 3, 13), today, zone))
+        assertEquals(3, SyncDecision.daysToRead(ms(2026, 10, 3, 13), today, zone))
     }
 }

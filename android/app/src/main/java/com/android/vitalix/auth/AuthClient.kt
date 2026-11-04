@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 data class Tokens(val access: String, val refresh: String)
@@ -61,6 +62,12 @@ class AuthClient(private val baseUrl: String) {
 sealed class DeleteResult {
     object Deleted : DeleteResult()
     object WrongPassword : DeleteResult()
+    /** No server URL configured; nothing was sent. */
+    object NoServer : DeleteResult()
+    /** 401 even after AuthedHttp's refresh: the session is dead, sign in again. */
+    object SignedOut : DeleteResult()
+    /** Network failure (timeout, DNS, offline). */
+    object Unreachable : DeleteResult()
     data class Refused(val message: String) : DeleteResult()
     data class Failed(val message: String) : DeleteResult()
 }
@@ -73,19 +80,32 @@ object AccountApi {
         val msg = try { JSONObject(body).optString("error", "") } catch (_: Exception) { "" }
         return when {
             code in 200..299 -> DeleteResult.Deleted
+            code == 401 -> DeleteResult.SignedOut
             code == 403 -> DeleteResult.WrongPassword
             code == 409 -> DeleteResult.Refused(msg.ifBlank { "Account can't be deleted right now." })
             else -> DeleteResult.Failed(msg.ifBlank { "Request failed ($code)." })
         }
     }
+
+    /** Runs [call] (server URL → HTTP code + body) and maps every outcome, failures included. */
+    fun delete(serverUrl: String?, call: (String) -> Pair<Int, String>): DeleteResult {
+        if (serverUrl.isNullOrBlank()) return DeleteResult.NoServer
+        return try {
+            val (code, body) = call(serverUrl)
+            mapDelete(code, body)
+        } catch (_: IOException) {
+            DeleteResult.Unreachable
+        } catch (_: Exception) {
+            DeleteResult.Failed("Request failed.")
+        }
+    }
 }
 
 /** Blocking (run on Dispatchers.IO). The authenticator refreshes an expired access token once. */
-fun deleteAccount(context: android.content.Context, password: String): DeleteResult = try {
-    val base = com.android.vitalix.SyncSettings(context).serverUrl
-        ?: throw IllegalStateException("No server configured")
-    val req = Request.Builder().url(AuthClient.authBaseFrom(base) + "/api/account")
-        .method("DELETE", AccountApi.deleteBody(password).toRequestBody("application/json; charset=utf-8".toMediaType()))
-    AuthStore(context).accessToken?.let { req.header("Authorization", "Bearer $it") }
-    AuthedHttp.client(context).newCall(req.build()).execute().use { AccountApi.mapDelete(it.code, it.body?.string() ?: "") }
-} catch (e: Exception) { DeleteResult.Failed("Couldn't reach the server.") }
+fun deleteAccount(context: android.content.Context, password: String): DeleteResult =
+    AccountApi.delete(com.android.vitalix.SyncSettings(context).serverUrl) { base ->
+        val req = Request.Builder().url(AuthClient.authBaseFrom(base) + "/api/account")
+            .method("DELETE", AccountApi.deleteBody(password).toRequestBody("application/json; charset=utf-8".toMediaType()))
+        AuthStore(context).accessToken?.let { req.header("Authorization", "Bearer $it") }
+        AuthedHttp.client(context).newCall(req.build()).execute().use { it.code to (it.body?.string() ?: "") }
+    }
