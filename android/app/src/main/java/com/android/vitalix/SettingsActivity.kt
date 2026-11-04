@@ -155,8 +155,12 @@ class SettingsActivity : AppCompatActivity() {
                     is DeleteResult.NoServer -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, R.string.account_no_server, Toast.LENGTH_LONG).show() }
                     is DeleteResult.Unreachable -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, R.string.account_unreachable, Toast.LENGTH_LONG).show() }
                     is DeleteResult.WrongPassword -> { confirm.isEnabled = true; password.error = getString(R.string.account_wrong_password) }
-                    is DeleteResult.Refused -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }
-                    is DeleteResult.Failed -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message, Toast.LENGTH_LONG).show() }
+                    is DeleteResult.Refused -> { confirm.isEnabled = true; Toast.makeText(this@SettingsActivity, result.message ?: getString(R.string.account_refused), Toast.LENGTH_LONG).show() }
+                    is DeleteResult.Failed -> {
+                        confirm.isEnabled = true
+                        val text = result.message ?: result.code?.let { getString(R.string.request_failed_code, it) } ?: getString(R.string.request_failed)
+                        Toast.makeText(this@SettingsActivity, text, Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }

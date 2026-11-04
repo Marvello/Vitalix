@@ -97,4 +97,7 @@
     <string name="widget_sleep_value">%1$dh %2$dm</string>
     <string name="sync_older_skipped">Older changes skipped — run Full history</string>
     <string name="sync_older_days_skipped">Older days skipped — run Full history</string>
+    <string name="account_refused">Account can\'t be deleted right now.</string>
+    <string name="request_failed_code">Request failed (%1$d).</string>
+    <string name="request_failed">Request failed.</string>
 </resources>

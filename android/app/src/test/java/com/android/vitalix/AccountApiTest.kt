@@ -18,8 +18,8 @@ class AccountApiTest {
         assertEquals(DeleteResult.Deleted, AccountApi.mapDelete(200, "{}"))
         assertEquals(DeleteResult.WrongPassword, AccountApi.mapDelete(403, """{"error":"Wrong password"}"""))
         assertEquals(DeleteResult.Refused("only admin"), AccountApi.mapDelete(409, """{"error":"only admin"}"""))
-        assertEquals(DeleteResult.Failed("Request failed (500)."), AccountApi.mapDelete(500, "<html>"))
-        assertEquals(DeleteResult.Refused("Account can't be deleted right now."), AccountApi.mapDelete(409, "garbage"))
+        assertEquals(DeleteResult.Failed(500, null), AccountApi.mapDelete(500, "<html>"))
+        assertEquals(DeleteResult.Refused(null), AccountApi.mapDelete(409, "garbage"))
     }
 
     @Test fun unauthorizedAfterRefreshMeansSignedOut() {
@@ -38,12 +38,12 @@ class AccountApiTest {
     }
 
     @Test fun otherFailureIsGeneric() {
-        assertEquals(DeleteResult.Failed("Request failed."), AccountApi.delete("https://x") { throw IllegalArgumentException("bad url") })
+        assertEquals(DeleteResult.Failed(null, null), AccountApi.delete("https://x") { throw IllegalArgumentException("bad url") })
     }
 
     @Test fun responseIsMapped() {
         assertEquals(DeleteResult.Deleted, AccountApi.delete("https://x") { 204 to "" })
         assertEquals(DeleteResult.SignedOut, AccountApi.delete("https://x") { 401 to "" })
-        assertEquals(DeleteResult.Failed("Request failed (502)."), AccountApi.delete("https://x") { 502 to "" })
+        assertEquals(DeleteResult.Failed(502, null), AccountApi.delete("https://x") { 502 to "" })
     }
 }

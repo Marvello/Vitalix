@@ -68,8 +68,10 @@ sealed class DeleteResult {
     object SignedOut : DeleteResult()
     /** Network failure (timeout, DNS, offline). */
     object Unreachable : DeleteResult()
-    data class Refused(val message: String) : DeleteResult()
-    data class Failed(val message: String) : DeleteResult()
+    /** [message] is the server's own text, or null to show the generic string. */
+    data class Refused(val message: String?) : DeleteResult()
+    /** [code] is the HTTP status (null when no response arrived); [message] the server's text if any. */
+    data class Failed(val code: Int?, val message: String?) : DeleteResult()
 }
 
 /** Pure request/response mapping for account deletion, unit-tested on the JVM. */
@@ -82,8 +84,8 @@ object AccountApi {
             code in 200..299 -> DeleteResult.Deleted
             code == 401 -> DeleteResult.SignedOut
             code == 403 -> DeleteResult.WrongPassword
-            code == 409 -> DeleteResult.Refused(msg.ifBlank { "Account can't be deleted right now." })
-            else -> DeleteResult.Failed(msg.ifBlank { "Request failed ($code)." })
+            code == 409 -> DeleteResult.Refused(msg.ifBlank { null })
+            else -> DeleteResult.Failed(code, msg.ifBlank { null })
         }
     }
 
@@ -96,7 +98,7 @@ object AccountApi {
         } catch (_: IOException) {
             DeleteResult.Unreachable
         } catch (_: Exception) {
-            DeleteResult.Failed("Request failed.")
+            DeleteResult.Failed(null, null)
         }
     }
 }
