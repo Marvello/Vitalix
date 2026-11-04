@@ -11,7 +11,8 @@ test("feedback buttons exist (hidden) with no recommendation so Generate can rev
   const html = await ejs.renderFile(file, { ...base, recommendation: null });
   assert.match(html, /<div class="thumbs" id="thumbs" data-value="0" hidden>/);
   assert.match(html, /id="thumb-up"[^>]*onclick="sendFeedback\(1\)"/);
-  assert.match(html, /thumbs"\)\.hidden = false|getElementById\('thumbs'\)\.hidden = false|box\.hidden = false/);
+  // the code run after a successful Generate un-hides the controls
+  assert.match(html, /paintThumbs\(0\);\s*document\.getElementById\('thumbs'\)\.hidden = false;/);
 });
 
 test("with a recommendation the buttons are visible and carry its feedback", async () => {

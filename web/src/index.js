@@ -16,6 +16,7 @@ import { oidcRouter } from "./routes/oidc.js";
 import { oidcEnabled } from "./auth/oidc.js";
 import { runPendingMigrations } from "./migrate.js";
 import { rateLimit } from "./rateLimit.js";
+import { errorHandler } from "./errorHandler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -50,6 +51,7 @@ app.use(aiRouter);
 app.use(journalRouter);
 app.use(fcmRouter);
 app.use(accountRouter);
+app.use(errorHandler); // must stay after all routers
 
 // Apply pending migrations before serving — the DB must match the code that
 // starts. A migration failure aborts startup rather than serving a bad schema.
