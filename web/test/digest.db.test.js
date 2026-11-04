@@ -26,6 +26,17 @@ describe("digests against Postgres", { skip: !testDb }, () => {
   });
   after(async () => { globalThis.fetch = realFetch; server?.close(); });
 
+  test("DIGEST_DUE_SQL needs a recorded day in the period and no stored digest", async () => {
+    const { DIGEST_DUE_SQL } = await import("../src/digests.js");
+    const due = async (kind, s, e) => (await db.query(DIGEST_DUE_SQL, [userId, kind, s, e])).rows.length;
+    assert.equal(await due("week", "2026-12-07", "2026-12-13"), 0); // no health_days in range
+    assert.equal(await due("week", "2026-11-09", "2026-11-15"), 0); // ditto
+    assert.equal(await due("week", "2026-11-02", "2026-11-08"), 1); // data, no digest yet
+    await db.query(`INSERT INTO ai_digests (user_id, kind, period_start, period_end, text) VALUES ($1, 'week', '2026-11-02', '2026-11-08', 'x')`, [userId]);
+    assert.equal(await due("week", "2026-11-02", "2026-11-08"), 0); // stored
+    await db.query("DELETE FROM ai_digests");
+  });
+
   test("generateDigest stores one row, sends the period stats, ignores a repeat; route serves it", async () => {
     const { config } = await import("../src/config.js");
     const { generateDigest } = await import("../src/ai/digest.js");
@@ -39,8 +50,8 @@ describe("digests against Postgres", { skip: !testDb }, () => {
       return new Response(JSON.stringify({ choices: [{ message: { content: "- Steps: up." } }], usage: {} }), { status: 200 });
     };
     await assert.rejects(() => generateDigest(userId, "week", "2026-12-07", "2026-12-13"), { code: "NO_DATA" });
-    await generateDigest(userId, "week", "2026-11-02", "2026-11-08");
-    await generateDigest(userId, "week", "2026-11-02", "2026-11-08");
+    assert.equal((await generateDigest(userId, "week", "2026-11-02", "2026-11-08")).inserted, true);
+    assert.equal((await generateDigest(userId, "week", "2026-11-02", "2026-11-08")).inserted, false);
     assert.match(prompt, /Steps: avg 9,000, previous period avg 6,000 \(\+50%\); 2 of 7 days recorded/);
     const { rows } = await db.query("SELECT kind, period_start::text AS s, period_end::text AS e, text FROM ai_digests");
     assert.deepEqual(rows, [{ kind: "week", s: "2026-11-02", e: "2026-11-08", text: "- Steps: up." }]);

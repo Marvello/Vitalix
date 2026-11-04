@@ -78,6 +78,7 @@ describe("PENDING_ANOMALY_USERS_SQL", () => {
 describe("runAnomalyCheck", () => {
   function deps({ messaging = true } = {}) {
     const seen = new Set();
+    const table = []; // anomaly_alerts rows: { id, rule, value, baseline, pushed }
     const calls = { inserts: [], pushed: [], series: [] };
     const query = async (text, params) => {
       if (text === PENDING_ANOMALY_USERS_SQL) return { rows: [{ id: 7, day: "2026-09-10" }] };
@@ -98,7 +99,16 @@ describe("runAnomalyCheck", () => {
         const k = params.slice(0, 3).join("|");
         if (seen.has(k)) return { rows: [] };
         seen.add(k);
+        table.push({ id: seen.size, rule: params[2], value: params[3], baseline: params[4], pushed: false });
         return { rows: [{ id: seen.size }] };
+      }
+      if (text.includes("FROM anomaly_alerts")) {
+        assert.match(text, /pushed_at IS NULL/);
+        return { rows: table.filter((r) => !r.pushed) };
+      }
+      if (text.includes("UPDATE anomaly_alerts SET pushed_at")) {
+        table.find((r) => r.id === params[0]).pushed = true;
+        return { rows: [] };
       }
       if (text.includes("array_agg(token)")) return { rows: [{ tokens: ["tok"] }] };
       return { rows: [] };
@@ -109,7 +119,7 @@ describe("runAnomalyCheck", () => {
         return { successCount: tokens.length, responses: tokens.map(() => ({ success: true })) };
       },
     };
-    return { calls, deps: { query, messaging: messaging ? m : null } };
+    return { calls, table, deps: { query, messaging: messaging ? m : null } };
   }
 
   test("stores alerts, pushes string data once; second run pushes nothing", async () => {
@@ -125,6 +135,19 @@ describe("runAnomalyCheck", () => {
     for (const p of calls.pushed) for (const v of Object.values(p)) assert.equal(typeof v, "string");
     const r2 = await runAnomalyCheck(d);
     assert.deepEqual(r2, { candidates: 1, alerts: 0, pushed: 0 });
+    assert.equal(calls.pushed.length, 3);
+  });
+
+  test("a failed push stays unpushed, is retried once next run, then never again", async () => {
+    const { deps: d, calls, table } = deps();
+    const real = d.messaging;
+    d.messaging = { sendEachForMulticast: async () => ({ successCount: 0, responses: [{ success: false, error: { code: "messaging/internal-error" } }] }) };
+    assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 3, pushed: 0 });
+    assert.ok(table.every((r) => !r.pushed));
+    d.messaging = real;
+    assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 0, pushed: 3 });
+    assert.equal(calls.pushed.find((p) => p.rule === "bp_high").value, "150/95"); // text recomputed on retry
+    assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 0, pushed: 0 });
     assert.equal(calls.pushed.length, 3);
   });
 

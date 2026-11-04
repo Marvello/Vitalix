@@ -272,7 +272,7 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
 | POST | `/api/fcm/register` | user | Store device push token |
 | GET | `/admin`; `/api/admin/users`, `/api/admin/invites…` | admin | Users (role, disable), invites (create, resend, revoke) |
 | POST | `/api/admin/run-sync-check` | `x-sync-token` | Hourly cron: push `no_sync` to users silent > 36 h (re-notify ≤ 1/24 h) |
-| POST | `/api/admin/run-anomaly-check` | `x-cron-token` | Hourly cron (same `:05` job): personal-baseline alerts for each user's local yesterday after 08:00 local (§5), stored in `anomaly_alerts`, push `anomaly` once per (user, day, rule) |
+| POST | `/api/admin/run-anomaly-check` | `x-cron-token` | Hourly cron (same `:05` job): personal-baseline alerts for each user's local yesterday after 08:00 local (§5), stored in `anomaly_alerts`, push `anomaly` once per (user, day, rule); an unsent push is retried by later runs the same local day (§5) |
 | POST | `/api/admin/run-digests` | `x-cron-token` | Hourly cron (same `:05` job): weekly digest on the user's local Monday, monthly on the 1st, after 08:00 local (§5b), stored in `ai_digests`, push `digest_ready` once per (user, kind, period) |
 | POST | `/api/admin/run-daily-insights` | `x-cron-token` | Hourly cron: per-user insight after 08:00 local (§5a), push `insight_ready` |
 | POST | `/api/webhooks/zealot` | `?token=` (Zealot can't send headers) | New build → push `app_update` to `app-updates-beta` / `app-updates` by `release_type` |
@@ -331,7 +331,7 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
 | BMI | `stats.bmiSeries`, `chartData.js` | Weight forward-filled; height from HC or profile; standard/Asian WHO cut-offs |
 | Daily review + AI insight | `/daily-review`, `ai/recommendations.js` | See §5a |
 | Readiness score | `readiness.js`, dashboard card (finished days only: latest = last completed local day, today excluded), `/daily-review`, AI prompt | 0-100 from HRV (0.4), resting HR (0.3), sleep vs 8 h (0.3); HRV/RHR are `50 ± 15·z` against the previous 28 days, needing ≥ 7 days of that metric; ≥ 2 parts else no score |
-| Anomaly alerts | `anomalies.js`, `anomaly_alerts`, `/daily-review`, `VitalixFirebaseService` | Against the previous 28 days (statistical rules need ≥ 14): `rhr_up` (resting HR ≥ mean + max(sd, 3) on each of the last 3 days), `hrv_drop` (HRV ≤ mean − 2·sd, sd > 0), `spo2_low` (min < 90), `bp_high` (sys ≥ 140 or dia ≥ 90). Push `{type: anomaly, day, rule, value, baseline}` (strings; bp value = `sys/dia`), channel `alerts`, tap opens `InsightActivity` |
+| Anomaly alerts | `anomalies.js`, `anomaly_alerts`, `/daily-review`, `VitalixFirebaseService` | Against the previous 28 days (statistical rules need ≥ 14): `rhr_up` (resting HR ≥ mean + max(sd, 3) on each of the last 3 days), `hrv_drop` (HRV ≤ mean − 2·sd, sd > 0), `spo2_low` (min < 90), `bp_high` (sys ≥ 140 or dia ≥ 90). Push `{type: anomaly, day, rule, value, baseline}` (strings; bp value = `sys/dia`). `anomaly_alerts.pushed_at` is set only when the push was sent: each hourly run pushes that user's evaluated-day alerts still `pushed_at IS NULL` (fresh rows and earlier failed pushes), never a row already pushed, never an earlier day, channel `alerts`, tap opens `InsightActivity` |
 | Correlation explorer | `correlate.js`, `/insights/correlations` | Pairs metrics by date (lag 1 = y on the next day; gaps never shift pairs); Pearson r needs ≥ 10 pairs and non-zero variance, else "not enough data". |r| < 0.2 none, < 0.4 weak, < 0.6 moderate, else strong; always labelled "Correlation, not cause." |
 | Journal | `journal.js`, `routes/journal.js`, `journal_entries`, `JournalActivity`, `/dashboard/:date`, `/daily-review` | Manual mood / caffeine / alcohol / symptom / medication / note. Feeds the AI prompt as one line (`Journal: mood 2/5; caffeine 4 cups; symptom: headache`: mood averaged, caffeine/alcohol summed, zero sums omitted, symptom/medication text one line capped at 60 chars; **notes are never sent to the LLM**) and `dailySeries` (`mood` avg, `caffeine`/`alcohol` sums; rows still come from `health_days`, so journal-only days do not appear) |
 | Stale-sync push | `syncCheck.js` | Server is the source of truth (`syncs.received_at`) |
@@ -371,10 +371,12 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
   the same-length period right before it.
 - **When it runs**: the `:05` CronJob also calls `POST /api/admin/run-digests`
   (`digests.js`). A user is picked once past **08:00 local** (`GENERATE_HOUR`) when
-  `isDue` and no `ai_digests` row exists for `(user, kind, period_start)`. The
-  unique key makes hourly re-runs free: no second LLM call, no second push. The
-  push (`{type: digest_ready, kind, start}`) is sent only after a successful
-  generate; `AI_UNCONFIGURED` stops the run, `NO_DATA` skips the user.
+  `isDue`, no `ai_digests` row exists for `(user, kind, period_start)` and the user
+  has at least one `health_days` row inside the period (so an empty period is not
+  re-queried hourly). The unique key makes hourly re-runs free: no second LLM call.
+  The insert is `ON CONFLICT DO NOTHING RETURNING id` and the push
+  (`{type: digest_ready, kind, start}`) is sent only when this run's insert stored
+  the row, so overlapping runs cannot push twice; `AI_UNCONFIGURED` stops the run, `NO_DATA` skips the user.
 - **Prompt** (`buildDigestPrompts`, pure): per metric (resting HR, HRV, sleep,
   steps, active kcal, readiness) the period average, previous-period average, %
   change (omitted when the previous average is missing or 0) and "N of M days

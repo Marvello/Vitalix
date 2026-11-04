@@ -14,11 +14,16 @@ export const PENDING_DIGEST_USERS_SQL = `
   WHERE u.disabled_at IS NULL
     AND EXTRACT(HOUR FROM n.local_now) >= ${GENERATE_HOUR}`;
 
-const EXISTS_SQL = "SELECT 1 FROM ai_digests WHERE user_id = $1 AND kind = $2 AND period_start = $3";
+// Returns a row only when the digest is still to do: none stored for the period and
+// at least one recorded day in it (so an empty period is not re-queried every hour).
+export const DIGEST_DUE_SQL = `
+  SELECT 1 WHERE NOT EXISTS (SELECT 1 FROM ai_digests WHERE user_id = $1 AND kind = $2 AND period_start = $3)
+    AND EXISTS (SELECT 1 FROM health_days WHERE user_id = $1 AND day BETWEEN $3 AND $4)`;
 
 // Hourly: for each user whose local date makes a digest due (Monday / the 1st) and
 // who has none for that period yet, generate it and push `digest_ready` once.
-// The ai_digests unique key means a re-run never spends tokens or pushes twice.
+// The ai_digests unique key means a re-run never spends tokens; only the run whose insert
+// actually stored the row pushes, so overlapping runs cannot push twice.
 export async function runDigests({
   query = dbQuery,
   messaging = defaultMessaging,
@@ -34,11 +39,12 @@ export async function runDigests({
     for (const kind of DIGEST_KINDS) {
       if (!isDue(kind, today)) continue;
       const { start, end } = periodFor(kind, today);
-      if ((await query(EXISTS_SQL, [id, kind, start])).rows.length) continue;
+      if (!(await query(DIGEST_DUE_SQL, [id, kind, start, end])).rows.length) continue;
       candidates++;
 
+      let res;
       try {
-        await generate(id, kind, start, end);
+        res = await generate(id, kind, start, end);
         generated++;
       } catch (e) {
         if (e.code === "NO_DATA") continue;
@@ -48,6 +54,7 @@ export async function runDigests({
         continue; // no fresh digest, no push
       }
 
+      if (!res?.inserted) continue; // a concurrent run stored it first and owns the push
       if ((await pushToUser({ query, messaging }, id, { type: "digest_ready", kind, start })).sent) pushed++;
     }
   }

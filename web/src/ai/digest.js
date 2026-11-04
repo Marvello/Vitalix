@@ -113,7 +113,8 @@ function fail(code, message) {
 }
 
 /**
- * Generates and stores the digest for [start, end]. Throws with `code`
+ * Generates and stores the digest for [start, end]. Returns { text, inserted } (inserted false when a
+ * row for the period already existed). Throws with `code`
  * AI_UNCONFIGURED or NO_DATA, or a plain error if the LLM fails.
  */
 export async function generateDigest(userId, kind, start, end) {
@@ -140,12 +141,12 @@ export async function generateDigest(userId, kind, start, end) {
   const text = cleanOutput(result.text || "");
   if (!text) throw new Error("LLM provider error: empty response");
 
-  await query(
+  const ins = await query(
     `INSERT INTO ai_digests (user_id, kind, period_start, period_end, text, metrics_snapshot, provider, model, prompt_tokens, completion_tokens)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-     ON CONFLICT (user_id, kind, period_start) DO NOTHING`,
+     ON CONFLICT (user_id, kind, period_start) DO NOTHING RETURNING id`,
     [userId, kind, start, end, text, JSON.stringify({ prompt: user }), aiConfig.provider, aiConfig.model,
       result.promptTokens, result.completionTokens],
   );
-  return { text };
+  return { text, inserted: ins.rows.length > 0 };
 }

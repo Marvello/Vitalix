@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 process.env.DATABASE_URL ??= "postgres://x";
 process.env.JWT_SECRET ??= "test-secret";
 const { periodFor, isDue, previousPeriod, buildDigestPrompts } = await import("../src/ai/digest.js");
-const { runDigests, PENDING_DIGEST_USERS_SQL } = await import("../src/digests.js");
+const { runDigests, PENDING_DIGEST_USERS_SQL, DIGEST_DUE_SQL } = await import("../src/digests.js");
 const { todayIn } = await import("../src/ai/recommendations.js");
 
 describe("periodFor / isDue", () => {
@@ -45,6 +45,14 @@ describe("periodFor / isDue", () => {
 
 describe("buildDigestPrompts", () => {
   const d = (day, o) => ({ day, restingHr: 60, sleepMin: 432, steps: 8000, ...o });
+  test("hrv, resting HR and active kcal lines carry the average, previous average and % change", () => {
+    const days = [d("2026-11-02", { hrv: 40, activeKcal: 500, restingHr: 62 }), d("2026-11-03", { hrv: 60, activeKcal: 700, restingHr: 58 })];
+    const prevDays = [d("2026-10-26", { hrv: 40, activeKcal: 400, restingHr: 64 })];
+    const { user } = buildDigestPrompts({ kind: "week", days, prevDays, start: "2026-11-02", end: "2026-11-08" });
+    assert.match(user, /Resting heart rate: avg 60 bpm, previous period avg 64 bpm \(-6%\); 2 of 7 days recorded/);
+    assert.match(user, /HRV: avg 50 ms, previous period avg 40 ms \(\+25%\); 2 of 7 days recorded/);
+    assert.match(user, /Active calories burned: avg 600 kcal, previous period avg 400 kcal \(\+50%\); 2 of 7 days recorded/);
+  });
   test("3 recorded days → 'N of 7 days recorded', averages and % change", () => {
     const days = [d("2026-11-02", { readiness: 70 }), d("2026-11-03", { steps: 10000, readiness: 80 }), d("2026-11-04", { readiness: 60 })];
     const prevDays = [d("2026-10-26", { steps: 6000 })];
@@ -81,14 +89,14 @@ describe("runDigests", () => {
     const calls = { generated: [], pushed: [], inserts: [] };
     const query = async (text, params) => {
       if (text === PENDING_DIGEST_USERS_SQL) return { rows: [{ id: 1, today: "2026-11-09" }, { id: 2, today: "2026-11-09" }, { id: 3, today: "2026-11-10" }] };
-      if (text.includes("FROM ai_digests")) return { rows: existing.includes(`${params[0]}:${params[1]}:${params[2]}`) ? [{}] : [] };
+      if (text === DIGEST_DUE_SQL) return { rows: existing.includes(`${params[0]}:${params[1]}:${params[2]}`) ? [] : [{}] };
       if (text.includes("array_agg(token)")) return { rows: [{ tokens: ["t" + params[0]] }] };
       return { rows: [] };
     };
     const messaging = {
       sendEachForMulticast: async (m) => { calls.pushed.push(m); return { successCount: 1, responses: [{ success: true }] }; },
     };
-    const gen = generate ?? (async (...a) => { calls.generated.push(a); });
+    const gen = generate ?? (async (...a) => { calls.generated.push(a); return { inserted: true }; });
     return { calls, deps: { query, messaging, generate: gen } };
   }
 
@@ -113,14 +121,20 @@ describe("runDigests", () => {
     const nd = setup({ generate: async () => { throw Object.assign(new Error("x"), { code: "NO_DATA" }); } });
     assert.deepEqual(await runDigests(nd.deps), { candidates: 2, generated: 0, pushed: 0, failed: 0 });
     assert.equal(nd.calls.pushed.length, 0);
-    const boom = setup({ generate: async (id) => { if (id === 1) throw new Error("llm"); } });
+    const boom = setup({ generate: async (id) => { if (id === 1) throw new Error("llm"); return { inserted: true }; } });
     const r = await runDigests(boom.deps);
     assert.deepEqual([r.generated, r.failed, r.pushed], [1, 1, 1]);
   });
+  test("no push when generate did not insert (a concurrent run stored it)", async () => {
+    const { calls, deps } = setup({ generate: async () => ({ inserted: false }) });
+    const r = await runDigests(deps);
+    assert.deepEqual([r.generated, r.pushed], [2, 0]);
+    assert.equal(calls.pushed.length, 0);
+  });
   test("both kinds due on Monday the 1st", async () => {
     const calls = [];
-    const query = async (t) => (t === PENDING_DIGEST_USERS_SQL ? { rows: [{ id: 1, today: "2027-02-01" }] } : { rows: [] });
-    const r = await runDigests({ query, messaging: null, generate: async (...a) => { calls.push(a); } });
+    const query = async (t) => ({ rows: t === PENDING_DIGEST_USERS_SQL ? [{ id: 1, today: "2027-02-01" }] : [{}] });
+    const r = await runDigests({ query, messaging: null, generate: async (...a) => { calls.push(a); return { inserted: true }; } });
     assert.deepEqual(calls.map((c) => c[1]), ["week", "month"]);
     assert.equal(r.generated, 2);
   });
