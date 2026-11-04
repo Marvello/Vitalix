@@ -165,7 +165,7 @@ class VitalixFirebaseService : FirebaseMessagingService() {
                 NotificationChannel(ALERTS_CHANNEL, "Alerts", NotificationManager.IMPORTANCE_DEFAULT)
             )
         }
-        val id = anomalyNotificationId(rule)
+        val id = anomalyNotificationId(rule) ?: return
         val pending = PendingIntent.getActivity(
             this, id,
             InsightActivity.intent(this, day).apply {
@@ -195,8 +195,14 @@ class VitalixFirebaseService : FirebaseMessagingService() {
         /** Own id per kind so a weekly and a monthly summary don't replace each other or the daily insight. */
         fun digestNotificationId(kind: String?) = DIGEST_NOTIFICATION_BASE + if (kind == "month") 1 else 0
 
-        /** One id per rule so same-day alerts don't replace each other. */
-        fun anomalyNotificationId(rule: String?) = ANOMALY_NOTIFICATION_BASE + (rule.hashCode() and 0xff)
+        /** One fixed id per known rule so same-day alerts don't replace each other; null for an unknown rule. */
+        fun anomalyNotificationId(rule: String?): Int? = when (rule) {
+            "rhr_up" -> ANOMALY_NOTIFICATION_BASE
+            "hrv_drop" -> ANOMALY_NOTIFICATION_BASE + 1
+            "spo2_low" -> ANOMALY_NOTIFICATION_BASE + 2
+            "bp_high" -> ANOMALY_NOTIFICATION_BASE + 3
+            else -> null
+        }
 
         /** Push `kind` -> notification title; null for an unknown kind. */
         fun digestTitle(kind: String?): String? = when (kind) {

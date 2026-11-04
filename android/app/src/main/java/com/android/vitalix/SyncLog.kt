@@ -1,7 +1,6 @@
 package com.android.vitalix
 
 import android.content.Context
-import com.android.vitalix.widget.WidgetState
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
@@ -15,8 +14,6 @@ import java.time.ZoneId
  * and counts), so it stays outside the encrypted store.
  */
 class SyncLog(context: Context) {
-
-    private val appContext = context.applicationContext
 
     private val prefs = context.getSharedPreferences("vitalix_synclog", Context.MODE_PRIVATE)
 
@@ -79,8 +76,8 @@ class SyncLog(context: Context) {
                 )
             })
         }
-        // Every sync outcome (manual, auto, backfill) passes through here; mirror it on the widget.
-        WidgetState.statusOf(status)?.let { WidgetState.noteOutcome(appContext, it) }
+        // Every sync outcome (manual, auto, backfill) passes through here; a listener must never break the sync.
+        runCatching { outcomeListener?.invoke(status) }
     }
 
     /**
@@ -169,6 +166,8 @@ class SyncLog(context: Context) {
     }
 
     companion object {
+        /** Called after every [finish]; set once in VitalixApp so this class knows nothing of the widget. */
+        @Volatile var outcomeListener: ((Status) -> Unit)? = null
         /**
          * Serialises the read-modify-write cycle. The backfill worker and the log
          * screen update the same prefs from different threads, and interleaved

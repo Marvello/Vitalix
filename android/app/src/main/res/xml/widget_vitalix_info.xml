@@ -2,6 +2,7 @@
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/widget_desc"
     android:initialLayout="@layout/widget_vitalix"
+    android:previewImage="@drawable/widget_preview"
     android:previewLayout="@layout/widget_vitalix"
     android:minWidth="110dp"
     android:minHeight="40dp"

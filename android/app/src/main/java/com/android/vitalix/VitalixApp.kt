@@ -1,11 +1,13 @@
 package com.android.vitalix
 
 import android.app.Application
+import com.android.vitalix.widget.WidgetState
 import com.google.firebase.messaging.FirebaseMessaging
 
 class VitalixApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        SyncLog.outcomeListener = { WidgetState.statusOf(it)?.let { s -> WidgetState.noteOutcome(this, s) } }
         val topic = if (BuildConfig.APPLICATION_ID.endsWith(".beta")) "app-updates-beta" else "app-updates"
         FirebaseMessaging.getInstance().subscribeToTopic(topic)
 

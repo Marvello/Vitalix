@@ -51,16 +51,21 @@
             style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="Helpful"
-            android:text="Helpful" />
+            android:layout_marginEnd="@dimen/space_8"
+            android:background="@drawable/feedback_button_bg"
+            android:contentDescription="@string/insight_helpful"
+            android:text="@string/insight_helpful"
+            android:textColor="@color/feedback_button_text" />
 
         <Button
             android:id="@+id/btnNotHelpful"
             style="?android:attr/buttonBarButtonStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:contentDescription="Not helpful"
-            android:text="Not helpful" />
+            android:background="@drawable/feedback_button_bg"
+            android:contentDescription="@string/insight_not_helpful"
+            android:text="@string/insight_not_helpful"
+            android:textColor="@color/feedback_button_text" />
     </LinearLayout>
 
     <ScrollView

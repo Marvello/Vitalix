@@ -22,6 +22,8 @@ object WidgetState {
         val stepsToday: Long?,
         val sleepLastNightMin: Int?,
         val insightReadyDay: String?,
+        /** Local date the steps/sleep belong to; null for data saved before this was tracked. */
+        val day: String? = null,
     )
 
     private const val PREFS = "vitalix_widget"
@@ -34,8 +36,13 @@ object WidgetState {
             (day?.activityData?.get("steps") as? Number)?.toLong(),
             (day?.sleepData?.get("durationMinutes") as? Number)?.toInt(),
             null,
+            today.toString(),
         )
     }
+
+    /** What to render: steps/sleep from a previous day are stale, so they read as unknown. */
+    fun current(s: Snapshot?, today: LocalDate): Snapshot? =
+        if (s == null || s.day == today.toString()) s else s.copy(stepsToday = null, sleepLastNightMin = null)
 
     fun save(ctx: Context, s: Snapshot) {
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().apply {
@@ -44,6 +51,7 @@ object WidgetState {
             if (s.stepsToday != null) putLong("steps", s.stepsToday) else remove("steps")
             if (s.sleepLastNightMin != null) putInt("sleep", s.sleepLastNightMin) else remove("sleep")
             if (s.insightReadyDay != null) putString("insight", s.insightReadyDay) else remove("insight")
+            if (s.day != null) putString("day", s.day) else remove("day")
         }.apply()
     }
 
@@ -55,36 +63,43 @@ object WidgetState {
             if (p.contains("steps")) p.getLong("steps", 0L) else null,
             if (p.contains("sleep")) p.getInt("sleep", 0) else null,
             p.getString("insight", null),
+            p.getString("day", null),
         )
     }
 
     private val LOCK = Any()
 
-    /** Entry points below never throw: a widget failure must not break a sync or a push. */
-    private fun safely(what: String, block: () -> Unit) =
-        runCatching { synchronized(LOCK) { block() } }.onFailure { Log.w("VitalixWidget", "$what failed", it) }
+    /**
+     * Entry points below never throw: a widget failure must not break a sync or a push.
+     * [LOCK] covers only the prefs read-modify-write; the redraw happens after it is released.
+     */
+    private fun update(ctx: Context, what: String, redraw: Boolean, change: (Snapshot?) -> Snapshot) =
+        runCatching {
+            synchronized(LOCK) { save(ctx, change(load(ctx))) }
+            if (redraw) VitalixWidget.refresh(ctx)
+        }.onFailure { Log.w("VitalixWidget", "$what failed", it) }
 
-    /** After a successful read: new steps/sleep replace the old ones, status is set by the outcome. */
-    fun noteDays(ctx: Context, days: List<DailyHealthData>) = safely("noteDays") {
-        val fresh = fromDays(days, LocalDate.now(), "", 0L)
-        val prev = load(ctx) ?: Snapshot("", 0L, null, null, null)
-        save(ctx, prev.copy(
-            stepsToday = fresh.stepsToday ?: prev.stepsToday,
-            sleepLastNightMin = fresh.sleepLastNightMin ?: prev.sleepLastNightMin,
-        ))
+    private val EMPTY = Snapshot("", 0L, null, null, null)
+
+    /** After a successful read: new steps/sleep replace the old ones; yesterday's are dropped. */
+    fun noteDays(ctx: Context, days: List<DailyHealthData>) = update(ctx, "noteDays", false) { prev ->
+        val today = LocalDate.now()
+        val fresh = fromDays(days, today, "", 0L)
+        val kept = current(prev ?: EMPTY, today)!!
+        kept.copy(
+            stepsToday = fresh.stepsToday ?: kept.stepsToday,
+            sleepLastNightMin = fresh.sleepLastNightMin ?: kept.sleepLastNightMin,
+            day = fresh.day,
+        )
     }
 
     /** Records an outcome, keeping the last known steps/sleep, then redraws the widget. */
-    fun noteOutcome(ctx: Context, status: String) = safely("noteOutcome") {
-        val prev = load(ctx)
-        save(ctx, Snapshot(status, System.currentTimeMillis(), prev?.stepsToday, prev?.sleepLastNightMin, prev?.insightReadyDay))
-        VitalixWidget.refresh(ctx)
+    fun noteOutcome(ctx: Context, status: String) = update(ctx, "noteOutcome", true) { prev ->
+        (prev ?: EMPTY).copy(status = status, at = System.currentTimeMillis())
     }
 
-    fun noteInsightReady(ctx: Context, day: String?) = safely("noteInsightReady") {
-        val prev = load(ctx) ?: Snapshot("", 0L, null, null, null)
-        save(ctx, prev.copy(insightReadyDay = day ?: LocalDate.now().minusDays(1).toString()))
-        VitalixWidget.refresh(ctx)
+    fun noteInsightReady(ctx: Context, day: String?) = update(ctx, "noteInsightReady", true) { prev ->
+        (prev ?: EMPTY).copy(insightReadyDay = day ?: LocalDate.now().minusDays(1).toString())
     }
 
     /** SyncLog outcome -> widget status; null for a run still in flight. */

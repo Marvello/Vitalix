@@ -52,3 +52,35 @@ class WidgetStateTest {
         assertNull(WidgetState.statusOf(SyncLog.Status.RUNNING))
     }
 }
+
+class WidgetStalenessTest {
+    private val today = LocalDate.of(2026, 11, 4)
+    private fun snap(day: String?) = WidgetState.Snapshot("Sent", 1L, 900L, 420, "2026-11-03", day)
+
+    @Test fun snapshotFromPreviousDayShowsNoStepsOrSleep() {
+        val s = WidgetState.current(snap("2026-11-03"), today)!!
+        assertNull(s.stepsToday); assertNull(s.sleepLastNightMin)
+        assertEquals("2026-11-03", s.insightReadyDay) // chip is judged separately at render
+        assertEquals("Sent", s.status)
+    }
+
+    @Test fun legacySnapshotWithoutDayIsStale() {
+        assertNull(WidgetState.current(snap(null), today)!!.stepsToday)
+    }
+
+    @Test fun snapshotFromTodayIsKept() {
+        assertEquals(900L, WidgetState.current(snap("2026-11-04"), today)!!.stepsToday)
+        assertNull(WidgetState.current(null, today))
+    }
+
+    @Test fun fromDaysStampsTheDay() {
+        assertEquals("2026-11-04", WidgetState.fromDays(emptyList(), today, "Sent", 0L).day)
+    }
+
+    @Test fun refreshIsOneMinuteAfterNextLocalMidnight() {
+        val zone = java.time.ZoneId.of("Asia/Jakarta")
+        val now = java.time.ZonedDateTime.of(2026, 11, 4, 23, 59, 0, 0, zone)
+        val at = VitalixWidget.nextRefreshAt(now)
+        assertEquals(java.time.ZonedDateTime.of(2026, 11, 5, 0, 1, 0, 0, zone).toInstant().toEpochMilli(), at)
+    }
+}
