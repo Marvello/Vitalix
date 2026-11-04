@@ -23,40 +23,37 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         app:layout_behavior="@string/appbar_scrolling_view_behavior"
-    
         android:clipToPadding="false"
         android:padding="@dimen/space_16">
 
         <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <TextView
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="@dimen/space_4"
-            android:text="Vitalix"
-            android:textColor="@color/vital_teal_text"
-            android:textSize="28sp"
-            android:textStyle="bold" />
+            android:orientation="vertical">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="20dp"
-            android:text="Sync your Health Connect data to your server"
-            android:textAppearance="@style/Vitalix.Caption" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="@dimen/space_4"
+                android:text="Vitalix"
+                android:textColor="@color/vital_teal_text"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginBottom="@dimen/space_16"
+                android:text="Sync your Health Connect data to your server"
+                android:textAppearance="@style/Vitalix.Caption" />
 
+            <include layout="@layout/main_metrics" />
 
-        <include layout="@layout/main_metrics" />
+            <include layout="@layout/main_backfill" />
 
-        <include layout="@layout/main_backfill" />
-
-        <include layout="@layout/main_sync" />
+            <include layout="@layout/main_sync" />
         </LinearLayout>
     </ScrollView>
 

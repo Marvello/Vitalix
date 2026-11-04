@@ -104,7 +104,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/space_8"
-            android:backgroundTint="@color/vital_teal"
             android:text="Log in"
             android:textColor="@color/white" />
 

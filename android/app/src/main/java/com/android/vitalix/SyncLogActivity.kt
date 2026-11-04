@@ -150,6 +150,6 @@ class SyncLogActivity : AppCompatActivity() {
         SyncLog.Status.SENT -> R.color.vital_teal
         SyncLog.Status.PARTIAL -> R.color.warning_amber
         SyncLog.Status.FAILED -> R.color.error_red
-        SyncLog.Status.RUNNING -> R.color.slate
+        SyncLog.Status.RUNNING -> R.color.text_secondary
     })
 }
