@@ -37,7 +37,7 @@ A bridge that exports Google Fit data and forwards it to your own server. Privac
 | Cloud | `#F5F8FA` | page background |
 | White | `#FFFFFF` | card surfaces, pulse mark |
 
-**Button rule:** filled primary buttons use Button Teal `#0B7A73` with white text in light and dark themes; `#0FA9A0` stays for accents and the logo. Android sets this once in the theme (`materialButtonStyle` = `Widget.Vitalix.Button`).
+**Button rule:** filled primary buttons use Button Teal `#0B7A73` with white text in light and dark themes; `#0FA9A0` stays for accents and the logo. Android sets this once in the theme (`materialButtonStyle` = `Widget.Vitalix.Button`). Outlined and text buttons (`materialButtonOutlinedStyle`, `borderlessButtonStyle` = `Widget.Vitalix.Button.OutlinedButton` / `.TextButton`) use `vital_teal_text` for text, icon, ripple and stroke, with a disabled state; `colorPrimary` is never used as text colour (2.9:1 on light).
 
 **Primary gradient:** linear 135°, `#0FA9A0 → #34D399`. Use sparingly — logo, hero, one key accent per screen.
 

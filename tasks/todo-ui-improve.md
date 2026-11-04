@@ -23,6 +23,8 @@ Light surface is `#FFFEF7FF` (bg_app = bg_surface), not `#FFFFFF`. Night: bg_app
 | warning_amber | 4.8 | 8.6 / 7.7 |
 | success_green | 6.8 | 10.6 / 9.5 |
 | White on button_primary #0B7A73 (primary buttons) | 5.2 | 5.2 (same fill) |
+| colorPrimary #0FA9A0 as text on light (old outlined/text buttons, links) | 2.9, fails (now vital_teal_text) | n/a |
+| Outlined/text button text + stroke (new, vital_teal_text) | 4.9 | 8.9 / 7.9 |
 | White on vital_teal #0FA9A0 (old button fill) | 2.9, fails | 2.9, fails |
 | deep_ink on vital_teal (widget chip) | 6.0, passes, unchanged | 6.0 |
 | slate (old SyncLog RUNNING) | 4.5 | 3.9 / 3.5, fails |

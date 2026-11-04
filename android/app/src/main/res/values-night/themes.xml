@@ -3,6 +3,9 @@
     <style name="Base.Theme.Vitalix" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/vital_teal</item>
         <item name="materialButtonStyle">@style/Widget.Vitalix.Button</item>
+        <item name="materialButtonOutlinedStyle">@style/Widget.Vitalix.Button.OutlinedButton</item>
+        <item name="borderlessButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="android:buttonBarButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/pulse_green</item>
         <item name="colorOnSecondary">@color/black</item>

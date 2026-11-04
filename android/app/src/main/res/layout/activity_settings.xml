@@ -106,21 +106,21 @@
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnScaleAuto"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        style="@style/Widget.Vitalix.Button.OutlinedButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Auto" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnScaleStandard"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        style="@style/Widget.Vitalix.Button.OutlinedButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Standard" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnScaleAsian"
-                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        style="@style/Widget.Vitalix.Button.OutlinedButton"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Asian" />
@@ -139,7 +139,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/space_8"
                     android:text="Log weight manually"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+                    style="@style/Widget.Vitalix.Button.OutlinedButton" />
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

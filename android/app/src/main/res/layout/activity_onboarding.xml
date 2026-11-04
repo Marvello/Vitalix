@@ -89,7 +89,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Skip for now"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            style="@style/Widget.Vitalix.Button.TextButton" />
 
     </LinearLayout>
 </ScrollView>
