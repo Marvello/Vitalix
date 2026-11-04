@@ -87,6 +87,7 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | `VitalixFirebaseService`, `FcmRegistrar` | Renders pushes; registers the FCM token with the server on app open |
 | `InsightActivity` | Shows the day's AI insight; opened from the `insight_ready` push |
 | `SignupActivity` | Invite-code signup; also opened by the `vitalix://signup` link in invite emails |
+| `widget/VitalixWidget`, `widget/WidgetState` | Home-screen widget (status, steps, sleep, insight-ready). `WidgetState` keeps its own prefs file, separate from `SyncSettings`. `SyncLog.outcomeListener` (set in `VitalixApp`) feeds sync outcomes in. Staleness rule: a snapshot whose `day` is not today shows steps/sleep as "—"; snapshots saved before `day` existed (legacy, `day` null) therefore render as stale until the next sync. An inexact `AlarmManager.RTC` alarm one minute past local midnight redraws it (no exact-alarm permission); it is cancelled in `onDisabled` when the last widget is removed. |
 
 ### Sync model
 
