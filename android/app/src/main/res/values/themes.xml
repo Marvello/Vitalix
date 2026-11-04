@@ -6,6 +6,8 @@
         <item name="materialButtonOutlinedStyle">@style/Widget.Vitalix.Button.OutlinedButton</item>
         <item name="borderlessButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
         <item name="android:buttonBarButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Vitalix.MaterialAlertDialog</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Vitalix.AlertDialog</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/pulse_green</item>
         <item name="colorOnSecondary">@color/black</item>
@@ -35,6 +37,19 @@
         <item name="android:textColor">@color/button_text_teal</item>
         <item name="iconTint">@color/button_text_teal</item>
         <item name="rippleColor">@color/button_ripple_teal</item>
+    </style>
+
+    <!-- Dialog buttons: teal text needs the darker vital_teal_text (night-aware) on dialog surfaces. -->
+    <style name="ThemeOverlay.Vitalix.MaterialAlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+    </style>
+
+    <style name="ThemeOverlay.Vitalix.AlertDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="buttonBarPositiveButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
     </style>
 
     <style name="Theme.Vitalix" parent="Base.Theme.Vitalix" />

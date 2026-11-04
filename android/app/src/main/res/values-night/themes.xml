@@ -6,6 +6,8 @@
         <item name="materialButtonOutlinedStyle">@style/Widget.Vitalix.Button.OutlinedButton</item>
         <item name="borderlessButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
         <item name="android:buttonBarButtonStyle">@style/Widget.Vitalix.Button.TextButton</item>
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.Vitalix.MaterialAlertDialog</item>
+        <item name="alertDialogTheme">@style/ThemeOverlay.Vitalix.AlertDialog</item>
         <item name="colorOnPrimary">@color/white</item>
         <item name="colorSecondary">@color/pulse_green</item>
         <item name="colorOnSecondary">@color/black</item>

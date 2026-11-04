@@ -3,6 +3,7 @@
 ## High-impact fixes (this pass)
 - [x] **Edge-to-edge insets on 6 screens.** Added `applySystemBarsPadding()` (top+bottom systemBars) to `WindowInsets.kt`; called after `setContentView` in Login, Signup, Forgot, Onboarding, Settings, SyncLog. (Main/Update already handled insets.)
 - [x] **Teal text contrast.** Added `vital_teal_text` (#0B7A73, 5.2:1 on white, 4.9:1 on the light surface); swapped all 9 `textColor="@color/vital_teal"` → `vital_teal_text` across forgot/insight/login/main/signup. `vital_teal` kept for fills.
+- [x] **Dialog buttons.** `materialAlertDialogTheme`/`alertDialogTheme` overlays (both themes) route `buttonBar{Positive,Negative,Neutral}ButtonStyle` to `Widget.Vitalix.Button.TextButton`; dialog buttons now #0B7A73 light / #34C7BD night. "Delete permanently" stays `colorError` (set in code after `show()`).
 - [x] Build to verify — `compileBetaDebugKotlin` BUILD SUCCESSFUL (resources merged, Kotlin clean; only a pre-existing FcmRegistrar deprecation warning).
 
 ## Deferred (done in roadmap Task 16)
