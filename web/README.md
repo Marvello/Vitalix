@@ -31,14 +31,14 @@ npm start                     # :3000
 npm test
 ```
 
-`test/persist.db.test.js` runs against a real, throwaway Postgres and is skipped unless `TEST_DATABASE_URL` is set (it drops the `public` schema):
+The `*.db.test.js` files and the DB sections of a few others run against a real Postgres and are skipped unless `TEST_DATABASE_URL` is set:
 
 ```bash
 docker run -d --rm -e POSTGRES_PASSWORD=t -e POSTGRES_USER=t -p 55432:5432 postgres:18-alpine
 TEST_DATABASE_URL=postgres://t:t@127.0.0.1:55432/t npm test
 ```
 
-DB test files share one database and wipe it, so the suite runs files serially (`--test-concurrency=1`).
+`TEST_DATABASE_URL` is only the admin connection: each DB test file creates its own `vitalix_test_<file>_<pid>` database (`test/helpers/testDb.js`), migrates it and drops it afterwards, so files run in parallel and nothing in the admin database is touched.
 
 ## Environment
 

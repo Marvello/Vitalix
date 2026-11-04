@@ -1,13 +1,13 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
-const url = process.env.TEST_DATABASE_URL;
 const { csvField, write, streamExport } = await import("../src/exportData.js");
 const { EventEmitter } = await import("node:events");
 
@@ -39,15 +39,13 @@ test("csvField quotes per RFC 4180 and neutralises formulas", () => {
   assert.equal(csvField("=a,b"), `"'=a,b"`);
 });
 
-describe("account export + deletion against Postgres", { skip: !url }, () => {
+describe("account export + deletion against Postgres", { skip: !testDb }, () => {
   let db, server, base, A, B, admin2, tokA, tokB;
   const auth = (t) => ({ Authorization: `Bearer ${t}` });
   const json = (t) => ({ ...auth(t), "Content-Type": "application/json" });
 
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     const { hash } = await import("../src/auth/passwords.js");
     const { signAccess } = await import("../src/auth/tokens.js");
     const { issueRefresh } = await import("../src/auth/store.js");
@@ -84,7 +82,7 @@ describe("account export + deletion against Postgres", { skip: !url }, () => {
     server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(async () => { server?.close(); await db?.pool.end(); });
+  after(async () => { server?.close(); });
 
   const del = (t, password) => fetch(`${base}/api/account`, { method: "DELETE", headers: json(t), body: JSON.stringify({ password }) });
   const exists = async (id) => (await db.query("SELECT 1 FROM users WHERE id = $1", [id])).rowCount === 1;

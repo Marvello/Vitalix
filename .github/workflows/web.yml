@@ -18,6 +18,10 @@ on:
       - ".github/workflows/web.yml"
   workflow_dispatch:
 
+concurrency:
+  group: web-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 defaults:
   run:
     working-directory: web

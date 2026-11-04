@@ -1,8 +1,9 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 import express from "express";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
 const { validateEntry } = await import("../src/journal.js");
 const { buildPrompts } = await import("../src/ai/recommendations.js");
@@ -69,13 +70,10 @@ describe("journal prompt line", () => {
   });
 });
 
-const url = process.env.TEST_DATABASE_URL;
-describe("journal routes against Postgres", { skip: !url }, () => {
+describe("journal routes against Postgres", { skip: !testDb }, () => {
   let db, server, base, tokA, tokB, idA;
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     const mk = async (email, tz) => (await db.query("INSERT INTO users (email, password_hash, timezone) VALUES ($1, 'x', $2) RETURNING id", [email, tz])).rows[0].id;
     const { signAccess } = await import("../src/auth/tokens.js");
     tokA = signAccess({ id: await mk("a@b.c", "Asia/Jakarta"), role: "user" });
@@ -84,7 +82,7 @@ describe("journal routes against Postgres", { skip: !url }, () => {
     server = await new Promise((r) => { const s = express().use(express.json()).use(journalRouter).listen(0, () => r(s)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(async () => { server?.close(); await db?.pool.end(); });
+  after(async () => { server?.close(); });
 
   const call = (tok, method, path, body) => fetch(base + path, {
     method, headers: { Authorization: `Bearer ${tok}`, "Content-Type": "application/json" }, body: body && JSON.stringify(body),

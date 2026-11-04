@@ -1,19 +1,17 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 import express from "express";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
 process.env.CRON_SECRET = "cron-s";
-const url = process.env.TEST_DATABASE_URL;
 
-describe("digests against Postgres", { skip: !url }, () => {
+describe("digests against Postgres", { skip: !testDb }, () => {
   let db, userId, server, base, token;
   const realFetch = globalThis.fetch;
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     userId = (await db.query("INSERT INTO users (email, password_hash) VALUES ('a@b.c', 'x') RETURNING id")).rows[0].id;
     const { persist } = await import("../src/persist.js");
     const sync = { source: "test", app_version: "1", device: "d", exported_at: new Date().toISOString(), range_days: 2 };
@@ -26,7 +24,7 @@ describe("digests against Postgres", { skip: !url }, () => {
     await new Promise((r) => { server = app.listen(0, r); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(async () => { globalThis.fetch = realFetch; server?.close(); await db?.pool.end(); });
+  after(async () => { globalThis.fetch = realFetch; server?.close(); });
 
   test("generateDigest stores one row, sends the period stats, ignores a repeat; route serves it", async () => {
     const { config } = await import("../src/config.js");

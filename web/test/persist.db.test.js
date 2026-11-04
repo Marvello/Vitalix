@@ -2,22 +2,20 @@
 // TEST_DATABASE_URL is set, e.g.:
 //   docker run -d --rm -e POSTGRES_PASSWORD=t -e POSTGRES_USER=t -p 55432:5432 postgres:18-alpine
 //   TEST_DATABASE_URL=postgres://t:t@127.0.0.1:55432/t node --test test/persist.db.test.js
-// The database is wiped (public schema dropped) before the run.
+// Each file gets its own throwaway database (see test/helpers/testDb.js).
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
+import { createTestDb } from "./helpers/testDb.js";
 
-const url = process.env.TEST_DATABASE_URL;
+process.env.JWT_SECRET ||= "test-secret";
+const testDb = await createTestDb(import.meta.url);
 
-describe("persist + auth against Postgres", { skip: !url }, () => {
+describe("persist + auth against Postgres", { skip: !testDb }, () => {
   let db, persist, requireAuth, signAccess, userId, server, baseUrl;
 
   before(async () => {
-    process.env.DATABASE_URL = url;
-    process.env.JWT_SECRET ||= "test-secret";
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     ({ persist } = await import("../src/persist.js"));
     ({ requireAuth } = await import("../src/auth/middleware.js"));
     ({ signAccess } = await import("../src/auth/tokens.js"));
@@ -33,7 +31,6 @@ describe("persist + auth against Postgres", { skip: !url }, () => {
 
   after(async () => {
     server?.close();
-    await db?.pool.end();
   });
 
   const sync = { source: "test", app_version: "1", device: "d", exported_at: new Date().toISOString(), range_days: 1 };

@@ -1,20 +1,18 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 import express from "express";
 import cookieParser from "cookie-parser";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
 
-const url = process.env.TEST_DATABASE_URL;
-describe("day page with journal entries", { skip: !url }, () => {
+describe("day page with journal entries", { skip: !testDb }, () => {
   let db, server, base, tok;
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     const { rows } = await db.query("INSERT INTO users (email, password_hash, timezone) VALUES ('d@b.c', 'x', 'Asia/Jakarta') RETURNING id");
     const id = rows[0].id;
     await db.query("INSERT INTO health_days (user_id, day, steps) VALUES ($1, '2026-11-04', 1000)", [id]);
@@ -29,7 +27,7 @@ describe("day page with journal entries", { skip: !url }, () => {
     server = await new Promise((r) => { const s = app.listen(0, () => r(s)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(async () => { server?.close(); await db?.pool.end(); });
+  after(async () => { server?.close(); });
 
   test("/dashboard/:date renders the journal time in the user's zone (was a 500)", async () => {
     const r = await fetch(`${base}/dashboard/2026-11-04`, { headers: { Authorization: `Bearer ${tok}` } });

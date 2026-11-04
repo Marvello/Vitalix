@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+process.env.DATABASE_URL = "postgres://x"; // pure logic, no DB
 process.env.JWT_SECRET ??= "test-secret";
 const { readinessScore, readinessSeries } = await import("../src/readiness.js");
 

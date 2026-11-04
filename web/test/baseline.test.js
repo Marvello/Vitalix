@@ -1,7 +1,8 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
 const { stats, dailySeries, BASELINE_DAYS } = await import("../src/baseline.js");
 
@@ -23,18 +24,14 @@ test("dailySeries SQL joins day_aggregates, pivots bp, orders by day", async () 
   assert.deepEqual(rows, [{ day: "2026-10-01", hrv: 42.5, steps: 100, spo2Min: null }]);
 });
 
-const url = process.env.TEST_DATABASE_URL;
-describe("dailySeries against Postgres", { skip: !url }, () => {
+describe("dailySeries against Postgres", { skip: !testDb }, () => {
   let db, userId;
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     const { rows } = await db.query("INSERT INTO users (email, password_hash) VALUES ('a@b.c', 'x') RETURNING id");
     userId = rows[0].id;
   });
-  after(() => db?.pool.end());
-
+  
   test("returns typed rows with pivoted aggregates, ordered, range-bounded", async () => {
     const { persist } = await import("../src/persist.js");
     const sync = { source: "test", app_version: "1", device: "d", exported_at: new Date().toISOString(), range_days: 2 };

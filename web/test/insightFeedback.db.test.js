@@ -1,17 +1,15 @@
 import { test, describe, before, after } from "node:test";
+import { createTestDb } from "./helpers/testDb.js";
 import assert from "node:assert/strict";
 import express from "express";
 
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || "postgres://x";
+const testDb = await createTestDb(import.meta.url);
 process.env.JWT_SECRET ??= "test-secret";
-const url = process.env.TEST_DATABASE_URL;
 
-describe("insight feedback against Postgres", { skip: !url }, () => {
+describe("insight feedback against Postgres", { skip: !testDb }, () => {
   let db, userId, server, base, token;
   before(async () => {
     db = await import("../src/db.js");
-    await db.query("DROP SCHEMA public CASCADE; CREATE SCHEMA public;");
-    await (await import("../src/migrate.js")).runPendingMigrations();
     userId = (await db.query("INSERT INTO users (email, password_hash) VALUES ('a@b.c', 'x') RETURNING id")).rows[0].id;
     await db.query(
       "INSERT INTO ai_recommendations (user_id, day, provider, model, recommendation_text, metrics_snapshot) VALUES ($1, '2026-11-02', 'p', 'm', 't', '{}')",
@@ -23,7 +21,7 @@ describe("insight feedback against Postgres", { skip: !url }, () => {
     server = await new Promise((r) => { const s = express().use(express.json()).use(aiRouter).listen(0, () => r(s)); });
     base = `http://127.0.0.1:${server.address().port}`;
   });
-  after(async () => { server?.close(); await db?.pool.end(); });
+  after(async () => { server?.close(); });
 
   const post = (day, value) => fetch(`${base}/api/ai/recommendations/${day}/feedback`, {
     method: "POST",
