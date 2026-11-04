@@ -21,12 +21,17 @@ class VitalixWidget : AppWidgetProvider() {
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
         ids.forEach { manager.updateAppWidget(it, build(context)) }
-        scheduleMidnightRefresh(context, ids)
+        scheduleMidnightRefresh(context)
+    }
+
+    /** The midnight alarm: redraw every widget that exists now (not the ids at schedule time) and re-arm. */
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_MIDNIGHT_REFRESH) refresh(context) else super.onReceive(context, intent)
     }
 
     /** Last widget removed: nothing left to redraw at midnight. */
     override fun onDisabled(context: Context) {
-        context.getSystemService(AlarmManager::class.java).cancel(midnightIntent(context, intArrayOf()))
+        context.getSystemService(AlarmManager::class.java).cancel(midnightIntent(context))
     }
 
     companion object {
@@ -35,7 +40,7 @@ class VitalixWidget : AppWidgetProvider() {
             val ids = mgr.getAppWidgetIds(ComponentName(context, VitalixWidget::class.java))
             if (ids.isNotEmpty()) {
                 mgr.updateAppWidget(ids, build(context))
-                scheduleMidnightRefresh(context, ids)
+                scheduleMidnightRefresh(context)
             }
         }
 
@@ -43,17 +48,18 @@ class VitalixWidget : AppWidgetProvider() {
         fun nextRefreshAt(now: ZonedDateTime): Long =
             now.toLocalDate().plusDays(1).atStartOfDay(now.zone).plusMinutes(1).toInstant().toEpochMilli()
 
-        private fun midnightIntent(context: Context, ids: IntArray) = PendingIntent.getBroadcast(
+        const val ACTION_MIDNIGHT_REFRESH = "com.android.vitalix.widget.MIDNIGHT_REFRESH"
+
+        private fun midnightIntent(context: Context) = PendingIntent.getBroadcast(
             context, 0,
-            Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE, null, context, VitalixWidget::class.java)
-                .putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids),
+            Intent(ACTION_MIDNIGHT_REFRESH, null, context, VitalixWidget::class.java),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
         /** Inexact on purpose: no exact-alarm permission, and a few minutes' lateness is harmless. */
-        private fun scheduleMidnightRefresh(context: Context, ids: IntArray) {
+        private fun scheduleMidnightRefresh(context: Context) {
             context.getSystemService(AlarmManager::class.java)
-                .set(AlarmManager.RTC, nextRefreshAt(ZonedDateTime.now()), midnightIntent(context, ids))
+                .set(AlarmManager.RTC, nextRefreshAt(ZonedDateTime.now()), midnightIntent(context))
         }
 
         fun build(context: Context): RemoteViews {

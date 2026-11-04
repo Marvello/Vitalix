@@ -77,7 +77,7 @@ class SyncLog(context: Context) {
             })
         }
         // Every sync outcome (manual, auto, backfill) passes through here; a listener must never break the sync.
-        runCatching { outcomeListener?.invoke(status) }
+        notifyOutcome(status)
     }
 
     /**
@@ -168,6 +168,9 @@ class SyncLog(context: Context) {
     companion object {
         /** Called after every [finish]; set once in VitalixApp so this class knows nothing of the widget. */
         @Volatile var outcomeListener: ((Status) -> Unit)? = null
+
+        internal fun notifyOutcome(status: Status) { runCatching { outcomeListener?.invoke(status) } }
+
         /**
          * Serialises the read-modify-write cycle. The backfill worker and the log
          * screen update the same prefs from different threads, and interleaved
