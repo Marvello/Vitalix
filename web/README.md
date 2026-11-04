@@ -38,7 +38,7 @@ docker run -d --rm -e POSTGRES_PASSWORD=t -e POSTGRES_USER=t -p 55432:5432 postg
 TEST_DATABASE_URL=postgres://t:t@127.0.0.1:55432/t npm test
 ```
 
-`TEST_DATABASE_URL` is only the admin connection: each DB test file creates its own `vitalix_test_<file>_<pid>` database (`test/helpers/testDb.js`), migrates it and drops it afterwards, so files run in parallel and nothing in the admin database is touched.
+`TEST_DATABASE_URL` is only the admin connection: each DB test file creates its own `vitalix_test_<file>_<pid>` database (`test/helpers/testDb.js`), migrates it and drops it afterwards, so files run in parallel and nothing in the admin database is touched. A hard-killed run can leave a `vitalix_test_*` database behind; `DROP DATABASE <name> WITH (FORCE)` cleans it.
 
 ## Environment
 

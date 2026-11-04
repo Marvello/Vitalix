@@ -22,21 +22,34 @@ export async function createTestDb(fileUrl) {
     process.env.DATABASE_URL = "postgres://x";
     return null;
   }
-  const name = `vitalix_test_${basename(new URL(fileUrl).pathname).replace(/\W/g, "_").toLowerCase()}_${process.pid}`.slice(0, 63);
+  const suffix = `_${process.pid}`;
+  const slug = basename(new URL(fileUrl).pathname).replace(/\W/g, "_").toLowerCase();
+  const name = `vitalix_test_${slug}`.slice(0, 63 - suffix.length) + suffix;
   const adminPool = new pg.Pool({ connectionString: admin, max: 1 });
+  let dbModule; // set once migrations have imported src/db.js
+  const cleanup = async () => {
+    if (dbModule) {
+      // Ended clients can still be mid-disconnect when FORCE kills them; db.js would log that as an error.
+      dbModule.pool.removeAllListeners("error").on("error", () => {});
+      await dbModule.pool.end();
+    }
+    await adminPool.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
+    await adminPool.end();
+  };
   await adminPool.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
   await adminPool.query(`CREATE DATABASE ${name}`);
   const u = new URL(admin);
   u.pathname = `/${name}`;
   process.env.DATABASE_URL = u.toString();
-  await (await import("../../src/migrate.js")).runPendingMigrations();
-  after(async () => {
-    const { pool } = await import("../../src/db.js");
-    // Ended clients can still be mid-disconnect when FORCE kills them; db.js would log that as an error.
-    pool.removeAllListeners("error").on("error", () => {});
-    await pool.end();
-    await adminPool.query(`DROP DATABASE IF EXISTS ${name} WITH (FORCE)`);
-    await adminPool.end();
-  });
+  try {
+    await (await import("../../src/migrate.js")).runPendingMigrations();
+    dbModule = await import("../../src/db.js");
+  } catch (err) {
+    // A rejected top-level await may skip root hooks, so clean up here.
+    dbModule = await import("../../src/db.js").catch(() => null);
+    await cleanup().catch(() => {});
+    throw err;
+  }
+  after(cleanup);
   return { url: u.toString(), name };
 }
