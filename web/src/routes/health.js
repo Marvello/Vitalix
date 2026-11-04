@@ -28,7 +28,12 @@ router.post("/api/health", requireAuth, async (req, res) => {
   if (!body || !Array.isArray(body.days)) {
     return res.status(400).json({ error: "body must include a days array" });
   }
-  if (Number.isInteger(body.schemaVersion) && body.schemaVersion > PAYLOAD_SCHEMA_VERSION) {
+  // Absent (or null) means a pre-versioning build: version 1.
+  const sv = body.schemaVersion;
+  if (sv != null && !(Number.isInteger(sv) && sv > 0)) {
+    return res.status(400).json({ error: "invalid schemaVersion" });
+  }
+  if (sv > PAYLOAD_SCHEMA_VERSION) {
     return res.status(400).json({ error: "unsupported schemaVersion" });
   }
   if (Array.isArray(body.deletedHcIds) && body.deletedHcIds.length > MAX_DELETED_HC_IDS) {

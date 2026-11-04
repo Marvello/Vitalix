@@ -158,7 +158,8 @@ Invariants:
 Rules:
 - `schemaVersion` (integer, optional; absent = `1`) is `PAYLOAD_SCHEMA_VERSION` in
   `ServerForwarder.kt` and `mapPayload.js`. The receiver answers `400
-  "unsupported schemaVersion"` only for a *higher* version than it knows; older
+  "unsupported schemaVersion"` for a *higher* version than it knows and `400
+  "invalid schemaVersion"` when the field is present but not a positive integer (`null` counts as absent); older
   app builds that send none keep working.
 - Only enabled metrics appear; disabled ones are omitted, not null.
 - Distribution metrics (heart rate, SpO₂, glucose, BP, …) use `{min, max, avg}`.
@@ -228,14 +229,16 @@ from `records`), and `day_aggregates` min/max/avg and `day_source_metrics` rows
 (no `hc_id`) keep the deleted value until that day is re-sent. A deletion carries no
 time, so the phone re-reads its day only when it is yesterday or today. Deletes run before the upserts, so a record re-read in the same payload wins.
 
-Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in JS (last wins).
+Steps 3-5 and the aggregates insert are single `INSERT … SELECT FROM unnest(…)` statements per day; duplicate conflict keys inside one payload are deduped in SQL (`DISTINCT ON … ORDER BY ordinality DESC`, last wins, compared by Postgres so sub-millisecond differences stay distinct).
+
+Readings without a Health Connect UID (older app builds) are stored under a synthetic `hc_id` = `nouid:` + sha1 of `metric|start|end|value|value2|text|source` (computed in `mapPayload`), so re-sending them is idempotent. Exercises without a UID keep the delete-and-reinsert path. A non-object `meta` is stored as NULL.
 
 `records` is the idempotent, native-granularity source of truth; the dashboard
 day detail, `/api/days/:date`, the sample count and the heart-rate split all read
 it (`stats.dayReadings`, `readingDay` in `src/stats.js`). A reading's local day
 (user zone) is its `start_at`, except `sleepStage`, which belongs to the day its
 session ends, mirroring the phone's bucketing. The old `samples` table is gone
-(migration 018 first copies sample-only readings into `records` as `legacy-sample:<id>`, then drops it — **back up the DB before deploying**).
+(migration 018 first copies sample-only readings into `records` as `legacy-sample:<id>`, one per user/type/start/source, then drops it — **back up the DB before deploying**).
 
 ### Endpoints
 
@@ -394,7 +397,7 @@ session ends, mirroring the phone's bucketing. The old `samples` table is gone
 
 ## 7. Known debt
 
-- Ingest tables are one `unnest` INSERT per day. New readings without a Health Connect UID are not stored (`records` needs `hc_id`).
+- Ingest tables are one `unnest` INSERT per day.
 - `HealthConnectManager` and `MainActivity` are large; manual sync and the two
   workers each assemble their own run.
 - Sleep rows stored before the end-day fix have totals and stages on different

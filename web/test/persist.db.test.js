@@ -86,8 +86,11 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
       c.query = (text, ...a) => { seen.push(String(text?.text ?? text)); return q(text, ...a); };
       return c;
     });
-    await persist(userId, mapped);
-    t.mock.restoreAll();
+    try {
+      await persist(userId, mapped);
+    } finally {
+      t.mock.restoreAll();
+    }
     return seen.length;
   }
   const bulkPayload = (n, tag) => ({ sync, days: [{
@@ -118,6 +121,29 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
     assert.deepEqual(rows.map((r) => r.value_num), [2, 3]);
     const { rows: e } = await db.query("SELECT name FROM exercises WHERE hc_id = 'dx'");
     assert.deepEqual(e.map((r) => r.name), ["b"]);
+  });
+
+  test("readings 0.5 ms apart are distinct; exact duplicates collapse, last wins", async () => {
+    await persist(userId, { sync, days: [day([
+      sample("steps", "us1", 1, "2026-10-05T00:00:00.0001Z"),
+      sample("steps", "us1", 2, "2026-10-05T00:00:00.0006Z"),
+      sample("steps", "us2", 3, "2026-10-05T01:00:00Z"),
+      sample("steps", "us2", 4, "2026-10-05T01:00:00.000Z"),
+    ])] });
+    const { rows } = await db.query("SELECT hc_id, value_num FROM records WHERE hc_id IN ('us1','us2') ORDER BY hc_id, start_at");
+    assert.deepEqual(rows.map((r) => [r.hc_id, r.value_num]), [["us1", 1], ["us1", 2], ["us2", 4]]);
+  });
+
+  test("UID-less samples are stored under a nouid: id and re-sending is idempotent", async () => {
+    const { mapPayload } = await import("../src/mapPayload.js");
+    const body = { days: [{ date: "2026-10-06", samples: [
+      { metric: "steps", start: "2026-10-06T08:00:00Z", end: "2026-10-06T09:00:00Z", value: 10, source: "pkg" },
+      { metric: "steps", start: "2026-10-06T08:00:00Z", end: "2026-10-06T09:00:00Z", value: 11, source: "pkg" },
+    ] }] };
+    await persist(userId, mapPayload(body));
+    await persist(userId, mapPayload(body));
+    const { rows } = await db.query("SELECT value_num FROM records WHERE hc_id LIKE 'nouid:%' AND start_at = '2026-10-06T08:00:00Z' ORDER BY value_num");
+    assert.deepEqual(rows.map((r) => r.value_num), [10, 11]);
   });
 
   test("deletedHcIds removes the user's records and exercises only; absent field deletes nothing", async () => {
@@ -181,16 +207,27 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
       value_secondary double precision, value_text text, source text, meta jsonb)`);
     const { rows: [hd] } = await db.query(
       "INSERT INTO health_days (user_id, day) VALUES ($1, '2020-01-01') RETURNING id", [userId]);
-    await db.query("INSERT INTO records (user_id, type, hc_id, start_at, value_num) VALUES ($1,'steps','m1','2020-01-01T08:00:00Z',5)", [userId]);
+    await db.query("INSERT INTO records (user_id, type, hc_id, start_at, value_num, source) VALUES ($1,'steps','m1','2020-01-01T08:00:00Z',5,'pkg')", [userId]);
     const { rows: ins } = await db.query(
       `INSERT INTO samples (day_id, metric, start_at, end_at, value_num, source, meta) VALUES
          ($1,'steps','2020-01-01T08:00:00Z',NULL,5,'pkg',NULL),
          ($1,'weight','2020-01-01T09:00:00Z','2020-01-01T09:00:00Z',70.5,'pkg','{"a":1}') RETURNING id, metric`, [hd.id]);
     const wid = ins.find((r) => r.metric === "weight").id;
+    // Two sources at one instant are two readings; the same reading under two day_ids is one.
+    const { rows: [hd2] } = await db.query(
+      "INSERT INTO health_days (user_id, day) VALUES ($1, '2020-01-02') RETURNING id", [userId]);
+    const { rows: hrs } = await db.query(
+      `INSERT INTO samples (day_id, metric, start_at, value_num, source) VALUES
+         ($1,'heartRate','2020-01-01T10:00:00Z',60,'a'), ($1,'heartRate','2020-01-01T10:00:00Z',61,'b'),
+         ($2,'heartRate','2020-01-01T10:00:00Z',60,'a') RETURNING id, source`, [hd.id, hd2.id]);
+    const aid = Math.min(...hrs.filter((r) => r.source === "a").map((r) => Number(r.id)));
+    const bid = hrs.find((r) => r.source === "b").id;
     await db.query(sql);
-    const { rows } = await db.query("SELECT type, hc_id, value_num, source, meta FROM records WHERE start_at::date = '2020-01-01' ORDER BY type");
+    const { rows } = await db.query("SELECT type, hc_id, value_num, source, meta FROM records WHERE start_at::date = '2020-01-01' ORDER BY type, source");
     assert.deepEqual(rows, [
-      { type: "steps", hc_id: "m1", value_num: 5, source: null, meta: null },
+      { type: "heartRate", hc_id: `legacy-sample:${aid}`, value_num: 60, source: "a", meta: null },
+      { type: "heartRate", hc_id: `legacy-sample:${bid}`, value_num: 61, source: "b", meta: null },
+      { type: "steps", hc_id: "m1", value_num: 5, source: "pkg", meta: null },
       { type: "weight", hc_id: `legacy-sample:${wid}`, value_num: 70.5, source: "pkg", meta: { a: 1 } },
     ]);
     const { rows: t } = await db.query("SELECT to_regclass('samples') AS t");

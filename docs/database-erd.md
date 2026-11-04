@@ -24,7 +24,7 @@ source of truth; update this doc when they change.
 | 015 | `records_identity_type` | `records` identity → `(user_id, type, start_at, hc_id)` |
 | 016 | `drop_user_ai_config` | drop unused `users.ai_config` (AI config is server-wide env) |
 | 017 | `timezone_failed_metrics` | `users.timezone` (device zone), `syncs.failed_metrics` (HC types a read missed) |
-| 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`), then drops `samples`; back up first |
+| 018 | `drop_samples` | copies sample-only readings into `records` (hc_id `legacy-sample:<id>`, one per user/type/start/source), then drops `samples`; back up first |
 | 019 | `anomaly_alerts` | personal-baseline anomaly alerts, unique `(user_id, day, rule)` |
 | 020 | `ai_digests` | weekly / monthly AI digests, unique `(user_id, kind, period_start)` |
 | 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
@@ -333,7 +333,7 @@ User-entered context. `day` is the user's local day of `logged_at` (computed in
 **Raw per-reading store at native Health Connect granularity** — the modern
 source of truth (the only granular store since migration 018). Keyed on the Health Connect record UID:
 unique `(user_id, type, start_at, hc_id)` (`records_identity`, migration 015) so
-overlapping backfill windows and re-syncs upsert rather than duplicate. `type` is
+overlapping backfill windows and re-syncs upsert rather than duplicate. Readings the phone sent without a UID get a synthetic `hc_id` `nouid:<sha1 of the reading>`. `type` is
 part of the key because one NutritionRecord fans out into several rows (one per
 nutrient) sharing `hc_id` + `start_at`; the same index serves range queries. Not linked to `health_days` —
 owned directly by `user`.

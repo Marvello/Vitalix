@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 // Maps the payload day.activity/body/vitals/sleep/cycle/nutrition objects
 // onto flat health_days columns.
 /** Payload contract version this receiver understands (docs/fixtures/payload-v2.json). */
@@ -73,6 +75,15 @@ function mapAggregates(day) {
   return out;
 }
 
+// Readings from builds without a Health Connect UID still need the records key:
+// a deterministic id over the whole reading makes re-sends idempotent.
+function noUid(metric, r) {
+  const parts = [metric, r.start, r.end, r.value, r.value2, r.text, r.source].map((v) => v ?? "");
+  return `nouid:${createHash("sha1").update(parts.join("|")).digest("hex")}`;
+}
+
+const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+
 function mapSamples(day) {
   const raw = Array.isArray(day.samples) ? day.samples : [];
   const samples = [];
@@ -87,8 +98,8 @@ function mapSamples(day) {
       value_secondary: r.value2 ?? null,
       value_text: r.text ?? null,
       source: r.source ?? null,
-      hc_id: r.hcId ?? null,
-      meta: r.meta ?? null,
+      hc_id: r.hcId || noUid(r.metric, r),
+      meta: isPlainObject(r.meta) ? r.meta : null,
     });
   }
   return { samples, skipped };

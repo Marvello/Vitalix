@@ -41,8 +41,16 @@ describe("POST /api/health schemaVersion", () => {
   });
 
   test("current and absent schemaVersion are not rejected", async () => {
-    for (const body of [{ schemaVersion: 2, days: [] }, { days: [] }]) {
-      assert.notEqual((await post(body)).status, 400);
+    for (const body of [{ schemaVersion: 2, days: [] }, { days: [] }, { schemaVersion: null, days: [] }]) {
+      assert.equal((await post(body)).status, 200);
+    }
+  });
+
+  test("schemaVersion present but not a positive integer -> 400 invalid schemaVersion", async () => {
+    for (const schemaVersion of ["3", 2.5, 0, -1, true, {}]) {
+      const res = await post({ schemaVersion, days: [] });
+      assert.equal(res.status, 400, JSON.stringify(schemaVersion));
+      assert.equal((await res.json()).error, "invalid schemaVersion");
     }
   });
 
@@ -51,6 +59,6 @@ describe("POST /api/health schemaVersion", () => {
     const over = await post({ days: [], deletedHcIds: ids(10001) });
     assert.equal(over.status, 400);
     assert.equal((await over.json()).error, "deletedHcIds holds more than 10000 ids");
-    assert.notEqual((await post({ days: [], deletedHcIds: ids(10000) })).status, 400);
+    assert.equal((await post({ days: [], deletedHcIds: ids(10000) })).status, 200);
   });
 });

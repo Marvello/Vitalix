@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mapPayload } from "../src/mapPayload.js";
+import { readFileSync } from "node:fs";
+import { mapPayload, PAYLOAD_SCHEMA_VERSION, SCALAR_MAP } from "../src/mapPayload.js";
 
 const payload = {
   source: "vitalix",
@@ -97,7 +98,7 @@ test("carries hc_id through samples and exercises", () => {
   const hr = days[0].samples.find((s) => s.metric === "heartRate");
   assert.equal(hr.hc_id, "hr-1");
   const steps = days[0].samples.find((s) => s.metric === "steps");
-  assert.equal(steps.hc_id, null); // absent hcId maps to null
+  assert.match(steps.hc_id, /^nouid:[0-9a-f]{40}$/); // absent hcId -> synthetic id
   assert.equal(days[0].exercises[0].hc_id, "ex-1");
 });
 
@@ -117,6 +118,22 @@ test("mapSamples passes a meta object through and defaults missing meta to null"
   const hr = samples.find((s) => s.metric === "heartRate");
   assert.deepEqual(bp.meta, { bodyPosition: "standing", measurementLocation: "left_wrist" });
   assert.equal(hr.meta, null);
+});
+
+test("UID-less samples get a deterministic nouid: id that depends on the reading", () => {
+  const map = (r) => mapPayload({ days: [{ date: "2026-07-01", samples: [r] }] }).days[0].samples[0].hc_id;
+  const r = { metric: "steps", start: "2026-07-01T08:00:00Z", end: "2026-07-01T09:00:00Z", value: 10, source: "pkg" };
+  assert.equal(map(r), map({ ...r }));
+  assert.notEqual(map(r), map({ ...r, value: 11 }));
+  assert.notEqual(map(r), map({ ...r, source: "other" }));
+  assert.equal(map({ ...r, hcId: "real" }), "real");
+});
+
+test("non-object meta is stored as null", () => {
+  const meta = (m) => mapPayload({ days: [{ date: "2026-07-01", samples: [
+    { metric: "heartRate", start: "2026-07-01T08:00:00Z", value: 70, hcId: "h", meta: m }] }] }).days[0].samples[0].meta;
+  for (const bad of ["x", 5, true, [1, 2]]) assert.equal(meta(bad), null);
+  assert.deepEqual(meta({ a: 1 }), { a: 1 });
 });
 
 test("keeps new gap metrics and nutrition.* samples", () => {
@@ -149,13 +166,11 @@ test("exercise without detail has null detail", () => {
 });
 
 // ---- schemaVersion + shared fixture (docs/fixtures/payload-v2.json) ----
-import { readFileSync } from "node:fs";
-import { mapPayload as mapFixture, PAYLOAD_SCHEMA_VERSION, SCALAR_MAP } from "../src/mapPayload.js";
 
 const fixture = JSON.parse(readFileSync(new URL("../../docs/fixtures/payload-v2.json", import.meta.url), "utf8"));
 
 test("fixture payload maps every metric", () => {
-  const m = mapFixture(fixture);
+  const m = mapPayload(fixture);
   assert.equal(m.skipped, 0);
   const cols = new Set(Object.keys(m.days[0].scalars));
   // power/speed are sample-only: the app never puts them in the activity section.
@@ -174,8 +189,8 @@ test("fixture payload maps every metric", () => {
 
 test("schemaVersion is read from the payload and defaults to 1", () => {
   assert.equal(PAYLOAD_SCHEMA_VERSION, 2);
-  assert.equal(mapFixture(fixture).schemaVersion, 2);
-  assert.equal(mapFixture({ days: [] }).schemaVersion, 1);
+  assert.equal(mapPayload(fixture).schemaVersion, 2);
+  assert.equal(mapPayload({ days: [] }).schemaVersion, 1);
 });
 
 test("deletedHcIds keeps strings only and defaults to an empty list", () => {

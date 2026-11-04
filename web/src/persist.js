@@ -32,20 +32,24 @@ async function upsertDay(client, syncId, userId, day) {
 }
 
 // One INSERT … SELECT FROM unnest(typed arrays) per call, so statement count is
-// independent of row count. cols: [name, pgType, pick(row)]. keyOf dedupes in JS
-// (last wins) because ON CONFLICT DO UPDATE cannot hit one row twice per statement.
+// independent of row count. cols: [name, pgType, pick(row)]. conflictKey (column
+// names) dedupes in SQL, last row wins, because ON CONFLICT DO UPDATE cannot hit
+// one row twice per statement; Postgres compares the keys, so timestamp precision
+// and spelling match the unique index exactly.
 // ponytail: one statement per day keeps param arrays small; no COPY.
-async function bulkInsert(client, table, cols, rows, { keyOf, onConflict = "" } = {}) {
-  if (keyOf) rows = [...new Map(rows.map((r) => [keyOf(r), r])).values()];
+async function bulkInsert(client, table, cols, rows, { conflictKey, onConflict = "" } = {}) {
   if (!rows.length) return 0;
-  const sql = `INSERT INTO ${table} (${cols.map((c) => c[0]).join(", ")})
-    SELECT * FROM unnest(${cols.map((c, i) => `$${i + 1}::${c[1]}[]`).join(", ")}) ${onConflict}`;
-  await client.query(sql, cols.map((c) => rows.map(c[2])));
+  const names = cols.map((c) => c[0]).join(", ");
+  const arrays = cols.map((c, i) => `$${i + 1}::${c[1]}[]`).join(", ");
+  const key = conflictKey?.join(", ");
+  const source = key
+    ? `SELECT DISTINCT ON (${key}) ${names} FROM unnest(${arrays}) WITH ORDINALITY AS t(${names}, ord)
+        ORDER BY ${key}, ord DESC`
+    : `SELECT * FROM unnest(${arrays})`;
+  await client.query(`INSERT INTO ${table} (${names}) ${source} ${onConflict}`, cols.map((c) => rows.map(c[2])));
   return rows.length;
 }
 const json = (v) => (v == null ? null : JSON.stringify(v));
-// Same instant, different string spelling, is the same conflict key.
-const instant = (v) => { const t = Date.parse(v); return Number.isNaN(t) ? v : t; };
 
 // Replace per metric, not per day: a metric absent from this payload (throttled
 // by Health Connect, or outside an older app's partial window) keeps its rows.
@@ -74,7 +78,7 @@ async function replaceExercises(client, dayId, exercises) {
     await bulkInsert(client, "exercises", cols, withoutId);
   }
   await bulkInsert(client, "exercises", cols, withId, {
-    keyOf: (e) => e.hc_id,
+    conflictKey: ["day_id", "hc_id"],
     onConflict: `ON CONFLICT (day_id, hc_id) DO UPDATE SET
       name = EXCLUDED.name, start_at = EXCLUDED.start_at,
       duration_minutes = EXCLUDED.duration_minutes, source = EXCLUDED.source, detail = EXCLUDED.detail`,
@@ -82,14 +86,13 @@ async function replaceExercises(client, dayId, exercises) {
 }
 
 async function upsertRecords(client, userId, samples) {
-  // older app builds without a UID: keep out of records
   return bulkInsert(client, "records", [
     ["user_id", "bigint", () => userId], ["type", "text", (s) => s.metric], ["hc_id", "text", (s) => s.hc_id],
     ["start_at", "timestamptz", (s) => s.start_at], ["end_at", "timestamptz", (s) => s.end_at],
     ["value_num", "double precision", (s) => s.value_num], ["value_secondary", "double precision", (s) => s.value_secondary],
     ["value_text", "text", (s) => s.value_text], ["source", "text", (s) => s.source], ["meta", "jsonb", (s) => json(s.meta)],
-  ], samples.filter((s) => s.hc_id), {
-    keyOf: (s) => `${s.metric}|${instant(s.start_at)}|${s.hc_id}`,
+  ], samples, {
+    conflictKey: ["user_id", "type", "start_at", "hc_id"],
     onConflict: `ON CONFLICT (user_id, type, start_at, hc_id) DO UPDATE SET
       end_at = EXCLUDED.end_at, value_num = EXCLUDED.value_num,
       value_secondary = EXCLUDED.value_secondary, value_text = EXCLUDED.value_text, source = EXCLUDED.source, meta = EXCLUDED.meta`,
