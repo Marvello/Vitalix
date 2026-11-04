@@ -259,7 +259,7 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
 | GET | `/insights/correlations` | user (cookie) | Correlation explorer: `x`,`y` (dailySeries keys), `lag` 0\|1 (default 1), `days` 30\|90\|180 (default 90); else 400. Pearson r + n for six presets and a scatter; one `dailySeries` call over the last `days` local days |
 | POST/PUT/DELETE | `/dashboard/layout…` | user | Custom card order |
 | GET/POST | `/api/ai/recommendations…` | user | Latest / by day / generate (rate limited) |
-| POST | `/api/ai/recommendations/:day/feedback` | user | Thumbs on a day's insight, body `{value: 1\|-1\|0}` (0 clears) → 204; 400 bad day/value, 404 no row. GET by day also returns `feedback`. Web `/daily-review` calls it via same-origin `fetch` (cookie auth, SameSite=Lax, no CSRF token — same as the `/dashboard/layout` calls); totals per model and recent downvotes on `/admin` |
+| POST | `/api/ai/recommendations/:day/feedback` | user | Thumbs on a day's insight, body `{value: 1\|-1\|0}` (0 clears) → 204; 400 bad day/value, 404 no row. GET by day also returns `feedback`. Web `/daily-review` calls it via same-origin `fetch` (cookie auth; guarded by the same-origin check, see Auth — no CSRF token); totals per model and recent downvotes on `/admin` |
 | GET | `/api/ai/digests/latest?kind=week\|month` | user | Latest weekly / monthly digest `{kind, period_start, period_end, text}`; 400 on another kind, 404 if none (§5b) |
 | GET | `/api/journal?from&to` | user | Own journal entries for `[from, to]` (YYYY-MM-DD, default the user's today) → `{entries: [{id, day, kind, value_num, value_text, logged_at}]}` |
 | POST | `/api/journal` | user | Add `{kind, value_num\|value_text, logged_at}` → 201 + the row. Kinds: `mood` int 1-5, `caffeine` cups 0-20, `alcohol` drinks 0-30, `symptom`/`medication`/`note` text 1-200 chars. `logged_at` ISO, ≤ 1 day ahead; `day` is derived server-side from it in `users.timezone` (a client `day` is ignored). 400 invalid; 60/hour per user |
@@ -284,6 +284,18 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
 - Access JWT (`ACCESS_TTL`, default 14 d) + rotating refresh token (30 d, stored
   hashed, revocable). The app sends `Authorization: Bearer`; the web uses
   `httpOnly`, `SameSite=Lax` cookies (`Secure` when `NODE_ENV=production`).
+- **Same-origin check (`src/sameOrigin.js`, mounted before every router):** for POST/PUT/PATCH/DELETE
+  and the export downloads (`GET /account/export*`), a request is refused with 403 (JSON on `/api`,
+  plain `Forbidden` elsewhere) when `Sec-Fetch-Site: cross-site`, or when `Origin` is present and its
+  origin (scheme+host+port) differs from `APP_BASE_URL` (unset: from the request's own protocol+host,
+  proxy-aware). Requests with neither header pass (curl, old clients). Exempt: any request with
+  `Authorization: Bearer` (the app; a browser cannot attach it cross-site), `/api/webhooks/*` (token in
+  the URL) and `/api/admin/run-*` (header secret) — neither uses cookies. GETs other than the exports
+  are untouched, so the OIDC callback redirect from the IdP still works. SameSite=Lax stays as the
+  second layer.
+- Exports: the whole `export.json` stream is capped at `EXPORT_DEADLINE_MS` (15 min) on top of the
+  per-write 60 s drain timeout; past either the response is destroyed so a truncated file never looks
+  complete. The filename date is the user's local day.
 - `requireAuth` re-reads the user on every request: a disabled account is
   refused immediately and the role comes from the database, not the token.
 - **Authentik SSO (web only, optional):** `src/auth/oidc.js` runs the authorization-code flow with

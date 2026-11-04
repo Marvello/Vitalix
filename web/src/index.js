@@ -16,6 +16,7 @@ import { oidcRouter } from "./routes/oidc.js";
 import { oidcEnabled } from "./auth/oidc.js";
 import { runPendingMigrations } from "./migrate.js";
 import { rateLimit } from "./rateLimit.js";
+import { sameOrigin } from "./sameOrigin.js";
 import { errorHandler } from "./errorHandler.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -31,6 +32,7 @@ app.use(express.static(path.join(__dirname, "../public")));
 app.use(express.json({ limit: "25mb" }));
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
+app.use(sameOrigin()); // before every router: D2 same-origin check on cookie-auth writes + exports
 
 const MIN = 60 * 1000;
 const email = (req) => (typeof req.body?.email === "string" ? req.body.email.toLowerCase() : "");

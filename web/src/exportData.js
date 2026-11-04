@@ -3,6 +3,8 @@ import { pool, query } from "./db.js";
 const PAGE = 5000;
 /** A client that stops reading for this long loses its export (response destroyed). */
 export const DRAIN_TIMEOUT_MS = 60_000;
+/** Whole-export cap, however steadily the client reads: past it the response is destroyed. */
+export const EXPORT_DEADLINE_MS = 15 * 60 * 1000;
 // Row -> JSON object, minus ownership/internal columns (ids that only matter to the server).
 const J = (alias, ...drop) => `to_jsonb(${alias})${drop.map((c) => ` - '${c}'`).join("")} AS j`;
 
@@ -40,9 +42,17 @@ export async function write(res, chunk, timeoutMs = DRAIN_TIMEOUT_MS) {
 /**
  * Streams the user's full export as one JSON document. Only the user's own
  * rows are read; secrets (password hash, token hashes, fcm tokens) never are.
- * Returns false if the client disconnected before the end.
+ * Returns false if the client disconnected, stalled, or the deadline hit before the end;
+ * otherwise the result of the final write.
  */
-export async function streamExport(res, userId, { exportedAt = new Date(), drainTimeoutMs = DRAIN_TIMEOUT_MS } = {}) {
+export async function streamExport(res, userId, { exportedAt = new Date(), drainTimeoutMs = DRAIN_TIMEOUT_MS, deadlineMs = EXPORT_DEADLINE_MS } = {}) {
+  const deadline = setTimeout(() => res.destroy(), deadlineMs); // write() then returns false and the loops stop
+  try {
+    return await run(res, userId, exportedAt, drainTimeoutMs);
+  } finally { clearTimeout(deadline); }
+}
+
+async function run(res, userId, exportedAt, drainTimeoutMs) {
   // No held connection: each statement borrows from the pool and returns it before any
   // write can block on a slow client (no transaction, so no snapshot is needed).
   const send = (chunk) => write(res, chunk, drainTimeoutMs);
@@ -70,8 +80,7 @@ export async function streamExport(res, userId, { exportedAt = new Date(), drain
     }
     if (!await send("]")) return false;
   }
-  await send("}");
-  return true;
+  return send("}");
 }
 
 /** RFC 4180 field; text starting with = + - @ (or tab/CR) is prefixed with ' against formula injection. */

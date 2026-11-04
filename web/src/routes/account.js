@@ -62,7 +62,7 @@ accountRouter.post("/account/delete", requireAuth, deleteLimit, async (req, res)
 });
 
 async function attachment(req, res, ext, type) {
-  const day = todayIn(req.user.timezone);
+  const day = todayIn(req.user.timezone, req.app.locals.now?.() ?? new Date()); // app.locals.now: test clock
   res.set({ "Content-Type": type, "Content-Disposition": `attachment; filename="vitalix-export-${day}.${ext}"`, "Cache-Control": "no-store" });
 }
 
