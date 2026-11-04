@@ -30,7 +30,7 @@ source of truth; update this doc when they change.
 | 021 | `insight_feedback` | `ai_recommendations.feedback` (smallint 1 / -1, NULL = none), `feedback_at` |
 | 022 | `journal` | `journal_entries`: manual mood / symptom / medication / caffeine / alcohol / note per user, index `(user_id, day)` |
 | 023 | `records_hc_idx` | index `records (user_id, hc_id)` for deletions by Health Connect id |
-| 024 | `anomaly_alerts_pushed_at` | `anomaly_alerts.pushed_at` (set when the push was sent; NULL = retry next run; existing rows backfilled with `created_at`) |
+| 024 | `anomaly_alerts_pushed_at` | `anomaly_alerts.pushed_at` (claimed before the push, cleared if the send fails; NULL = retry next run; existing rows backfilled with `created_at`), `text` (push value, e.g. bp `sys/dia`) |
 
 Account deletion (`DELETE /api/account`, `POST /account/delete`) is a single `DELETE FROM users`;
 every per-user table below references `users` with `ON DELETE CASCADE`
@@ -219,7 +219,8 @@ erDiagram
         double value
         double baseline "NULL for spo2_low, bp_high"
         timestamptz created_at
-        timestamptz pushed_at "NULL until the push was sent"
+        timestamptz pushed_at "NULL until claimed for push"
+        text text "push value override, bp sys/dia"
     }
 
     ai_digests {

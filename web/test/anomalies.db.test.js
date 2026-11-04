@@ -19,6 +19,22 @@ describe("anomaly alert push retry against Postgres", { skip: !testDb }, () => {
     await db.query("INSERT INTO fcm_tokens (user_id, token, app_id) VALUES ($1, 'tok', 'app')", [userId]);
   });
 
+  test("two overlapping runs push a shared unpushed row once; other user / older day untouched", async () => {
+    const { runAnomalyCheck } = await import("../src/anomalies.js");
+    await db.query("DELETE FROM anomaly_alerts");
+    const other = (await db.query("INSERT INTO users (email, password_hash) VALUES ('o@b.c', 'x') RETURNING id")).rows[0].id;
+    const old = (await db.query("SELECT ($1::date - 1)::text AS d", [today])).rows[0].d;
+    await db.query("INSERT INTO anomaly_alerts (user_id, day, rule, value) VALUES ($1, $2, 'spo2_low', 85), ($1, $3, 'spo2_low', 85), ($4, $2, 'spo2_low', 85)", [userId, today, old, other]);
+    const sends = [];
+    const slow = { sendEachForMulticast: async ({ tokens, data }) => { sends.push(data); await new Promise((r) => setTimeout(r, 50)); return { successCount: 1, responses: tokens.map(() => ({ success: true })) }; } };
+    await Promise.all([runAnomalyCheck({ query: db.query, messaging: slow }), runAnomalyCheck({ query: db.query, messaging: slow })]);
+    assert.equal(sends.length, 1);
+    const left = (await db.query("SELECT user_id, day::text FROM anomaly_alerts WHERE pushed_at IS NULL ORDER BY user_id, day")).rows;
+    assert.deepEqual(left, [{ user_id: userId, day: old }, { user_id: other, day: today }]);
+    await db.query("DELETE FROM anomaly_alerts");
+    await db.query("DELETE FROM users WHERE id = $1", [other]);
+  });
+
   test("failed push -> pushed_at NULL -> next run pushes once -> third run pushes nothing", async () => {
     const { runAnomalyCheck } = await import("../src/anomalies.js");
     const sends = [];

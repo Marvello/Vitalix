@@ -99,7 +99,7 @@ describe("runAnomalyCheck", () => {
         const k = params.slice(0, 3).join("|");
         if (seen.has(k)) return { rows: [] };
         seen.add(k);
-        table.push({ id: seen.size, rule: params[2], value: params[3], baseline: params[4], pushed: false });
+        table.push({ id: seen.size, rule: params[2], value: params[3], baseline: params[4], text: params[5], pushed: false });
         return { rows: [{ id: seen.size }] };
       }
       if (text.includes("FROM anomaly_alerts")) {
@@ -107,8 +107,11 @@ describe("runAnomalyCheck", () => {
         return { rows: table.filter((r) => !r.pushed) };
       }
       if (text.includes("UPDATE anomaly_alerts SET pushed_at")) {
-        table.find((r) => r.id === params[0]).pushed = true;
-        return { rows: [] };
+        const row = table.find((r) => r.id === params[0]);
+        if (text.includes("= NULL")) { row.pushed = false; return { rows: [] }; }
+        if (row.pushed) return { rows: [] };
+        row.pushed = true;
+        return { rows: [{ id: row.id }] };
       }
       if (text.includes("array_agg(token)")) return { rows: [{ tokens: ["tok"] }] };
       return { rows: [] };
@@ -146,7 +149,7 @@ describe("runAnomalyCheck", () => {
     assert.ok(table.every((r) => !r.pushed));
     d.messaging = real;
     assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 0, pushed: 3 });
-    assert.equal(calls.pushed.find((p) => p.rule === "bp_high").value, "150/95"); // text recomputed on retry
+    assert.equal(calls.pushed.find((p) => p.rule === "bp_high").value, "150/95"); // stored text reused on retry
     assert.deepEqual(await runAnomalyCheck(d), { candidates: 1, alerts: 0, pushed: 0 });
     assert.equal(calls.pushed.length, 3);
   });

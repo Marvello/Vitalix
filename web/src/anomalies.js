@@ -51,17 +51,20 @@ export function detectAnomalies({ today, recent, history }) {
 }
 
 const shift = (day, n) => new Date(Date.parse(day) + n * 864e5).toISOString().slice(0, 10);
-const INSERT_SQL = `INSERT INTO anomaly_alerts (user_id, day, rule, value, baseline)
-  VALUES ($1, $2, $3, $4, $5) ON CONFLICT (user_id, day, rule) DO NOTHING RETURNING id`;
+const INSERT_SQL = `INSERT INTO anomaly_alerts (user_id, day, rule, value, baseline, text)
+  VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id, day, rule) DO NOTHING RETURNING id`;
 
-const UNPUSHED_SQL = `SELECT id, rule, value, baseline FROM anomaly_alerts
+const UNPUSHED_SQL = `SELECT id, rule, value, baseline, text FROM anomaly_alerts
   WHERE user_id = $1 AND day = $2 AND pushed_at IS NULL ORDER BY id`;
-const MARK_PUSHED_SQL = "UPDATE anomaly_alerts SET pushed_at = now() WHERE id = $1 AND pushed_at IS NULL";
+// Claim before pushing so overlapping runs cannot both push a row; a failed push releases the claim.
+// ponytail: a crash between claim and push loses that one push (at-most-once).
+const CLAIM_SQL = "UPDATE anomaly_alerts SET pushed_at = now() WHERE id = $1 AND pushed_at IS NULL RETURNING id";
+const RELEASE_SQL = "UPDATE anomaly_alerts SET pushed_at = NULL WHERE id = $1";
 
 // Evaluates each pending user's local yesterday, stores new alerts, then pushes one
 // `anomaly` message per alert of that day not yet pushed (fresh rows and earlier
 // failed pushes alike); pushed_at is set only when the push was sent, so a row is
-// pushed at most once. Deps injected for testing.
+// pushed at most once (claimed first, released if the send fails). Deps injected for testing.
 export async function runAnomalyCheck({ query = dbQuery, messaging = defaultMessaging } = {}) {
   const { rows } = await query(PENDING_ANOMALY_USERS_SQL);
   let alerts = 0;
@@ -76,21 +79,19 @@ export async function runAnomalyCheck({ query = dbQuery, messaging = defaultMess
     const recent = [0, 1, 2].map((i) => byDay.get(shift(firstRecent, i))).filter(Boolean);
     const history = series.filter((r) => r.day < firstRecent);
 
-    const text = new Map(); // bp "sys/dia" is not stored; a retry reuses it only if still detected
     for (const a of detectAnomalies({ today, recent, history })) {
-      if (a.text) text.set(a.rule, a.text);
-      alerts += (await query(INSERT_SQL, [id, day, a.rule, a.value, a.baseline])).rows.length;
+      alerts += (await query(INSERT_SQL, [id, day, a.rule, a.value, a.baseline, a.text ?? null])).rows.length;
     }
 
     for (const r of (await query(UNPUSHED_SQL, [id, day])).rows) {
       const data = {
         type: "anomaly", day, rule: r.rule,
-        value: text.get(r.rule) ?? String(Math.round(r.value)),
+        value: r.text ?? String(Math.round(r.value)),
         baseline: r.baseline == null ? "" : String(Math.round(r.baseline)),
       };
-      if (!(await pushToUser({ query, messaging }, id, data)).sent) continue;
-      await query(MARK_PUSHED_SQL, [r.id]);
-      pushed++;
+      if (!(await query(CLAIM_SQL, [r.id])).rows.length) continue; // another run took it
+      if ((await pushToUser({ query, messaging }, id, data)).sent) pushed++;
+      else await query(RELEASE_SQL, [r.id]);
     }
   }
   return { candidates: rows.length, alerts, pushed };
