@@ -16,6 +16,10 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     const { rows } = await db.query("INSERT INTO users (email, password_hash, timezone) VALUES ('d@b.c', 'x', 'Asia/Jakarta') RETURNING id");
     const id = rows[0].id;
     await db.query("INSERT INTO health_days (user_id, day, steps) VALUES ($1, '2026-11-04', 1000)", [id]);
+    // 12 earlier days of resting HR + sleep (+ today 11-04 below) so readiness can score yesterday and today
+    await db.query(`INSERT INTO health_days (user_id, day, resting_heart_rate, sleep_duration_minutes)
+      SELECT $1, d::date, 55 + (d::date - '2026-10-20'::date) % 3, 420 FROM generate_series('2026-10-20'::date, '2026-11-03', '1 day') d`, [id]);
+    await db.query("UPDATE health_days SET resting_heart_rate = 60, sleep_duration_minutes = 400 WHERE user_id = $1 AND day = '2026-11-04'", [id]);
     // 18:30Z = 01:30 next day in Jakarta
     await db.query("INSERT INTO journal_entries (user_id, day, kind, value_num, logged_at) VALUES ($1, '2026-11-04', 'mood', 4, '2026-11-03T18:30:00Z')", [id]);
     tok = (await import("../src/auth/tokens.js")).signAccess({ id, role: "user" });
@@ -40,9 +44,17 @@ describe("day page with journal entries", { skip: !testDb }, () => {
     // 18:30Z on 11-03 is 01:30 on 11-04 in Jakarta, while UTC is still 11-03.
     const r = await fetch(`${base}/dashboard?range=7`, { headers: { Authorization: `Bearer ${tok}` } });
     assert.equal(r.status, 200);
-    const html = await r.text();
-    const days = [...new Set(html.match(/\b2026-1[01]-\d\d\b/g))].sort();
-    assert.equal(days.at(-1), "2026-11-04");
-    assert.ok(days.includes("2026-10-29") && !days.includes("2026-10-28"), days.join(","));
+    const pts = JSON.parse((await r.text()).match(/const CHART_DATA = (.*);/)[1]).readiness.points;
+    assert.equal(pts[0].date, "2026-10-29");
+    assert.equal(pts.at(-1).date, "2026-11-04"); // UTC today would be 11-03
+  });
+
+  test("D4: readiness card shows finished days only (latest = local yesterday, no point for local today)", async () => {
+    const r = await fetch(`${base}/dashboard?range=7`, { headers: { Authorization: `Bearer ${tok}` } });
+    const cd = JSON.parse((await r.text()).match(/const CHART_DATA = (.*);/)[1]).readiness;
+    assert.equal(cd.latest.day, "2026-11-03"); // local today is 11-04 (has data) but is unfinished
+    const byDate = Object.fromEntries(cd.points.map((p) => [p.date, p.value]));
+    assert.equal(typeof byDate["2026-11-03"], "number");
+    assert.equal(byDate["2026-11-04"], null);
   });
 });

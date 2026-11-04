@@ -231,6 +231,20 @@ describe("persist + auth against Postgres", { skip: !testDb }, () => {
     assert.equal((await run("hour")).filter((r) => r[0] === "sleepStage").length, 2);
   });
 
+  test("/api/records day buckets do not leak readings outside [from, to) despite the widened window", async () => {
+    const { buildRecordsQuery } = await import("../src/records.js");
+    await db.query("DELETE FROM records WHERE start_at >= '2026-11-01'");
+    // inside the +-slack window but outside the range: a step, and a sleep session that starts before `from`
+    await db.query(`INSERT INTO records (user_id, type, hc_id, start_at, end_at, value_text, value_num) VALUES
+      ($1,'steps','lk-st','2026-11-10T01:00:00Z','2026-11-10T01:05:00Z',NULL,10),
+      ($1,'steps','lk-in','2026-11-11T01:00:00Z','2026-11-11T01:05:00Z',NULL,10),
+      ($1,'sleepStage','lk-s','2026-11-10T15:00:00Z','2026-11-10T23:00:00Z','deep',NULL),
+      ($1,'sleepStage','lk-s2','2026-11-12T15:00:00Z','2026-11-12T23:00:00Z','deep',NULL)`, [userId]);
+    const q = buildRecordsQuery({ userId, from: "2026-11-11T00:00:00Z", to: "2026-11-12T00:00:00Z", bucket: "day", tz: "Asia/Jakarta" });
+    const { rows } = await db.query(q.text, q.values);
+    assert.deepEqual(rows.map((r) => [r.type, r.count]), [["steps", 1]]);
+  });
+
   test("migration 018 copies sample-only readings into records, then drops samples", async () => {
     const { readFileSync } = await import("node:fs");
     const sql = readFileSync(new URL("../db/migrations/018_drop_samples.sql", import.meta.url), "utf8");
