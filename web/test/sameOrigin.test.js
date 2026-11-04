@@ -38,6 +38,7 @@ test("safe methods untouched except the export downloads; OIDC callback GET pass
     assert.equal((await call(s.base, "/account/export.json", "GET", evil)).status, 403);
     assert.equal((await call(s.base, "/account/export-days.csv", "GET", { "Sec-Fetch-Site": "cross-site" })).status, 403);
     assert.equal((await call(s.base, "/account/export.json", "GET", { Origin: APP })).status, 200);
+    assert.equal((await call(s.base, "/Account/Export.json", "GET", { "Sec-Fetch-Site": "cross-site" })).status, 403, "Express routing is case-insensitive");
   } finally { s.close(); }
 });
 

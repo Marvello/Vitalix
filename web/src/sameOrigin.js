@@ -16,7 +16,7 @@ const originOf = (u) => { try { return new URL(u).origin; } catch { return null;
  */
 export function sameOrigin({ baseUrl = () => process.env.APP_BASE_URL } = {}) {
   return (req, res, next) => {
-    const isExport = req.method === "GET" && req.path.startsWith("/account/export");
+    const isExport = req.method === "GET" && req.path.toLowerCase().startsWith("/account/export");
     const guarded = UNSAFE.has(req.method) || isExport;
     if (!guarded || (req.get("authorization") || "").startsWith("Bearer ") || req.path.startsWith(EXEMPT_PREFIX) || CRON.has(req.path)) return next();
     const origin = req.get("origin"), site = req.get("sec-fetch-site");
