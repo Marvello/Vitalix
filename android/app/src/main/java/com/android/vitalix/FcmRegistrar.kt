@@ -28,6 +28,10 @@ object FcmRegistrar {
         // Same origin as the /api/health endpoint, whatever its path/port.
         val endpoint = serverUrl.toHttpUrlOrNull()?.resolve("/api/fcm/register") ?: return
 
+        // getToken() is deprecated for register() + FirebaseMessagingService.onRegistered, but register() is
+        // only public from firebase-messaging 26 and needs the opt-in manifest flag
+        // firebase_messaging_installation_id_enabled (which then disables getToken). Migrate together, not here.
+        @Suppress("DEPRECATION")
         FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
             CoroutineScope(Dispatchers.IO).launch {
                 try {
