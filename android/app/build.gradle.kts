@@ -63,13 +63,13 @@ android {
 
     signingConfigs {
         create("beta") {
-            storeFile = file(localProp("VITALIX_BETA_STORE_FILE") ?: "")
+            storeFile = localProp("VITALIX_BETA_STORE_FILE")?.let(::file) // unset in CI: file("") would fail configuration
             storePassword = localProp("VITALIX_BETA_STORE_PASSWORD") ?: ""
             keyAlias = localProp("VITALIX_BETA_KEY_ALIAS") ?: ""
             keyPassword = localProp("VITALIX_BETA_KEY_PASSWORD") ?: ""
         }
         create("production") {
-            storeFile = file(localProp("VITALIX_PROD_STORE_FILE") ?: "")
+            storeFile = localProp("VITALIX_PROD_STORE_FILE")?.let(::file) // unset in CI: file("") would fail configuration
             storePassword = localProp("VITALIX_PROD_STORE_PASSWORD") ?: ""
             keyAlias = localProp("VITALIX_PROD_KEY_ALIAS") ?: ""
             keyPassword = localProp("VITALIX_PROD_KEY_PASSWORD") ?: ""
