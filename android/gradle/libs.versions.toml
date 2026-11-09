@@ -1,5 +1,5 @@
 [versions]
-agp = "9.3.0"
+agp = "9.5.1"
 coreKtx = "1.19.0"
 junit = "4.13.2"
 junitVersion = "1.1.5"
@@ -11,11 +11,12 @@ activityKtx = "1.13.0"
 navigationFragmentKtx = "2.10.0"
 navigationUiKtx = "2.10.0"
 healthConnect = "1.2.0-alpha06"
+guava = "33.7.2-android"
 okhttp = "5.5.0"
 tink = "1.23.0"
 workManager = "2.11.2"
 coroutines = "1.11.0"
-kotlin = "2.3.20"
+kotlin = "2.4.21"
 json = "20260814"
 mockitoCore = "5.23.0"
 googleServices = "4.5.0"
@@ -40,6 +41,7 @@ coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutin
 coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutines" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test-junit", version.ref = "kotlin" }
 kotlin-reflect = { group = "org.jetbrains.kotlin", name = "kotlin-reflect", version.ref = "kotlin" }
+guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 json = { group = "org.json", name = "json", version.ref = "json" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockitoCore" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging", version.ref = "firebaseMessaging" }
@@ -47,4 +49,6 @@ firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 google-services = { id = "com.google.gms.google-services", version.ref = "googleServices" }
+# Not applied: AGP 9 has built-in Kotlin. Declared so the build uses this KGP instead of AGP's bundled default.
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 

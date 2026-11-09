@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v6
         with:
           distribution: temurin
-          java-version: 25 # Gradle 9.5 runtime; the app itself compiles Java 11
+          java-version: 25 # Gradle 9.9 runtime; the app itself compiles Java 11
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew testProductionDebugUnitTest assembleProductionDebug
 
