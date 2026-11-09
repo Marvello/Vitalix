@@ -4,7 +4,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Intent
-import android.os.Build
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.android.vitalix.widget.WidgetState
@@ -13,8 +12,10 @@ import com.google.firebase.messaging.RemoteMessage
 
 class VitalixFirebaseService : FirebaseMessagingService() {
 
-    // Note: FCM 25 deprecated onNewToken/onMessageSent/onSendError. Server token
-    // registration is done by FcmRegistrar on app open instead.
+    // FID-based registration: FCM delivers the token here after FcmRegistrar.register().
+    override fun onRegistered(token: String) {
+        FcmRegistrar.upload(applicationContext, token)
+    }
 
     override fun onMessageReceived(message: RemoteMessage) {
         val data = message.data
@@ -80,20 +81,16 @@ class VitalixFirebaseService : FirebaseMessagingService() {
     }
 
     private fun ensureChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val nm = getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(
-                NotificationChannel(UpdateManager.CHANNEL, "App updates", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        val nm = getSystemService(NotificationManager::class.java)
+        nm.createNotificationChannel(
+            NotificationChannel(UpdateManager.CHANNEL, "App updates", NotificationManager.IMPORTANCE_DEFAULT)
+        )
     }
 
     private fun showNoSyncNotification() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(SYNC_CHANNEL, "Sync alerts", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(SYNC_CHANNEL, "Sync alerts", NotificationManager.IMPORTANCE_DEFAULT)
+        )
         val intent = Intent(this, MainActivity::class.java)
             .apply { flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP }
         val pending = PendingIntent.getActivity(
@@ -111,11 +108,9 @@ class VitalixFirebaseService : FirebaseMessagingService() {
     }
 
     private fun showInsightNotification(day: String?) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
+        )
         val pending = PendingIntent.getActivity(
             this, INSIGHT_NOTIFICATION_ID,
             InsightActivity.intent(this, day).apply {
@@ -135,11 +130,9 @@ class VitalixFirebaseService : FirebaseMessagingService() {
 
     private fun showDigestNotification(kind: String?) {
         val title = digestTitle(kind) ?: return // unknown kind: stay silent
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(INSIGHTS_CHANNEL, "Health insights", NotificationManager.IMPORTANCE_DEFAULT)
+        )
         val id = digestNotificationId(kind)
         val pending = PendingIntent.getActivity(
             this, id,
@@ -160,11 +153,9 @@ class VitalixFirebaseService : FirebaseMessagingService() {
 
     private fun showAnomalyNotification(day: String?, rule: String?, value: String?, baseline: String?) {
         val body = anomalyText(rule, value, baseline) ?: return // unknown rule: stay silent
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            getSystemService(NotificationManager::class.java).createNotificationChannel(
-                NotificationChannel(ALERTS_CHANNEL, "Alerts", NotificationManager.IMPORTANCE_DEFAULT)
-            )
-        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(ALERTS_CHANNEL, "Alerts", NotificationManager.IMPORTANCE_DEFAULT)
+        )
         val id = anomalyNotificationId(rule) ?: return
         val pending = PendingIntent.getActivity(
             this, id,

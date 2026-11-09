@@ -84,7 +84,7 @@ hidden behind `health/RecordReader`, so `HealthConnectManager` is unit-tested wi
 | `security/SecurePrefs` | Tink AES-256-GCM over plain prefs, keyset wrapped by an Android Keystore key. Excluded from backup/transfer |
 | `OnboardingActivity`, `SettingsActivity` | Profile (name, height, weight, BMI scale); height/weight also written to Health Connect |
 | `UpdateManager`, `UpdateActivity` | Zealot "latest release" check on open, APK download (Zealot origin only) and install |
-| `VitalixFirebaseService`, `FcmRegistrar` | Renders pushes; registers the FCM token with the server on app open |
+| `VitalixFirebaseService`, `FcmRegistrar` | Renders pushes; on app open asks FCM to `register()` (FID-based, manifest flag `firebase_messaging_installation_id_enabled`), and `onRegistered` uploads the token to the server |
 | `InsightActivity` | Shows the day's AI insight; opened from the `insight_ready` push |
 | `SignupActivity` | Invite-code signup; also opened by the `vitalix://signup` link in invite emails |
 | `widget/VitalixWidget`, `widget/WidgetState` | Home-screen widget (status, steps, sleep, insight-ready). `WidgetState` keeps its own prefs file, separate from `SyncSettings`. `SyncLog.outcomeListener` (set in `VitalixApp`) feeds sync outcomes in. Staleness rule: a snapshot whose `day` is not today shows steps/sleep as "—"; snapshots saved before `day` existed (legacy, `day` null) therefore render as stale until the next sync. An inexact `AlarmManager.RTC` alarm one minute past local midnight redraws it (no exact-alarm permission); it is cancelled in `onDisabled` when the last widget is removed. |

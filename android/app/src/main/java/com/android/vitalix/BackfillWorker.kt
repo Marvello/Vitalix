@@ -171,11 +171,9 @@ class BackfillWorker(
 
     private fun foregroundInfo(text: String): ForegroundInfo {
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(
-                NotificationChannel(CHANNEL, "Vitalix sync", NotificationManager.IMPORTANCE_LOW)
-            )
-        }
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL, "Vitalix sync", NotificationManager.IMPORTANCE_LOW)
+        )
         val notification = NotificationCompat.Builder(ctx, CHANNEL)
             .setContentTitle("Vitalix full history")
             .setContentText(text)
@@ -183,11 +181,7 @@ class BackfillWorker(
             .setOngoing(true)
             .setSilent(true)
             .build()
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            ForegroundInfo(NOTIFICATION_ID, notification)
-        }
+        return ForegroundInfo(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     private fun appVersion(): String = try {
