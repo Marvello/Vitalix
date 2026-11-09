@@ -181,6 +181,11 @@
                 android:resource="@xml/widget_vitalix_info" />
         </receiver>
 
+        <!-- FCM FID-based registration: register() + onRegistered (disables deprecated getToken). -->
+        <meta-data
+            android:name="firebase_messaging_installation_id_enabled"
+            android:value="true" />
+
         <service
             android:name=".VitalixFirebaseService"
             android:exported="false">
