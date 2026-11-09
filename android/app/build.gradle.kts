@@ -173,4 +173,8 @@ dependencies {
     testImplementation(libs.mockito.core)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(libs.androidx.junit)
+    constraints {
+        // connect-client pulls guava 32.0.1 (GHSA deserialization advisory); drop once it ships >= 33.7.2.
+        implementation(libs.guava)
+    }
 }

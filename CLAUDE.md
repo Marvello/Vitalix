@@ -43,7 +43,7 @@ Run a single unit test class/method:
 ./gradlew testDebugUnitTest --tests "com.android.vitalix.SomeTest.someMethod"
 ```
 
-Toolchain: Gradle 9.5, AGP via `android/gradle/libs.versions.toml` version catalog, `compileSdk 37` / `minSdk 30` / Java 11. Dependencies use `libs.*` aliases.
+Toolchain: Gradle 9.9, AGP 9.5 with built-in Kotlin (KGP pinned via the `kotlin` catalog version, declared `apply false` in the root build file), all via `android/gradle/libs.versions.toml`, `compileSdk 37` / `minSdk 30` / Java 11. Dependencies use `libs.*` aliases.
 
 ## Component boundaries (keep these strict)
 
