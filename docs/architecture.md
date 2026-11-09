@@ -414,7 +414,7 @@ paths read the user's zone from `req.user.timezone` (loaded by `requireAuth`);
   `FakeRecordReader`). No instrumented tests yet.
 - CI: `.github/workflows/web.yml` tests and publishes the web image on `main`.
   `.github/workflows/android.yml` runs `testProductionDebugUnitTest` + `assembleProductionDebug`
-  (Temurin 21, unsigned, no secrets; `google-services.json` is committed) on PRs and `main`
+  (Temurin 25, unsigned, no secrets; `google-services.json` is committed) on PRs and `main`
   pushes touching `android/`. On `main` it also submits the resolved Gradle dependency graph
   (`gradle/actions/dependency-submission`) so Dependabot alerts cover the app. Releases still go through fastlane.
 
